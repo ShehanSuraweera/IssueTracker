@@ -377,4 +377,168 @@ router.post("/:id/assign", requireRole("admin", "engineer"), IssueController.ass
  */
 router.post("/:id/resolve", requireRole("admin", "engineer"), IssueController.resolve);
 
+/**
+ * @openapi
+ * /api/issues/{id}/comments:
+ *   post:
+ *     tags: [Issues]
+ *     summary: Add a comment to an issue
+ *     description: >
+ *       Adds a comment to an issue. Set `isInternal: true` to post an
+ *       engineer/admin-only note — `client_user` cannot post internal comments
+ *       and will receive 403 if they attempt to do so.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/IssueId'
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/CreateCommentRequest'
+ *           example:
+ *             body: "Reproduced on staging. Deploying hotfix now."
+ *             isInternal: false
+ *     responses:
+ *       201:
+ *         description: Comment created
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/CommentResponse'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       422:
+ *         $ref: '#/components/responses/ValidationFailed'
+ */
+router.post("/:id/comments", IssueController.addComment);
+
+/**
+ * @openapi
+ * /api/issues/{id}/attachments/presign:
+ *   post:
+ *     tags: [Issues]
+ *     summary: Request a presigned S3 upload URL
+ *     description: >
+ *       Returns a presigned PUT URL valid for 5 minutes. The client must PUT
+ *       the file directly to S3 with matching `Content-Type` and `Content-Length`
+ *       headers. After a successful upload, call `POST /attachments` to confirm
+ *       and persist the record. Returns 503 when S3 is not configured.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/IssueId'
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/PresignUploadRequest'
+ *           example:
+ *             filename: "screenshot.png"
+ *             mimeType: "image/png"
+ *             sizeBytes: 204800
+ *     responses:
+ *       200:
+ *         description: Presigned URL generated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/PresignUploadResponse'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       422:
+ *         $ref: '#/components/responses/ValidationFailed'
+ *       503:
+ *         description: S3 not configured on this server
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+router.post("/:id/attachments/presign", IssueController.presignUpload);
+
+/**
+ * @openapi
+ * /api/issues/{id}/attachments:
+ *   post:
+ *     tags: [Issues]
+ *     summary: Confirm an uploaded attachment
+ *     description: >
+ *       After the client has successfully PUT the file to S3, call this endpoint
+ *       to persist the attachment record. The `s3Key` must match the value
+ *       returned by `POST /attachments/presign`.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/IssueId'
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ConfirmAttachmentRequest'
+ *     responses:
+ *       201:
+ *         description: Attachment record created
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/AttachmentResponse'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       422:
+ *         $ref: '#/components/responses/ValidationFailed'
+ */
+router.post("/:id/attachments", IssueController.confirmAttachment);
+
+/**
+ * @openapi
+ * /api/issues/{id}/attachments/{attId}/download:
+ *   get:
+ *     tags: [Issues]
+ *     summary: Get a presigned download URL for an attachment
+ *     description: >
+ *       Returns a presigned GET URL valid for 15 minutes. The client should
+ *       redirect the user to this URL or use it in an `<a href>`. Returns 503
+ *       when S3 is not configured.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/IssueId'
+ *       - in: path
+ *         name: attId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Attachment ID
+ *     responses:
+ *       200:
+ *         description: Download URL generated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/DownloadUrlResponse'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       503:
+ *         description: S3 not configured on this server
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+router.get("/:id/attachments/:attId/download", IssueController.getDownloadUrl);
+
 export default router;

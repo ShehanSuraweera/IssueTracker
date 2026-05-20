@@ -6,6 +6,9 @@ import {
   ListIssuesQuerySchema,
   AssignIssueSchema,
   ExportQuerySchema,
+  CreateCommentSchema,
+  PresignUploadSchema,
+  ConfirmAttachmentSchema,
 } from "./issues.schemas";
 import * as IssueService from "./issues.service";
 
@@ -110,6 +113,50 @@ export async function exportData(req: Request, res: Response, next: NextFunction
     } else {
       res.json({ data: result.content, count: result.count });
     }
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function addComment(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const id = parseId(req.params.id);
+    const input = CreateCommentSchema.parse(req.body);
+    const comment = await IssueService.addComment(id, input, req.user!);
+    res.status(201).json({ data: comment });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function presignUpload(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const id = parseId(req.params.id);
+    const input = PresignUploadSchema.parse(req.body);
+    const result = await IssueService.presignUpload(id, input, req.user!);
+    res.json({ data: result });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function confirmAttachment(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const id = parseId(req.params.id);
+    const input = ConfirmAttachmentSchema.parse(req.body);
+    const attachment = await IssueService.confirmAttachment(id, input, req.user!);
+    res.status(201).json({ data: attachment });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getDownloadUrl(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const id = parseId(req.params.id);
+    const attId = parseId(req.params.attId);
+    const result = await IssueService.getDownloadUrl(id, attId, req.user!);
+    res.json({ data: result });
   } catch (err) {
     next(err);
   }

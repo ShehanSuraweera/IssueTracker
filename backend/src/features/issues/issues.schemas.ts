@@ -77,6 +77,24 @@ export const ExportQuerySchema = z.object({
   product_id: bigIntParam.optional(),
 });
 
+export const CreateCommentSchema = z.object({
+  body: z.string().min(1).max(10000),
+  isInternal: z.boolean().default(false),
+});
+
+export const PresignUploadSchema = z.object({
+  filename: z.string().min(1).max(255),
+  mimeType: z.string().min(1).max(127),
+  sizeBytes: z.coerce.number().int().positive().max(26214400),
+});
+
+export const ConfirmAttachmentSchema = z.object({
+  s3Key: z.string().min(1).max(512),
+  filename: z.string().min(1).max(255),
+  mimeType: z.string().min(1).max(127),
+  sizeBytes: z.coerce.number().int().positive(),
+});
+
 // ─── Inferred types ──────────────────────────────────────────────────────────
 
 export type CreateIssueInput = z.infer<typeof CreateIssueSchema>;
@@ -84,3 +102,6 @@ export type UpdateIssueInput = z.infer<typeof UpdateIssueSchema>;
 export type ListIssuesQuery = z.infer<typeof ListIssuesQuerySchema>;
 export type AssignIssueInput = z.infer<typeof AssignIssueSchema>;
 export type ExportQuery = z.infer<typeof ExportQuerySchema>;
+export type CreateCommentInput = z.infer<typeof CreateCommentSchema>;
+export type PresignUploadInput = z.infer<typeof PresignUploadSchema>;
+export type ConfirmAttachmentInput = z.infer<typeof ConfirmAttachmentSchema>;

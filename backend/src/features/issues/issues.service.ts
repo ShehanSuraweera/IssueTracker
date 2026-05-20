@@ -8,12 +8,17 @@ import {
 } from "@prisma/client";
 import { prisma } from "../../lib/prisma";
 import { AppError } from "../../middleware/errorHandler";
+import { createPresignedUploadUrl, createPresignedDownloadUrl, UPLOAD_EXPIRES_IN } from "../../lib/s3";
+import { v4 as uuidv4 } from "uuid";
 import type {
   CreateIssueInput,
   UpdateIssueInput,
   ListIssuesQuery,
   AssignIssueInput,
   ExportQuery,
+  CreateCommentInput,
+  PresignUploadInput,
+  ConfirmAttachmentInput,
 } from "./issues.schemas";
 
 // ─── ITIL Priority Matrix ─────────────────────────────────────────────────────
@@ -571,6 +576,121 @@ export async function exportIssues(query: ExportQuery) {
     return { format: "csv" as const, content: toCsv(rows), count: rows.length };
   }
   return { format: "json" as const, content: rows, count: rows.length };
+}
+
+// ─── Add Comment ──────────────────────────────────────────────────────────────
+
+export async function addComment(
+  issueId: bigint,
+  input: CreateCommentInput,
+  user: AuthUser
+) {
+  const issue = await prisma.issue.findFirst({
+    where: { id: issueId, ...buildTenantWhere(user) },
+  });
+  if (!issue) throw new AppError(404, "ISSUE_NOT_FOUND", "Issue not found");
+
+  if (input.isInternal && user.role === "client_user") {
+    throw new AppError(403, "FORBIDDEN", "Clients cannot post internal comments");
+  }
+
+  const comment = await prisma.issueComment.create({
+    data: {
+      issueId,
+      userId: user.id,
+      body: input.body,
+      isInternal: input.isInternal,
+    },
+    include: { user: { select: { id: true, fullName: true, role: true } } },
+  });
+
+  return {
+    ...comment,
+    id: comment.id.toString(),
+    issueId: comment.issueId.toString(),
+    userId: comment.userId.toString(),
+    user: serializeUser(comment.user),
+  };
+}
+
+// ─── Presign Upload URL ───────────────────────────────────────────────────────
+
+export async function presignUpload(
+  issueId: bigint,
+  input: PresignUploadInput,
+  user: AuthUser
+) {
+  const issue = await prisma.issue.findFirst({
+    where: { id: issueId, ...buildTenantWhere(user) },
+  });
+  if (!issue) throw new AppError(404, "ISSUE_NOT_FOUND", "Issue not found");
+
+  const s3Key = `issues/${issueId}/${uuidv4()}/${input.filename}`;
+  const uploadUrl = await createPresignedUploadUrl(s3Key, input.mimeType, input.sizeBytes);
+
+  return { uploadUrl, s3Key, expiresIn: UPLOAD_EXPIRES_IN };
+}
+
+// ─── Confirm Attachment ───────────────────────────────────────────────────────
+
+export async function confirmAttachment(
+  issueId: bigint,
+  input: ConfirmAttachmentInput,
+  user: AuthUser
+) {
+  const issue = await prisma.issue.findFirst({
+    where: { id: issueId, ...buildTenantWhere(user) },
+  });
+  if (!issue) throw new AppError(404, "ISSUE_NOT_FOUND", "Issue not found");
+
+  const attachment = await prisma.issueAttachment.create({
+    data: {
+      issueId,
+      s3Key: input.s3Key,
+      filename: input.filename,
+      mimeType: input.mimeType,
+      sizeBytes: BigInt(input.sizeBytes),
+      uploadedBy: user.id,
+    },
+    include: { uploader: { select: { id: true, fullName: true } } },
+  });
+
+  return {
+    ...attachment,
+    id: attachment.id.toString(),
+    issueId: attachment.issueId.toString(),
+    sizeBytes: attachment.sizeBytes.toString(),
+    uploadedBy: attachment.uploadedBy.toString(),
+    uploader: serializeUser(attachment.uploader),
+  };
+}
+
+// ─── Get Download URL ─────────────────────────────────────────────────────────
+
+export async function getDownloadUrl(
+  issueId: bigint,
+  attachmentId: bigint,
+  user: AuthUser
+) {
+  const issue = await prisma.issue.findFirst({
+    where: { id: issueId, ...buildTenantWhere(user) },
+  });
+  if (!issue) throw new AppError(404, "ISSUE_NOT_FOUND", "Issue not found");
+
+  const attachment = await prisma.issueAttachment.findFirst({
+    where: { id: attachmentId, issueId },
+  });
+  if (!attachment) throw new AppError(404, "ATTACHMENT_NOT_FOUND", "Attachment not found");
+
+  const downloadUrl = await createPresignedDownloadUrl(attachment.s3Key);
+
+  return {
+    id: attachment.id.toString(),
+    filename: attachment.filename,
+    mimeType: attachment.mimeType,
+    sizeBytes: attachment.sizeBytes.toString(),
+    downloadUrl,
+  };
 }
 
 function escapeCsv(value: string): string {
