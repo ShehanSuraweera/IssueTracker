@@ -10,6 +10,9 @@ import { errorHandler } from "./middleware/errorHandler";
 import { swaggerSpec } from "./docs/swagger";
 import authRoutes from "./features/auth/auth.routes";
 import issuesRoutes from "./features/issues/issues.routes";
+import companiesRoutes from "./features/companies/companies.routes";
+import productsRoutes from "./features/products/products.routes";
+import usersRoutes from "./features/users/users.routes";
 
 export function createApp() {
   const app = express();
@@ -79,6 +82,9 @@ export function createApp() {
   // ─── Routes ────────────────────────────────────────────────────────────────
   app.use("/api/auth", authRoutes);
   app.use("/api/issues", issuesRoutes);
+  app.use("/api/companies", companiesRoutes);
+  app.use("/api/products", productsRoutes);
+  app.use("/api/users", usersRoutes);
 
   // Health check
   app.get("/health", (_req, res) => {

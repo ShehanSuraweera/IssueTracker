@@ -79,6 +79,27 @@ All error responses follow a consistent envelope:
           schema: { type: "string", example: "42" },
           description: "Issue ID",
         },
+        CompanyId: {
+          in: "path",
+          name: "id",
+          required: true,
+          schema: { type: "string", example: "1" },
+          description: "Company ID",
+        },
+        ProductId: {
+          in: "path",
+          name: "id",
+          required: true,
+          schema: { type: "string", example: "1" },
+          description: "Product ID",
+        },
+        UserId: {
+          in: "path",
+          name: "id",
+          required: true,
+          schema: { type: "string", example: "5" },
+          description: "User ID",
+        },
       },
       responses: {
         Unauthorized: {
@@ -541,6 +562,390 @@ All error responses follow a consistent envelope:
           },
         },
 
+        // ─── Comment / Attachment models ─────────────────────────────────────
+        CreateCommentRequest: {
+          type: "object",
+          required: ["body"],
+          properties: {
+            body:       { type: "string", maxLength: 10000, example: "Reproduced on staging. Deploying hotfix." },
+            isInternal: { type: "boolean", default: false, description: "Hidden from client_user when true" },
+          },
+        },
+        CommentResponse: {
+          type: "object",
+          properties: {
+            data: {
+              type: "object",
+              properties: {
+                id:         { type: "string" },
+                issueId:    { type: "string" },
+                userId:     { type: "string" },
+                body:       { type: "string" },
+                isInternal: { type: "boolean" },
+                createdAt:  { type: "string", format: "date-time" },
+                user: {
+                  type: "object",
+                  properties: {
+                    id:       { type: "string" },
+                    fullName: { type: "string" },
+                    role:     { type: "string" },
+                  },
+                },
+              },
+            },
+          },
+        },
+        PresignUploadRequest: {
+          type: "object",
+          required: ["filename", "mimeType", "sizeBytes"],
+          properties: {
+            filename:  { type: "string", maxLength: 255, example: "screenshot.png" },
+            mimeType:  { type: "string", maxLength: 127, example: "image/png" },
+            sizeBytes: { type: "integer", maximum: 26214400, example: 204800, description: "Max 25 MB" },
+          },
+        },
+        PresignUploadResponse: {
+          type: "object",
+          properties: {
+            data: {
+              type: "object",
+              properties: {
+                uploadUrl: { type: "string", description: "Presigned S3 PUT URL, valid for 5 minutes" },
+                s3Key:     { type: "string", example: "issues/42/uuid/screenshot.png" },
+                expiresIn: { type: "integer", example: 300 },
+              },
+            },
+          },
+        },
+        ConfirmAttachmentRequest: {
+          type: "object",
+          required: ["s3Key", "filename", "mimeType", "sizeBytes"],
+          properties: {
+            s3Key:     { type: "string", maxLength: 512, example: "issues/42/uuid/screenshot.png" },
+            filename:  { type: "string", maxLength: 255, example: "screenshot.png" },
+            mimeType:  { type: "string", maxLength: 127, example: "image/png" },
+            sizeBytes: { type: "integer", example: 204800 },
+          },
+        },
+        AttachmentResponse: {
+          type: "object",
+          properties: {
+            data: {
+              type: "object",
+              properties: {
+                id:         { type: "string" },
+                issueId:    { type: "string" },
+                s3Key:      { type: "string" },
+                filename:   { type: "string" },
+                mimeType:   { type: "string" },
+                sizeBytes:  { type: "string" },
+                uploadedBy: { type: "string" },
+                createdAt:  { type: "string", format: "date-time" },
+                uploader: {
+                  type: "object",
+                  properties: {
+                    id:       { type: "string" },
+                    fullName: { type: "string" },
+                  },
+                },
+              },
+            },
+          },
+        },
+        DownloadUrlResponse: {
+          type: "object",
+          properties: {
+            data: {
+              type: "object",
+              properties: {
+                id:          { type: "string" },
+                filename:    { type: "string" },
+                mimeType:    { type: "string" },
+                sizeBytes:   { type: "string" },
+                downloadUrl: { type: "string", description: "Presigned S3 GET URL, valid for 15 minutes" },
+              },
+            },
+          },
+        },
+
+        // ─── Company models ───────────────────────────────────────────────────
+        CreateCompanyRequest: {
+          type: "object",
+          required: ["name", "contactEmail", "region"],
+          properties: {
+            name:         { type: "string", maxLength: 120, example: "Apartment LK" },
+            contactEmail: { type: "string", format: "email", example: "contact@apartment-lk.com" },
+            region:       { type: "string", enum: ["KR", "LK", "IN", "GLOBAL"], example: "LK" },
+          },
+        },
+        UpdateCompanyRequest: {
+          type: "object",
+          minProperties: 1,
+          properties: {
+            name:         { type: "string", maxLength: 120 },
+            contactEmail: { type: "string", format: "email" },
+            region:       { type: "string", enum: ["KR", "LK", "IN", "GLOBAL"] },
+          },
+        },
+        CompanyResponse: {
+          type: "object",
+          properties: {
+            data: {
+              type: "object",
+              properties: {
+                id:           { type: "string", example: "1" },
+                name:         { type: "string", example: "Apartment LK" },
+                contactEmail: { type: "string", format: "email" },
+                region:       { type: "string", enum: ["KR", "LK", "IN", "GLOBAL"] },
+                createdAt:    { type: "string", format: "date-time" },
+              },
+            },
+          },
+        },
+        CompanyListResponse: {
+          type: "object",
+          properties: {
+            data: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  id:           { type: "string" },
+                  name:         { type: "string" },
+                  contactEmail: { type: "string" },
+                  region:       { type: "string" },
+                  createdAt:    { type: "string", format: "date-time" },
+                  _count: {
+                    type: "object",
+                    properties: {
+                      products: { type: "integer" },
+                      users:    { type: "integer" },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        CompanyDetailResponse: {
+          type: "object",
+          properties: {
+            data: {
+              type: "object",
+              properties: {
+                id:           { type: "string" },
+                name:         { type: "string" },
+                contactEmail: { type: "string" },
+                region:       { type: "string" },
+                createdAt:    { type: "string", format: "date-time" },
+                _count: {
+                  type: "object",
+                  properties: { users: { type: "integer" } },
+                },
+                products: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      id:           { type: "string" },
+                      name:         { type: "string" },
+                      code:         { type: "string" },
+                      owningOffice: { type: "string" },
+                      description:  { type: "string", nullable: true },
+                      createdAt:    { type: "string", format: "date-time" },
+                      _count: {
+                        type: "object",
+                        properties: { issues: { type: "integer" } },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+
+        // ─── Product models ───────────────────────────────────────────────────
+        CreateProductRequest: {
+          type: "object",
+          required: ["companyId", "name", "code", "owningOffice"],
+          properties: {
+            companyId:    { type: "string", example: "1" },
+            name:         { type: "string", maxLength: 120, example: "ApartmentLK Web Portal" },
+            code:         { type: "string", maxLength: 8, pattern: "^[A-Z0-9]+$", example: "APTWEB" },
+            owningOffice: { type: "string", enum: ["KR", "LK", "IN"], example: "LK" },
+            description:  { type: "string", maxLength: 5000, nullable: true },
+          },
+        },
+        UpdateProductRequest: {
+          type: "object",
+          minProperties: 1,
+          properties: {
+            name:         { type: "string", maxLength: 120 },
+            owningOffice: { type: "string", enum: ["KR", "LK", "IN"] },
+            description:  { type: "string", maxLength: 5000, nullable: true },
+          },
+        },
+        ProductResponse: {
+          type: "object",
+          properties: {
+            data: {
+              type: "object",
+              properties: {
+                id:           { type: "string", example: "2" },
+                companyId:    { type: "string", example: "1" },
+                name:         { type: "string", example: "ApartmentLK Web Portal" },
+                code:         { type: "string", example: "APTWEB" },
+                owningOffice: { type: "string", enum: ["KR", "LK", "IN"] },
+                description:  { type: "string", nullable: true },
+                createdAt:    { type: "string", format: "date-time" },
+                company: {
+                  type: "object",
+                  properties: {
+                    id:     { type: "string" },
+                    name:   { type: "string" },
+                    region: { type: "string" },
+                  },
+                },
+                _count: {
+                  type: "object",
+                  properties: { issues: { type: "integer" } },
+                },
+              },
+            },
+          },
+        },
+        ProductListResponse: {
+          type: "object",
+          properties: {
+            data: {
+              type: "array",
+              items: { $ref: "#/components/schemas/ProductResponse/properties/data" },
+            },
+          },
+        },
+
+        // ─── User models ──────────────────────────────────────────────────────
+        CreateUserRequest: {
+          type: "object",
+          required: ["email", "password", "fullName", "role"],
+          properties: {
+            email:     { type: "string", format: "email", example: "engineer@newnop.com" },
+            password:  { type: "string", format: "password", minLength: 8 },
+            fullName:  { type: "string", maxLength: 120, example: "Ji-ho Kim" },
+            role:      { type: "string", enum: ["client_user", "engineer", "admin"] },
+            companyId: { type: "string", example: "1", description: "Required for client_user" },
+            office:    { type: "string", enum: ["KR", "LK", "IN"], description: "For engineer/admin" },
+          },
+        },
+        UpdateUserRequest: {
+          type: "object",
+          minProperties: 1,
+          properties: {
+            email:     { type: "string", format: "email" },
+            fullName:  { type: "string", maxLength: 120 },
+            role:      { type: "string", enum: ["client_user", "engineer", "admin"] },
+            companyId: { type: "string", nullable: true },
+            office:    { type: "string", enum: ["KR", "LK", "IN"], nullable: true },
+            isActive:  { type: "boolean", description: "Set false to deactivate without deleting" },
+          },
+        },
+        ChangePasswordRequest: {
+          type: "object",
+          required: ["currentPassword", "newPassword"],
+          properties: {
+            currentPassword: { type: "string", format: "password" },
+            newPassword:     { type: "string", format: "password", minLength: 8 },
+          },
+        },
+        GrantProductAccessRequest: {
+          type: "object",
+          required: ["productId"],
+          properties: {
+            productId: { type: "string", example: "2" },
+          },
+        },
+        UserResponse: {
+          type: "object",
+          properties: {
+            data: { $ref: "#/components/schemas/UserProfile" },
+          },
+        },
+        UserListResponse: {
+          type: "object",
+          properties: {
+            data: {
+              type: "array",
+              items: {
+                allOf: [
+                  { $ref: "#/components/schemas/UserProfile" },
+                  {
+                    type: "object",
+                    properties: {
+                      company: {
+                        nullable: true,
+                        type: "object",
+                        properties: {
+                          id:   { type: "string" },
+                          name: { type: "string" },
+                        },
+                      },
+                    },
+                  },
+                ],
+              },
+            },
+          },
+        },
+        UserDetailResponse: {
+          type: "object",
+          properties: {
+            data: {
+              allOf: [
+                { $ref: "#/components/schemas/UserProfileWithCompany" },
+                {
+                  type: "object",
+                  properties: {
+                    productAccess: {
+                      type: "array",
+                      description: "Products this engineer has access to (only present on admin GET /:id)",
+                      items: {
+                        type: "object",
+                        properties: {
+                          id:        { type: "string" },
+                          name:      { type: "string" },
+                          code:      { type: "string" },
+                          companyId: { type: "string" },
+                        },
+                      },
+                    },
+                  },
+                },
+              ],
+            },
+          },
+        },
+        ProductAccessResponse: {
+          type: "object",
+          properties: {
+            data: {
+              type: "object",
+              properties: {
+                userId:    { type: "string" },
+                productId: { type: "string" },
+                product: {
+                  type: "object",
+                  properties: {
+                    id:   { type: "string" },
+                    name: { type: "string" },
+                    code: { type: "string" },
+                  },
+                },
+              },
+            },
+          },
+        },
+
         // ─── Error responses ──────────────────────────────────────────────────
         ErrorResponse: {
           type: "object",
@@ -601,6 +1006,20 @@ All error responses follow a consistent envelope:
         description:
           "Create, track, and manage client issues. Includes ITIL priority matrix, " +
           "status transitions, activity audit log, engineer assignment, and admin dashboard.",
+      },
+      {
+        name: "Companies",
+        description: "Manage client companies (tenants). Admin only.",
+      },
+      {
+        name: "Products",
+        description: "Manage products. Creation and updates are admin-only; listing is role-filtered.",
+      },
+      {
+        name: "Users",
+        description:
+          "User management and self-service. Admins can create/update users and manage " +
+          "engineer product access. All authenticated users can view their own profile and change their password.",
       },
     ],
   },
