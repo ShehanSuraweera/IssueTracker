@@ -1,0 +1,233 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+// ─── Enums ──────────────────────────────────────────────────────────────────
+
+enum Region {
+  KR
+  LK
+  IN
+  GLOBAL
+}
+
+enum Office {
+  KR
+  LK
+  IN
+}
+
+enum UserRole {
+  client_user
+  engineer
+  admin
+}
+
+enum IssueStatus {
+  new
+  in_progress
+  on_hold
+  resolved
+  closed
+  cancelled
+}
+
+enum IssueType {
+  bug
+  feature_request
+  question
+  incident
+}
+
+enum ImpactLevel {
+  low
+  medium
+  high
+}
+
+enum UrgencyLevel {
+  low
+  medium
+  high
+}
+
+enum PriorityLevel {
+  low
+  moderate
+  high
+  critical
+}
+
+// ─── Core Tables ────────────────────────────────────────────────────────────
+
+model Company {
+  id           BigInt    @id @default(autoincrement())
+  name         String    @db.VarChar(120)
+  contactEmail String    @db.VarChar(255) @map("contact_email")
+  region       Region
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  products Products[]
+  users    User[]
+
+  @@index([region], name: "idx_companies_region")
+  @@map("companies")
+}
+
+model Products {
+  id           BigInt   @id @default(autoincrement())
+  companyId    BigInt   @map("company_id")
+  name         String   @db.VarChar(120)
+  code         String   @unique @db.VarChar(8)
+  owningOffice Office   @map("owning_office")
+  description  String?  @db.Text
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  company           Company             @relation(fields: [companyId], references: [id])
+  issues            Issue[]
+  userProductAccess UserProductAccess[]
+
+  @@index([companyId], name: "idx_products_company")
+  @@index([owningOffice], name: "idx_products_office")
+  @@map("products")
+}
+
+model User {
+  id           BigInt   @id @default(autoincrement())
+  email        String   @unique @db.VarChar(255)
+  passwordHash String   @db.VarChar(255) @map("password_hash")
+  fullName     String   @db.VarChar(120) @map("full_name")
+  role         UserRole
+  companyId    BigInt?  @map("company_id")
+  office       Office?
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  company           Company?            @relation(fields: [companyId], references: [id])
+  createdIssues     Issue[]             @relation("IssueCreatedBy")
+  assignedIssues    Issue[]             @relation("IssueAssignedTo")
+  comments          IssueComment[]
+  activityLogs      IssueActivity[]
+  attachments       IssueAttachment[]
+  userProductAccess UserProductAccess[]
+  refreshTokens     RefreshToken[]
+
+  @@index([role], name: "idx_users_role")
+  @@index([companyId], name: "idx_users_company")
+  @@map("users")
+}
+
+model UserProductAccess {
+  userId    BigInt   @map("user_id")
+  productId BigInt   @map("product_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user    User     @relation(fields: [userId], references: [id])
+  product Products @relation(fields: [productId], references: [id])
+
+  @@id([userId, productId])
+  @@index([productId], name: "idx_upa_product")
+  @@map("user_product_access")
+}
+
+model Issue {
+  id           BigInt        @id @default(autoincrement())
+  ticketNumber String        @unique @db.VarChar(16) @map("ticket_number")
+  productId    BigInt        @map("product_id")
+  title        String        @db.VarChar(200)
+  description  String        @db.Text
+  status       IssueStatus   @default(new)
+  type         IssueType
+  impact       ImpactLevel   @default(medium)
+  urgency      UrgencyLevel  @default(medium)
+  priority     PriorityLevel
+  createdBy    BigInt        @map("created_by")
+  assignedTo   BigInt?       @map("assigned_to")
+  slaDeadline  DateTime?     @map("sla_due_at")
+  resolvedAt   DateTime?     @map("resolved_at")
+  closedAt     DateTime?     @map("closed_at")
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+
+  product     Products          @relation(fields: [productId], references: [id])
+  creator     User              @relation("IssueCreatedBy", fields: [createdBy], references: [id])
+  assignee    User?             @relation("IssueAssignedTo", fields: [assignedTo], references: [id])
+  comments    IssueComment[]
+  activities  IssueActivity[]
+  attachments IssueAttachment[]
+
+  @@index([productId, status], name: "idx_issues_product_status")
+  @@index([assignedTo], name: "idx_issues_assigned")
+  @@index([createdBy], name: "idx_issues_created_by")
+  @@map("issues")
+}
+
+model IssueComment {
+  id         BigInt   @id @default(autoincrement())
+  issueId    BigInt   @map("issue_id")
+  userId     BigInt   @map("user_id")
+  body       String   @db.Text
+  isInternal Boolean  @default(false) @map("is_internal")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  issue Issue @relation(fields: [issueId], references: [id])
+  user  User  @relation(fields: [userId], references: [id])
+
+  @@index([issueId, createdAt], name: "idx_comments_issue")
+  @@map("issue_comments")
+}
+
+model IssueActivity {
+  id        BigInt   @id @default(autoincrement())
+  issueId   BigInt   @map("issue_id")
+  userId    BigInt   @map("user_id")
+  fieldName String   @db.VarChar(64) @map("field_name")
+  oldValue  String?  @db.VarChar(255) @map("old_value")
+  newValue  String?  @db.VarChar(255) @map("new_value")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  issue Issue @relation(fields: [issueId], references: [id])
+  user  User  @relation(fields: [userId], references: [id])
+
+  @@index([issueId, createdAt], name: "idx_activity_issue")
+  @@map("issue_activity")
+}
+
+model IssueAttachment {
+  id         BigInt   @id @default(autoincrement())
+  issueId    BigInt   @map("issue_id")
+  s3Key      String   @db.VarChar(512) @map("s3_key")
+  filename   String   @db.VarChar(255)
+  sizeBytes  BigInt   @map("size_bytes")
+  mimeType   String   @db.VarChar(127) @map("mime_type")
+  uploadedBy BigInt   @map("uploaded_by")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  issue    Issue @relation(fields: [issueId], references: [id])
+  uploader User  @relation(fields: [uploadedBy], references: [id])
+
+  @@index([issueId], name: "idx_attachments_issue")
+  @@map("issue_attachments")
+}
+
+// ─── Auth: Refresh Token Store ───────────────────────────────────────────────
+
+model RefreshToken {
+  id        BigInt   @id @default(autoincrement())
+  userId    BigInt   @map("user_id")
+  tokenHash String   @unique @db.VarChar(255) @map("token_hash")
+  expiresAt DateTime @map("expires_at")
+  isValid   Boolean  @default(true) @map("is_valid")
+  ipAddress String?  @db.VarChar(45) @map("ip_address")
+  userAgent String?  @db.VarChar(512) @map("user_agent")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId], name: "idx_refresh_tokens_user")
+  @@map("refresh_tokens")
+}
