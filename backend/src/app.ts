@@ -9,6 +9,7 @@ import { env } from "./config/env";
 import { errorHandler } from "./middleware/errorHandler";
 import { swaggerSpec } from "./docs/swagger";
 import authRoutes from "./features/auth/auth.routes";
+import issuesRoutes from "./features/issues/issues.routes";
 
 export function createApp() {
   const app = express();
@@ -77,6 +78,7 @@ export function createApp() {
 
   // ─── Routes ────────────────────────────────────────────────────────────────
   app.use("/api/auth", authRoutes);
+  app.use("/api/issues", issuesRoutes);
 
   // Health check
   app.get("/health", (_req, res) => {

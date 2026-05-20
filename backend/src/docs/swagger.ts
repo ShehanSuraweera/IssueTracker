@@ -1,4 +1,5 @@
 import swaggerJsdoc from "swagger-jsdoc";
+import path from "path";
 
 const options: swaggerJsdoc.Options = {
   definition: {
@@ -68,6 +69,49 @@ All error responses follow a consistent envelope:
           bearerFormat: "JWT",
           description:
             "RS256-signed JWT. Obtain via /api/auth/login. Expires in 15 minutes.",
+        },
+      },
+      parameters: {
+        IssueId: {
+          in: "path",
+          name: "id",
+          required: true,
+          schema: { type: "string", example: "42" },
+          description: "Issue ID",
+        },
+      },
+      responses: {
+        Unauthorized: {
+          description: "Missing or invalid access token",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ErrorResponse" },
+            },
+          },
+        },
+        Forbidden: {
+          description: "Insufficient permissions for this operation",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ErrorResponse" },
+            },
+          },
+        },
+        NotFound: {
+          description: "Resource not found",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ErrorResponse" },
+            },
+          },
+        },
+        ValidationFailed: {
+          description: "Input validation failed",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ValidationErrorResponse" },
+            },
+          },
         },
       },
       schemas: {
@@ -233,6 +277,270 @@ All error responses follow a consistent envelope:
           },
         },
 
+        // ─── Issue enums ──────────────────────────────────────────────────
+        IssueStatus: {
+          type: "string",
+          enum: ["new", "in_progress", "on_hold", "resolved", "closed", "cancelled"],
+          example: "new",
+        },
+        IssueType: {
+          type: "string",
+          enum: ["bug", "feature_request", "question", "incident"],
+          example: "bug",
+        },
+        ImpactLevel: {
+          type: "string",
+          enum: ["low", "medium", "high"],
+          example: "medium",
+        },
+        UrgencyLevel: {
+          type: "string",
+          enum: ["low", "medium", "high"],
+          example: "medium",
+        },
+        PriorityLevel: {
+          type: "string",
+          enum: ["low", "moderate", "high", "critical"],
+          example: "moderate",
+        },
+
+        // ─── Issue models ─────────────────────────────────────────────────
+        IssueSummary: {
+          type: "object",
+          description: "Issue summary — returned in list responses",
+          properties: {
+            id:           { type: "string", example: "42" },
+            ticketNumber: { type: "string", example: "APRT-0001" },
+            productId:    { type: "string", example: "1" },
+            title:        { type: "string", example: "Login page shows 500 on bad password" },
+            status:       { $ref: "#/components/schemas/IssueStatus" },
+            type:         { $ref: "#/components/schemas/IssueType" },
+            priority:     { $ref: "#/components/schemas/PriorityLevel" },
+            impact:       { $ref: "#/components/schemas/ImpactLevel" },
+            urgency:      { $ref: "#/components/schemas/UrgencyLevel" },
+            createdBy:    { type: "string", example: "3" },
+            assignedTo:   { type: "string", nullable: true, example: "7" },
+            slaDeadline:  { type: "string", format: "date-time", nullable: true },
+            resolvedAt:   { type: "string", format: "date-time", nullable: true },
+            closedAt:     { type: "string", format: "date-time", nullable: true },
+            createdAt:    { type: "string", format: "date-time" },
+            updatedAt:    { type: "string", format: "date-time" },
+            product: {
+              type: "object",
+              properties: {
+                id:   { type: "string", example: "1" },
+                name: { type: "string", example: "ApartmentLK Portal" },
+                code: { type: "string", example: "APRT" },
+              },
+            },
+            creator: {
+              type: "object",
+              properties: {
+                id:       { type: "string", example: "3" },
+                fullName: { type: "string", example: "Lakshan Perera" },
+                email:    { type: "string", format: "email" },
+              },
+            },
+            assignee: {
+              nullable: true,
+              type: "object",
+              properties: {
+                id:       { type: "string", example: "7" },
+                fullName: { type: "string", example: "Ji-ho Kim" },
+                email:    { type: "string", format: "email" },
+              },
+            },
+            _count: {
+              type: "object",
+              properties: {
+                comments:    { type: "integer", example: 3 },
+                attachments: { type: "integer", example: 1 },
+              },
+            },
+          },
+        },
+
+        IssueDetail: {
+          allOf: [
+            { $ref: "#/components/schemas/IssueSummary" },
+            {
+              type: "object",
+              properties: {
+                description: { type: "string" },
+                comments: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      id:         { type: "string" },
+                      body:       { type: "string" },
+                      isInternal: { type: "boolean" },
+                      createdAt:  { type: "string", format: "date-time" },
+                      user: {
+                        type: "object",
+                        properties: {
+                          id:       { type: "string" },
+                          fullName: { type: "string" },
+                          role:     { type: "string" },
+                        },
+                      },
+                    },
+                  },
+                },
+                activities: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      id:        { type: "string" },
+                      fieldName: { type: "string", example: "status" },
+                      oldValue:  { type: "string", nullable: true },
+                      newValue:  { type: "string", nullable: true },
+                      createdAt: { type: "string", format: "date-time" },
+                      user: {
+                        type: "object",
+                        properties: {
+                          id:       { type: "string" },
+                          fullName: { type: "string" },
+                        },
+                      },
+                    },
+                  },
+                },
+                attachments: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      id:        { type: "string" },
+                      s3Key:     { type: "string" },
+                      filename:  { type: "string" },
+                      sizeBytes: { type: "string" },
+                      mimeType:  { type: "string" },
+                      createdAt: { type: "string", format: "date-time" },
+                      uploader: {
+                        type: "object",
+                        properties: {
+                          id:       { type: "string" },
+                          fullName: { type: "string" },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          ],
+        },
+
+        // ─── Issue request bodies ─────────────────────────────────────────
+        CreateIssueRequest: {
+          type: "object",
+          required: ["productId", "title", "description", "type"],
+          properties: {
+            productId:   { type: "string", example: "1" },
+            title:       { type: "string", maxLength: 200, example: "Login fails with 500" },
+            description: { type: "string", example: "Reproducible on every login attempt." },
+            type:        { $ref: "#/components/schemas/IssueType" },
+            impact:      { $ref: "#/components/schemas/ImpactLevel" },
+            urgency:     { $ref: "#/components/schemas/UrgencyLevel" },
+            slaDeadline: { type: "string", format: "date-time", nullable: true },
+          },
+        },
+
+        UpdateIssueRequest: {
+          type: "object",
+          minProperties: 1,
+          properties: {
+            title:       { type: "string", maxLength: 200 },
+            description: { type: "string" },
+            type:        { $ref: "#/components/schemas/IssueType" },
+            status:      { $ref: "#/components/schemas/IssueStatus" },
+            impact:      { $ref: "#/components/schemas/ImpactLevel" },
+            urgency:     { $ref: "#/components/schemas/UrgencyLevel" },
+            slaDeadline: { type: "string", format: "date-time", nullable: true },
+          },
+        },
+
+        AssignIssueRequest: {
+          type: "object",
+          required: ["assigneeId"],
+          properties: {
+            assigneeId: { type: "string", example: "7", description: "ID of an active engineer" },
+          },
+        },
+
+        // ─── Issue response wrappers ──────────────────────────────────────
+        IssueListResponse: {
+          type: "object",
+          properties: {
+            data: { type: "array", items: { $ref: "#/components/schemas/IssueSummary" } },
+            pagination: {
+              type: "object",
+              properties: {
+                page:       { type: "integer", example: 1 },
+                limit:      { type: "integer", example: 20 },
+                total:      { type: "integer", example: 150 },
+                totalPages: { type: "integer", example: 8 },
+              },
+            },
+          },
+        },
+
+        IssueDetailResponse: {
+          type: "object",
+          properties: {
+            data: { $ref: "#/components/schemas/IssueDetail" },
+          },
+        },
+
+        IssueStatsResponse: {
+          type: "object",
+          properties: {
+            data: {
+              type: "object",
+              properties: {
+                summary: {
+                  type: "object",
+                  properties: {
+                    totalOpen:         { type: "integer", example: 38 },
+                    critical:          { type: "integer", example: 4  },
+                    atSlaRisk:         { type: "integer", example: 7  },
+                    resolvedThisWeek:  { type: "integer", example: 12 },
+                  },
+                },
+                byStatus:   { type: "object", additionalProperties: { type: "integer" }, example: { new: 10, in_progress: 20, on_hold: 8 } },
+                byPriority: { type: "object", additionalProperties: { type: "integer" }, example: { low: 15, moderate: 12, high: 8, critical: 3 } },
+                byRegion:   { type: "object", additionalProperties: { type: "integer" }, example: { LK: 20, KR: 10, IN: 8 } },
+              },
+            },
+          },
+        },
+
+        IssueExportRow: {
+          type: "object",
+          properties: {
+            id:             { type: "string" },
+            ticketNumber:   { type: "string" },
+            product:        { type: "string" },
+            productCode:    { type: "string" },
+            title:          { type: "string" },
+            status:         { type: "string" },
+            type:           { type: "string" },
+            priority:       { type: "string" },
+            impact:         { type: "string" },
+            urgency:        { type: "string" },
+            createdBy:      { type: "string" },
+            createdByEmail: { type: "string" },
+            assignedTo:     { type: "string" },
+            slaDeadline:    { type: "string" },
+            resolvedAt:     { type: "string" },
+            closedAt:       { type: "string" },
+            createdAt:      { type: "string" },
+            updatedAt:      { type: "string" },
+          },
+        },
+
         // ─── Error responses ──────────────────────────────────────────────────
         ErrorResponse: {
           type: "object",
@@ -286,12 +594,19 @@ All error responses follow a consistent envelope:
     tags: [
       {
         name: "Authentication",
+        description: "Register, login, token refresh, logout, and current-user endpoints",
+      },
+      {
+        name: "Issues",
         description:
-          "Register, login, token refresh, logout, and current-user endpoints",
+          "Create, track, and manage client issues. Includes ITIL priority matrix, " +
+          "status transitions, activity audit log, engineer assignment, and admin dashboard.",
       },
     ],
   },
-  apis: ["./src/features/**/*.routes.ts"],
+  apis: [path.resolve(__dirname, "../features/**/*.routes.{ts,js}")],
 };
 
 export const swaggerSpec = swaggerJsdoc(options);
+
+const paths = Object.keys((swaggerSpec as { paths?: Record<string, unknown> }).paths ?? {});

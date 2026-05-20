@@ -1,0 +1,590 @@
+import {
+  IssueStatus,
+  ImpactLevel,
+  UrgencyLevel,
+  PriorityLevel,
+  UserRole,
+  Prisma,
+} from "@prisma/client";
+import { prisma } from "../../lib/prisma";
+import { AppError } from "../../middleware/errorHandler";
+import type {
+  CreateIssueInput,
+  UpdateIssueInput,
+  ListIssuesQuery,
+  AssignIssueInput,
+  ExportQuery,
+} from "./issues.schemas";
+
+// ─── ITIL Priority Matrix ─────────────────────────────────────────────────────
+
+const PRIORITY_MATRIX: Record<ImpactLevel, Record<UrgencyLevel, PriorityLevel>> = {
+  low:    { low: "low",      medium: "low",      high: "moderate" },
+  medium: { low: "low",      medium: "moderate", high: "high"     },
+  high:   { low: "moderate", medium: "high",     high: "critical" },
+};
+
+function computePriority(impact: ImpactLevel, urgency: UrgencyLevel): PriorityLevel {
+  return PRIORITY_MATRIX[impact][urgency];
+}
+
+// ─── Status Transition Machine ────────────────────────────────────────────────
+
+const ALLOWED_TRANSITIONS: Record<IssueStatus, IssueStatus[]> = {
+  new:         ["in_progress", "cancelled"],
+  in_progress: ["on_hold", "resolved", "cancelled"],
+  on_hold:     ["in_progress", "cancelled"],
+  resolved:    ["closed", "in_progress"],
+  closed:      [],
+  cancelled:   [],
+};
+
+function assertTransition(from: IssueStatus, to: IssueStatus): void {
+  if (!ALLOWED_TRANSITIONS[from].includes(to)) {
+    throw new AppError(
+      422,
+      "INVALID_STATUS_TRANSITION",
+      `Cannot transition from '${from}' to '${to}'`
+    );
+  }
+}
+
+// ─── Auth user shape (mirrors req.user) ──────────────────────────────────────
+
+interface AuthUser {
+  id: bigint;
+  email: string;
+  role: UserRole;
+  companyId: bigint | null;
+}
+
+// ─── Multi-tenant where clause ────────────────────────────────────────────────
+
+function buildTenantWhere(user: AuthUser): Prisma.IssueWhereInput {
+  if (user.role === "admin") return {};
+  if (user.role === "engineer") {
+    return { product: { userProductAccess: { some: { userId: user.id } } } };
+  }
+  return { product: { companyId: user.companyId ?? BigInt(-1) } };
+}
+
+// ─── Activity log helper ──────────────────────────────────────────────────────
+
+async function writeActivity(
+  tx: Prisma.TransactionClient,
+  issueId: bigint,
+  userId: bigint,
+  changes: { field: string; oldValue?: string | null; newValue?: string | null }[]
+): Promise<void> {
+  if (changes.length === 0) return;
+  await tx.issueActivity.createMany({
+    data: changes.map((c) => ({
+      issueId,
+      userId,
+      fieldName: c.field,
+      oldValue: c.oldValue ?? null,
+      newValue: c.newValue ?? null,
+    })),
+  });
+}
+
+// ─── Serializers ─────────────────────────────────────────────────────────────
+
+function serializeIssue(issue: {
+  id: bigint;
+  productId: bigint;
+  createdBy: bigint;
+  assignedTo: bigint | null;
+  sizeBytes?: bigint;
+  [key: string]: unknown;
+}) {
+  return {
+    ...issue,
+    id: issue.id.toString(),
+    productId: issue.productId.toString(),
+    createdBy: issue.createdBy.toString(),
+    assignedTo: issue.assignedTo?.toString() ?? null,
+  };
+}
+
+function serializeUser(u: { id: bigint; [key: string]: unknown }) {
+  return { ...u, id: u.id.toString() };
+}
+
+// ─── List Issues ──────────────────────────────────────────────────────────────
+
+export async function listIssues(query: ListIssuesQuery, user: AuthUser) {
+  const where: Prisma.IssueWhereInput = {
+    ...buildTenantWhere(user),
+    ...(query.status    && { status:    query.status    }),
+    ...(query.priority  && { priority:  query.priority  }),
+    ...(query.type      && { type:      query.type      }),
+    ...(query.product_id  && { productId:  query.product_id  }),
+    ...(query.assigned_to && { assignedTo: query.assigned_to }),
+    ...(query.search && {
+      OR: [
+        { title:        { contains: query.search } },
+        { description:  { contains: query.search } },
+        { ticketNumber: { contains: query.search } },
+      ],
+    }),
+  };
+
+  const orderBy: Prisma.IssueOrderByWithRelationInput =
+    query.sort === "createdAt_asc"  ? { createdAt: "asc" } :
+    query.sort === "updatedAt_desc" ? { updatedAt: "desc" } :
+                                      { createdAt: "desc" };
+
+  const skip = (query.page - 1) * query.limit;
+
+  const [issues, total] = await prisma.$transaction([
+    prisma.issue.findMany({
+      where,
+      orderBy,
+      skip,
+      take: query.limit,
+      include: {
+        product: { select: { id: true, name: true, code: true } },
+        creator: { select: { id: true, fullName: true, email: true } },
+        assignee: { select: { id: true, fullName: true, email: true } },
+        _count: { select: { comments: true, attachments: true } },
+      },
+    }),
+    prisma.issue.count({ where }),
+  ]);
+
+  return {
+    data: issues.map((i) => ({
+      ...serializeIssue(i),
+      product: serializeUser(i.product),
+      creator: serializeUser(i.creator),
+      assignee: i.assignee ? serializeUser(i.assignee) : null,
+    })),
+    pagination: {
+      page: query.page,
+      limit: query.limit,
+      total,
+      totalPages: Math.ceil(total / query.limit),
+    },
+  };
+}
+
+// ─── Create Issue ─────────────────────────────────────────────────────────────
+
+export async function createIssue(input: CreateIssueInput, user: AuthUser) {
+  const product = await prisma.products.findFirst({
+    where: {
+      id: input.productId,
+      ...(user.role === "client_user" && { companyId: user.companyId ?? BigInt(-1) }),
+      ...(user.role === "engineer"    && {
+        userProductAccess: { some: { userId: user.id } },
+      }),
+    },
+  });
+
+  if (!product) {
+    throw new AppError(404, "PRODUCT_NOT_FOUND", "Product not found");
+  }
+
+  const priority = computePriority(input.impact, input.urgency);
+
+  const issue = await prisma.$transaction(async (tx) => {
+    const count = await tx.issue.count({ where: { productId: input.productId } });
+    const ticketNumber = `${product.code}-${String(count + 1).padStart(4, "0")}`;
+
+    const created = await tx.issue.create({
+      data: {
+        productId:   input.productId,
+        title:       input.title,
+        description: input.description,
+        type:        input.type,
+        impact:      input.impact,
+        urgency:     input.urgency,
+        priority,
+        createdBy:   user.id,
+        ticketNumber,
+        slaDeadline: input.slaDeadline ? new Date(input.slaDeadline) : null,
+      },
+      include: {
+        product: { select: { id: true, name: true, code: true } },
+        creator: { select: { id: true, fullName: true, email: true } },
+      },
+    });
+
+    await tx.issueActivity.create({
+      data: {
+        issueId:   created.id,
+        userId:    user.id,
+        fieldName: "status",
+        oldValue:  null,
+        newValue:  "new",
+      },
+    });
+
+    return created;
+  });
+
+  return {
+    ...serializeIssue(issue),
+    product: serializeUser(issue.product),
+    creator: serializeUser(issue.creator),
+    assignee: null,
+  };
+}
+
+// ─── Get Issue (detail) ───────────────────────────────────────────────────────
+
+export async function getIssue(issueId: bigint, user: AuthUser) {
+  const issue = await prisma.issue.findFirst({
+    where: { id: issueId, ...buildTenantWhere(user) },
+    include: {
+      product: { select: { id: true, name: true, code: true } },
+      creator: { select: { id: true, fullName: true, email: true } },
+      assignee: { select: { id: true, fullName: true, email: true } },
+      comments: {
+        where: user.role === "client_user" ? { isInternal: false } : {},
+        orderBy: { createdAt: "asc" },
+        include: { user: { select: { id: true, fullName: true, role: true } } },
+      },
+      activities: {
+        orderBy: { createdAt: "desc" },
+        take: 50,
+        include: { user: { select: { id: true, fullName: true } } },
+      },
+      attachments: {
+        orderBy: { createdAt: "desc" },
+        include: { uploader: { select: { id: true, fullName: true } } },
+      },
+    },
+  });
+
+  if (!issue) throw new AppError(404, "ISSUE_NOT_FOUND", "Issue not found");
+
+  return {
+    ...serializeIssue(issue),
+    product: serializeUser(issue.product),
+    creator: serializeUser(issue.creator),
+    assignee: issue.assignee ? serializeUser(issue.assignee) : null,
+    comments: issue.comments.map((c) => ({
+      ...c,
+      id:      c.id.toString(),
+      issueId: c.issueId.toString(),
+      userId:  c.userId.toString(),
+      user:    serializeUser(c.user),
+    })),
+    activities: issue.activities.map((a) => ({
+      ...a,
+      id:      a.id.toString(),
+      issueId: a.issueId.toString(),
+      userId:  a.userId.toString(),
+      user:    serializeUser(a.user),
+    })),
+    attachments: issue.attachments.map((att) => ({
+      ...att,
+      id:         att.id.toString(),
+      issueId:    att.issueId.toString(),
+      sizeBytes:  att.sizeBytes.toString(),
+      uploadedBy: att.uploadedBy.toString(),
+      uploader:   serializeUser(att.uploader),
+    })),
+  };
+}
+
+// ─── Update Issue ─────────────────────────────────────────────────────────────
+
+export async function updateIssue(
+  issueId: bigint,
+  input: UpdateIssueInput,
+  user: AuthUser
+) {
+  const existing = await prisma.issue.findFirst({
+    where: { id: issueId, ...buildTenantWhere(user) },
+  });
+
+  if (!existing) throw new AppError(404, "ISSUE_NOT_FOUND", "Issue not found");
+
+  if (user.role === "client_user" && existing.createdBy !== user.id) {
+    throw new AppError(404, "ISSUE_NOT_FOUND", "Issue not found");
+  }
+
+  if (input.status && input.status !== existing.status) {
+    assertTransition(existing.status, input.status as IssueStatus);
+  }
+
+  const newImpact  = (input.impact  ?? existing.impact)  as ImpactLevel;
+  const newUrgency = (input.urgency ?? existing.urgency) as UrgencyLevel;
+  const newPriority = (input.impact || input.urgency)
+    ? computePriority(newImpact, newUrgency)
+    : existing.priority;
+
+  const changes: { field: string; oldValue?: string | null; newValue?: string | null }[] = [];
+  if (input.title  && input.title  !== existing.title)  changes.push({ field: "title",    oldValue: existing.title,    newValue: input.title });
+  if (input.type   && input.type   !== existing.type)   changes.push({ field: "type",     oldValue: existing.type,     newValue: input.type });
+  if (input.status && input.status !== existing.status) changes.push({ field: "status",   oldValue: existing.status,   newValue: input.status });
+  if (newPriority  !== existing.priority)               changes.push({ field: "priority", oldValue: existing.priority, newValue: newPriority });
+
+  const resolvedAt =
+    input.status === "resolved" && existing.status !== "resolved"
+      ? new Date()
+      : existing.resolvedAt;
+
+  const closedAt =
+    input.status === "closed" && existing.status !== "closed"
+      ? new Date()
+      : existing.closedAt;
+
+  const updated = await prisma.$transaction(async (tx) => {
+    const result = await tx.issue.update({
+      where: { id: issueId },
+      data: {
+        ...(input.title       && { title:       input.title }),
+        ...(input.description && { description: input.description }),
+        ...(input.type        && { type:        input.type as any }),
+        ...(input.status      && { status:      input.status as any }),
+        ...(input.impact      && { impact:      input.impact as any }),
+        ...(input.urgency     && { urgency:     input.urgency as any }),
+        priority: newPriority,
+        ...(input.slaDeadline !== undefined && {
+          slaDeadline: input.slaDeadline ? new Date(input.slaDeadline) : null,
+        }),
+        resolvedAt,
+        closedAt,
+      },
+      include: {
+        product: { select: { id: true, name: true, code: true } },
+        creator: { select: { id: true, fullName: true, email: true } },
+        assignee: { select: { id: true, fullName: true, email: true } },
+      },
+    });
+
+    await writeActivity(tx, issueId, user.id, changes);
+    return result;
+  });
+
+  return {
+    ...serializeIssue(updated),
+    product: serializeUser(updated.product),
+    creator: serializeUser(updated.creator),
+    assignee: updated.assignee ? serializeUser(updated.assignee) : null,
+  };
+}
+
+// ─── Delete Issue (soft) ──────────────────────────────────────────────────────
+
+export async function deleteIssue(issueId: bigint, user: AuthUser) {
+  const existing = await prisma.issue.findUnique({ where: { id: issueId } });
+  if (!existing) throw new AppError(404, "ISSUE_NOT_FOUND", "Issue not found");
+
+  if (existing.status === "closed" || existing.status === "cancelled") {
+    throw new AppError(409, "ISSUE_ALREADY_TERMINAL", "Issue is already closed or cancelled");
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.issue.update({
+      where: { id: issueId },
+      data: { status: "cancelled", closedAt: new Date() },
+    });
+    await tx.issueActivity.create({
+      data: {
+        issueId,
+        userId:    user.id,
+        fieldName: "status",
+        oldValue:  existing.status,
+        newValue:  "cancelled",
+      },
+    });
+  });
+}
+
+// ─── Assign Issue ─────────────────────────────────────────────────────────────
+
+export async function assignIssue(
+  issueId: bigint,
+  input: AssignIssueInput,
+  user: AuthUser
+) {
+  const existing = await prisma.issue.findUnique({ where: { id: issueId } });
+  if (!existing) throw new AppError(404, "ISSUE_NOT_FOUND", "Issue not found");
+
+  const assignee = await prisma.user.findUnique({ where: { id: input.assigneeId } });
+  if (!assignee || assignee.role !== "engineer" || !assignee.isActive) {
+    throw new AppError(422, "INVALID_ASSIGNEE", "Assignee must be an active engineer");
+  }
+
+  const oldAssignee = existing.assignedTo?.toString() ?? null;
+
+  const updated = await prisma.$transaction(async (tx) => {
+    const result = await tx.issue.update({
+      where: { id: issueId },
+      data: { assignedTo: input.assigneeId },
+      include: {
+        product: { select: { id: true, name: true, code: true } },
+        creator: { select: { id: true, fullName: true, email: true } },
+        assignee: { select: { id: true, fullName: true, email: true } },
+      },
+    });
+
+    await writeActivity(tx, issueId, user.id, [
+      { field: "assignedTo", oldValue: oldAssignee, newValue: input.assigneeId.toString() },
+    ]);
+
+    return result;
+  });
+
+  // TODO: email assignee stub
+
+  return {
+    ...serializeIssue(updated),
+    product: serializeUser(updated.product),
+    creator: serializeUser(updated.creator),
+    assignee: updated.assignee ? serializeUser(updated.assignee) : null,
+  };
+}
+
+// ─── Resolve Issue ────────────────────────────────────────────────────────────
+
+export async function resolveIssue(issueId: bigint, user: AuthUser) {
+  const existing = await prisma.issue.findFirst({
+    where: { id: issueId, ...buildTenantWhere(user) },
+  });
+  if (!existing) throw new AppError(404, "ISSUE_NOT_FOUND", "Issue not found");
+
+  assertTransition(existing.status, "resolved");
+
+  const updated = await prisma.$transaction(async (tx) => {
+    const result = await tx.issue.update({
+      where: { id: issueId },
+      data: { status: "resolved", resolvedAt: new Date() },
+      include: {
+        product: { select: { id: true, name: true, code: true } },
+        creator: { select: { id: true, fullName: true, email: true } },
+        assignee: { select: { id: true, fullName: true, email: true } },
+      },
+    });
+
+    await writeActivity(tx, issueId, user.id, [
+      { field: "status", oldValue: existing.status, newValue: "resolved" },
+    ]);
+
+    return result;
+  });
+
+  // TODO: email issue creator stub
+
+  return {
+    ...serializeIssue(updated),
+    product: serializeUser(updated.product),
+    creator: serializeUser(updated.creator),
+    assignee: updated.assignee ? serializeUser(updated.assignee) : null,
+  };
+}
+
+// ─── Stats (admin dashboard) ──────────────────────────────────────────────────
+
+export async function getStats() {
+  const now = new Date();
+  const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const slaWarningCutoff = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+  const openStatuses: IssueStatus[] = ["new", "in_progress", "on_hold"];
+
+  const [byStatus, byPriority, totalOpen, critical, atSlaRisk, resolvedThisWeek] =
+    await prisma.$transaction([
+      prisma.issue.groupBy({ by: ["status"],   _count: { id: true } }),
+      prisma.issue.groupBy({ by: ["priority"], _count: { id: true } }),
+      prisma.issue.count({ where: { status: { in: openStatuses } } }),
+      prisma.issue.count({ where: { priority: "critical", status: { in: openStatuses } } }),
+      prisma.issue.count({
+        where: {
+          status: { in: openStatuses },
+          slaDeadline: { not: null, lte: slaWarningCutoff },
+        },
+      }),
+      prisma.issue.count({
+        where: { status: "resolved", resolvedAt: { gte: weekAgo } },
+      }),
+    ]);
+
+  type RegionRow = { region: string; count: bigint };
+  const byRegionRaw = await prisma.$queryRaw<RegionRow[]>`
+    SELECT c.region, COUNT(i.id) AS count
+    FROM issues i
+    JOIN products p ON p.id = i.product_id
+    JOIN companies c ON c.id = p.company_id
+    GROUP BY c.region
+  `;
+
+  return {
+    summary: { totalOpen, critical, atSlaRisk, resolvedThisWeek },
+    byStatus: byStatus.reduce<Record<string, number>>(
+      (acc, s) => ({ ...acc, [s.status]: s._count.id }), {}
+    ),
+    byPriority: byPriority.reduce<Record<string, number>>(
+      (acc, p) => ({ ...acc, [p.priority]: p._count.id }), {}
+    ),
+    byRegion: byRegionRaw.reduce<Record<string, number>>(
+      (acc, r) => ({ ...acc, [r.region]: Number(r.count) }), {}
+    ),
+  };
+}
+
+// ─── Export ───────────────────────────────────────────────────────────────────
+
+export async function exportIssues(query: ExportQuery) {
+  const where: Prisma.IssueWhereInput = {
+    ...(query.status     && { status:    query.status }),
+    ...(query.product_id && { productId: query.product_id }),
+  };
+
+  const issues = await prisma.issue.findMany({
+    where,
+    take: 1000,
+    orderBy: { createdAt: "desc" },
+    include: {
+      product: { select: { name: true, code: true } },
+      creator: { select: { fullName: true, email: true } },
+      assignee: { select: { fullName: true, email: true } },
+    },
+  });
+
+  const rows = issues.map((i) => ({
+    id:            i.id.toString(),
+    ticketNumber:  i.ticketNumber,
+    product:       i.product.name,
+    productCode:   i.product.code,
+    title:         i.title,
+    status:        i.status,
+    type:          i.type,
+    priority:      i.priority,
+    impact:        i.impact,
+    urgency:       i.urgency,
+    createdBy:     i.creator.fullName,
+    createdByEmail: i.creator.email,
+    assignedTo:    i.assignee?.fullName ?? "",
+    slaDeadline:   i.slaDeadline?.toISOString() ?? "",
+    resolvedAt:    i.resolvedAt?.toISOString() ?? "",
+    closedAt:      i.closedAt?.toISOString() ?? "",
+    createdAt:     i.createdAt.toISOString(),
+    updatedAt:     i.updatedAt.toISOString(),
+  }));
+
+  if (query.format === "csv") {
+    return { format: "csv" as const, content: toCsv(rows), count: rows.length };
+  }
+  return { format: "json" as const, content: rows, count: rows.length };
+}
+
+function escapeCsv(value: string): string {
+  if (value.includes(",") || value.includes('"') || value.includes("\n")) {
+    return `"${value.replace(/"/g, '""')}"`;
+  }
+  return value;
+}
+
+function toCsv(rows: Record<string, string>[]): string {
+  if (rows.length === 0) return "";
+  const headers = Object.keys(rows[0]);
+  return [
+    headers.join(","),
+    ...rows.map((row) => headers.map((h) => escapeCsv(row[h])).join(",")),
+  ].join("\n");
+}
