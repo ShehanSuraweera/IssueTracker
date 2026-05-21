@@ -1,4 +1,4 @@
-import { createBrowserRouter, Navigate } from "react-router-dom";
+import { createBrowserRouter } from "react-router-dom";
 import { AppShell } from "@/components/layout/AppShell";
 import { RequireAuth, RequireRole, RedirectIfAuth } from "./guards";
 import { lazy, Suspense } from "react";
@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 // ─── Lazy page imports ────────────────────────────────────────────────────────
 
 const LoginPage         = lazy(() => import("@/pages/LoginPage"));
+const HomePage          = lazy(() => import("@/pages/HomePage"));
 const IssueListPage     = lazy(() => import("@/pages/issues/IssueListPage"));
 const IssueDetailPage   = lazy(() => import("@/pages/issues/IssueDetailPage"));
 const IssueCreatePage   = lazy(() => import("@/pages/issues/IssueCreatePage"));
@@ -49,7 +50,7 @@ export const router = createBrowserRouter([
       {
         element: <AppShell />,
         children: [
-          { index: true,          element: <Navigate to="/issues" replace /> },
+          { index: true,          element: wrap(<HomePage />) },
           { path: "/issues",      element: wrap(<IssueListPage />) },
           { path: "/issues/new",  element: wrap(<IssueCreatePage />) },
           { path: "/issues/:id",  element: wrap(<IssueDetailPage />) },

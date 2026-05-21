@@ -1,8 +1,10 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { Plus, Search } from "lucide-react";
 import { useIssues } from "@/hooks/use-issues";
 import { useAuth } from "@/hooks/use-auth";
+import { useTabsStore } from "@/store/tabs.store";
+import type { IssueSummary } from "@/types/issues";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -28,8 +30,20 @@ const STATUS_STYLES: Record<IssueStatus, string> = {
 
 export default function IssueListPage() {
   const { hasRole } = useAuth();
+  const navigate = useNavigate();
+  const { openTab } = useTabsStore();
   const [search, setSearch] = useState("");
   const [query, setQuery] = useState<ListIssuesQuery>({ page: 1, limit: 20 });
+
+  const openIssue = (issue: IssueSummary) => {
+    openTab({
+      id:    `issue:${issue.id}`,
+      label: issue.ticketNumber,
+      path:  `/issues/${issue.id}`,
+      meta:  { title: issue.title, status: issue.status, priority: issue.priority },
+    });
+    navigate(`/issues/${issue.id}`);
+  };
 
   const { data, isLoading } = useIssues(query, search);
 
@@ -44,11 +58,9 @@ export default function IssueListPage() {
           )}
         </div>
         {!hasRole("engineer") && (
-          <Button asChild size="sm">
-            <Link to="/issues/new">
-              <Plus className="mr-1.5 size-4" />
-              New issue
-            </Link>
+          <Button size="sm" onClick={() => navigate("/issues/new")}>
+            <Plus className="mr-1.5 size-4" />
+            New issue
           </Button>
         )}
       </div>
@@ -74,7 +86,11 @@ export default function IssueListPage() {
       ) : (
         <div className="space-y-2">
           {data?.data.map((issue) => (
-            <Card key={issue.id} className="hover:shadow-md transition-shadow">
+            <Card
+              key={issue.id}
+              onClick={() => openIssue(issue)}
+              className="hover:shadow-md transition-shadow cursor-pointer"
+            >
               <CardContent className="flex items-center gap-4 p-4">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
@@ -91,12 +107,7 @@ export default function IssueListPage() {
                       {issue.status.replace("_", " ")}
                     </Badge>
                   </div>
-                  <Link
-                    to={`/issues/${issue.id}`}
-                    className="font-medium hover:text-primary truncate block"
-                  >
-                    {issue.title}
-                  </Link>
+                  <p className="font-medium truncate hover:text-primary">{issue.title}</p>
                   <p className="text-xs text-muted-foreground mt-0.5">
                     {issue.product.name} · {issue.creator.fullName} ·{" "}
                     {new Date(issue.createdAt).toLocaleDateString()}

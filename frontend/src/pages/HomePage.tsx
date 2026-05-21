@@ -1,0 +1,284 @@
+import { useNavigate } from "react-router-dom";
+import { RefreshCw } from "lucide-react";
+import { useIssues, useIssueStats } from "@/hooks/use-issues";
+import { useAuth } from "@/hooks/use-auth";
+import { useTabsStore } from "@/store/tabs.store";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Card, CardContent } from "@/components/ui/card";
+import heroImg from "@/assets/hero.png";
+import type { IssueSummary, PriorityLevel, IssueStatus } from "@/types/issues";
+
+// ─── Config ───────────────────────────────────────────────────────────────────
+
+const PRIORITY_STYLES: Record<PriorityLevel, string> = {
+  low:      "bg-sky-100 text-sky-700 border-sky-200",
+  moderate: "bg-yellow-100 text-yellow-700 border-yellow-200",
+  high:     "bg-orange-100 text-orange-700 border-orange-200",
+  critical: "bg-red-100 text-red-700 border-red-200",
+};
+
+const STATUS_STYLES: Record<IssueStatus, string> = {
+  new:         "bg-purple-100 text-purple-700",
+  in_progress: "bg-blue-100 text-blue-700",
+  on_hold:     "bg-amber-100 text-amber-700",
+  resolved:    "bg-green-100 text-green-700",
+  closed:      "bg-gray-100 text-gray-600",
+  cancelled:   "bg-red-100 text-red-700",
+};
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function slaInfo(deadline: string | null): { label: string; breached: boolean } {
+  if (!deadline) return { label: "—", breached: false };
+  const rem = new Date(deadline).getTime() - Date.now();
+  if (rem <= 0) return { label: "Breached", breached: true };
+  const d = Math.floor(rem / 86_400_000);
+  const h = Math.floor((rem % 86_400_000) / 3_600_000);
+  return { label: d > 0 ? `${d}d ${h}h` : `${h}h`, breached: false };
+}
+
+function relativeTime(ts: number): string {
+  const mins = Math.floor((Date.now() - ts) / 60_000);
+  if (mins < 1) return "just now";
+  if (mins === 1) return "1 minute ago";
+  if (mins < 60) return `${mins} minutes ago`;
+  const hrs = Math.floor(mins / 60);
+  return `${hrs} hour${hrs > 1 ? "s" : ""} ago`;
+}
+
+// ─── KPI Tile ─────────────────────────────────────────────────────────────────
+
+function KpiTile({
+  label,
+  value,
+  accent = "default",
+  onClick,
+}: {
+  label: string;
+  value: number | undefined;
+  accent?: "red" | "orange" | "default";
+  onClick?: () => void;
+}) {
+  const numClass =
+    accent === "red"    ? "text-red-600" :
+    accent === "orange" ? "text-orange-500" :
+    "text-foreground";
+
+  return (
+    <Card
+      onClick={onClick}
+      className={onClick ? "cursor-pointer hover:border-primary/40 hover:shadow-md transition-all" : ""}
+    >
+      <CardContent className="p-5">
+        <p className="text-xs text-muted-foreground font-medium mb-5">{label}</p>
+        {value === undefined ? (
+          <Skeleton className="h-10 w-14" />
+        ) : (
+          <p className={`text-5xl font-light tracking-tight ${numClass}`}>{value}</p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
+export default function HomePage() {
+  const { user, hasRole } = useAuth();
+  const navigate = useNavigate();
+  const { openTab } = useTabsStore();
+  const isStaff = hasRole("admin", "engineer");
+
+  const { data: stats } = useIssueStats();
+
+  const workQuery = isStaff && user
+    ? { assigned_to: user.id, limit: 15, sort: "updatedAt_desc" as const }
+    : { limit: 15, sort: "updatedAt_desc" as const };
+
+  const { data: myWork, dataUpdatedAt } = useIssues(workQuery, "");
+
+  const openIssue = (issue: IssueSummary) => {
+    openTab({
+      id:    `issue:${issue.id}`,
+      label: issue.ticketNumber,
+      path:  `/issues/${issue.id}`,
+      meta:  { title: issue.title, status: issue.status, priority: issue.priority },
+    });
+    navigate(`/issues/${issue.id}`);
+  };
+
+  const firstName = user?.fullName?.split(" ")[0] ?? "there";
+
+  return (
+    <div className="space-y-7">
+      {/* ── Hero ──────────────────────────────────────────────────────── */}
+      <div className="relative overflow-hidden rounded-xl border bg-linear-to-br from-primary/5 to-muted/20">
+        {/* Ripple rings */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            opacity: 0.045,
+            backgroundImage:
+              "repeating-radial-gradient(circle at 68% 50%, #082A9C 0, #082A9C 1px, transparent 0, transparent 48px)",
+          }}
+        />
+        <div className="relative flex items-center justify-between px-8 py-7">
+          <div>
+            <h1 className="text-2xl font-semibold">Hello, {firstName}!</h1>
+            <p className="mt-1.5 text-sm text-muted-foreground max-w-sm leading-relaxed">
+              Get a little help monitoring your work with your personal home page.
+            </p>
+          </div>
+          <img
+            src={heroImg}
+            alt=""
+            className="h-28 w-auto opacity-90 select-none pointer-events-none hidden sm:block"
+          />
+        </div>
+      </div>
+
+      {/* ── Important items ───────────────────────────────────────────── */}
+      <div>
+        <h2 className="text-sm font-semibold">Important items</h2>
+        <p className="text-xs text-muted-foreground mt-0.5 mb-3">
+          Check these metrics to see the most important items to work on.
+        </p>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+          <KpiTile
+            label={isStaff ? "My Open" : "Open"}
+            value={myWork?.pagination.total}
+            onClick={() => navigate("/issues")}
+          />
+          <KpiTile
+            label="Critical"
+            value={stats?.summary.critical}
+            accent="red"
+            onClick={() => navigate("/issues")}
+          />
+          <KpiTile
+            label="SLA At Risk"
+            value={stats?.summary.atSlaRisk}
+            accent="orange"
+          />
+          <KpiTile
+            label="Resolved This Week"
+            value={stats?.summary.resolvedThisWeek}
+          />
+          <KpiTile
+            label="Total Open"
+            value={stats?.summary.totalOpen}
+          />
+        </div>
+      </div>
+
+      {/* ── My Work ───────────────────────────────────────────────────── */}
+      <div>
+        <div className="flex items-center justify-between mb-0.5">
+          <div className="flex items-center gap-2">
+            <h2 className="text-sm font-semibold">My Work</h2>
+            {myWork && (
+              <span className="inline-flex items-center justify-center h-5 min-w-5 px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-bold">
+                {myWork.pagination.total > 99 ? "99+" : myWork.pagination.total}
+              </span>
+            )}
+          </div>
+          {dataUpdatedAt > 0 && (
+            <span className="flex items-center gap-1 text-xs text-muted-foreground">
+              <RefreshCw className="size-3" />
+              Last refreshed {relativeTime(dataUpdatedAt)}
+            </span>
+          )}
+        </div>
+        <p className="text-xs text-muted-foreground mb-3">
+          Track your active tasks and the tasks your team is working on.
+        </p>
+
+        <div className="rounded-lg border overflow-hidden">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b bg-muted/30">
+                {["Ticket", "Title", "Priority", "State", "Product", "Actual time left", "Has breached", "Created", "Updated"].map((h) => (
+                  <th
+                    key={h}
+                    className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground whitespace-nowrap"
+                  >
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {!myWork ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <tr key={i} className="border-b">
+                    {Array.from({ length: 9 }).map((_, j) => (
+                      <td key={j} className="px-3 py-2.5">
+                        <Skeleton className="h-4 w-full" />
+                      </td>
+                    ))}
+                  </tr>
+                ))
+              ) : myWork.data.length === 0 ? (
+                <tr>
+                  <td colSpan={9} className="px-3 py-10 text-center text-sm text-muted-foreground">
+                    No active work items.
+                  </td>
+                </tr>
+              ) : (
+                myWork.data.map((issue) => {
+                  const sla = slaInfo(issue.slaDeadline);
+                  return (
+                    <tr
+                      key={issue.id}
+                      onClick={() => openIssue(issue)}
+                      className="border-b last:border-0 cursor-pointer hover:bg-muted/30 transition-colors"
+                    >
+                      <td className="px-3 py-2.5 whitespace-nowrap">
+                        <span className="font-mono text-xs text-muted-foreground">{issue.ticketNumber}</span>
+                      </td>
+                      <td className="px-3 py-2.5 max-w-55">
+                        <span className="font-medium truncate block">{issue.title}</span>
+                      </td>
+                      <td className="px-3 py-2.5 whitespace-nowrap">
+                        <Badge variant="outline" className={`text-[10px] ${PRIORITY_STYLES[issue.priority]}`}>
+                          {issue.priority}
+                        </Badge>
+                      </td>
+                      <td className="px-3 py-2.5 whitespace-nowrap">
+                        <Badge variant="outline" className={`text-[10px] ${STATUS_STYLES[issue.status]}`}>
+                          {issue.status.replace("_", " ")}
+                        </Badge>
+                      </td>
+                      <td className="px-3 py-2.5 text-xs text-muted-foreground whitespace-nowrap">
+                        {issue.product.name}
+                      </td>
+                      <td className="px-3 py-2.5 text-xs whitespace-nowrap">
+                        <span className={sla.breached ? "text-red-600 font-medium" : "text-muted-foreground"}>
+                          {sla.label}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2.5 text-xs whitespace-nowrap">
+                        {sla.breached ? (
+                          <span className="text-red-600 font-medium">Yes</span>
+                        ) : (
+                          <span className="text-muted-foreground">No</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2.5 text-xs text-muted-foreground whitespace-nowrap">
+                        {new Date(issue.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                      </td>
+                      <td className="px-3 py-2.5 text-xs text-muted-foreground whitespace-nowrap">
+                        {new Date(issue.updatedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}

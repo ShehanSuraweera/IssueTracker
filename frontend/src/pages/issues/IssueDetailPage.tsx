@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import type { ReactNode } from "react";
 import {
@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { useIssue, useAddComment, useResolveIssue } from "@/hooks/use-issues";
 import { useAuth } from "@/hooks/use-auth";
+import { useTabsStore } from "@/store/tabs.store";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -492,6 +493,17 @@ export default function IssueDetailPage() {
 
   const { data: issue, isLoading } = useIssue(id);
   const resolveMutation = useResolveIssue(id);
+  const { updateLabel, updateMeta } = useTabsStore();
+
+  useEffect(() => {
+    if (!issue || !id) return;
+    updateLabel(`issue:${id}`, issue.ticketNumber);
+    updateMeta(`issue:${id}`, {
+      title:    issue.title,
+      status:   issue.status,
+      priority: issue.priority,
+    });
+  }, [issue?.ticketNumber, issue?.status, issue?.priority, id]);
 
   if (isLoading) return <DetailSkeleton />;
   if (!issue)    return null;
