@@ -132,10 +132,11 @@ export async function getUser(id: bigint) {
   });
   if (!user) throw new AppError(404, "USER_NOT_FOUND", "User not found");
 
+  const { userProductAccess, ...userBase } = user;
   return {
-    ...serializeUser(user),
+    ...serializeUser(userBase),
     company: user.company ? { ...user.company, id: user.company.id.toString() } : null,
-    productAccess: user.userProductAccess.map((upa) => ({
+    productAccess: userProductAccess.map((upa) => ({
       id:        upa.product.id.toString(),
       name:      upa.product.name,
       code:      upa.product.code,
