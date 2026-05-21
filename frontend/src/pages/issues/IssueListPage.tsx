@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import {
   Plus, Search, Filter, RefreshCw, Download,
   ChevronDown, ChevronRight, X, ArrowUpDown, ArrowUp, ArrowDown, Layers,
+  PanelLeftClose, PanelLeftOpen,
 } from "lucide-react";
 import { useIssues } from "@/hooks/use-issues";
 import { useAuth } from "@/hooks/use-auth";
@@ -92,6 +93,7 @@ export default function IssueListPage() {
     },
   ], [user]);
 
+  const [sidebarOpen,     setSidebarOpen]     = useState(true);
   const [activeViewId,    setActiveViewId]    = useState("all");
   const [activeViewQuery, setActiveViewQuery] = useState<Partial<ListIssuesQuery>>({});
   const [activeViewLabel, setActiveViewLabel] = useState("All Issues");
@@ -225,14 +227,24 @@ export default function IssueListPage() {
     <div className="h-full flex overflow-hidden">
 
       {/* ── Left secondary sidebar ──────────────────────────── */}
-      <aside className="w-56 border-r bg-muted/20 flex flex-col shrink-0 overflow-hidden">
+      <aside className={cn(
+        "border-r bg-muted/20 flex flex-col shrink-0 overflow-hidden transition-[width] duration-200 ease-in-out",
+        sidebarOpen ? "w-56" : "w-0 border-r-0",
+      )}>
         {/* Tabs */}
-        <div className="flex border-b shrink-0">
+        <div className="flex border-b shrink-0 min-w-56">
           <button className="flex-1 py-2.5 text-xs font-medium text-primary border-b-2 border-primary bg-background/60">
             Default lists
           </button>
           <button className="flex-1 py-2.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors">
             My lists
+          </button>
+          <button
+            onClick={() => setSidebarOpen(false)}
+            className="px-2.5 text-muted-foreground hover:text-foreground transition-colors"
+            title="Collapse sidebar"
+          >
+            <PanelLeftClose className="size-3.5" />
           </button>
         </div>
         {/* Nav groups */}
@@ -277,6 +289,15 @@ export default function IssueListPage() {
         {/* Title bar */}
         <div className="flex items-center justify-between px-5 py-2.5 border-b bg-background shrink-0">
           <div className="flex items-center gap-2.5 min-w-0">
+            {!sidebarOpen && (
+              <button
+                onClick={() => setSidebarOpen(true)}
+                className="text-muted-foreground hover:text-foreground transition-colors shrink-0"
+                title="Expand sidebar"
+              >
+                <PanelLeftOpen className="size-3.5" />
+              </button>
+            )}
             <h1 className="text-sm font-semibold truncate">
               Issues — {activeViewLabel}
             </h1>
