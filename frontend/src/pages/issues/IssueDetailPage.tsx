@@ -5,6 +5,7 @@ import {
   ArrowLeft, Loader2, Send, User, Clock, Paperclip,
   Calendar, Building2, Package, CheckCircle2,
   MessageSquare, History, Lock, Tag, AlertCircle,
+  ChevronDown, ChevronRight,
 } from "lucide-react";
 import { useIssue, useAddComment, useResolveIssue } from "@/hooks/use-issues";
 import { useAuth } from "@/hooks/use-auth";
@@ -14,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 import type { IssueDetail, Comment, Activity } from "@/types/issues";
 
 // ─── Config maps ──────────────────────────────────────────────────────────────
@@ -456,6 +458,220 @@ function RecordPanel({ issue }: { issue: IssueDetail }) {
   );
 }
 
+// ─── Issue Timeline ───────────────────────────────────────────────────────────
+
+type TLKind = "comment" | "internal" | "status" | "field";
+
+interface TLEvent {
+  id:     string;
+  time:   number;
+  kind:   TLKind;
+  actor:  string;
+  label:  string;
+  detail: string;
+}
+
+const KIND_COLOR: Record<TLKind, string> = {
+  comment:  "bg-blue-500",
+  internal: "bg-amber-500",
+  status:   "bg-violet-500",
+  field:    "bg-slate-400",
+};
+
+const KIND_LABEL: Record<TLKind, string> = {
+  comment:  "Comment",
+  internal: "Internal note",
+  status:   "Status change",
+  field:    "Field change",
+};
+
+function IssueTimeline({ issue }: { issue: IssueDetail }) {
+  const totalEvents = issue.activities.length + issue.comments.length;
+  const [open, setOpen] = useState(totalEvents > 3);
+
+  const start = new Date(issue.createdAt).getTime();
+  const end   = issue.resolvedAt ? new Date(issue.resolvedAt).getTime()
+              : issue.closedAt   ? new Date(issue.closedAt).getTime()
+              : Date.now();
+  const span  = Math.max(end - start, 1);
+
+  const events: TLEvent[] = [
+    ...issue.comments.map(c => ({
+      id:     c.id,
+      time:   new Date(c.createdAt).getTime(),
+      kind:   (c.isInternal ? "internal" : "comment") as TLKind,
+      actor:  c.user.fullName,
+      label:  c.isInternal ? "Internal note" : "Comment",
+      detail: c.body.length > 60 ? c.body.slice(0, 60) + "…" : c.body,
+    })),
+    ...issue.activities.map(a => ({
+      id:     a.id,
+      time:   new Date(a.createdAt).getTime(),
+      kind:   (a.fieldName === "status" ? "status" : "field") as TLKind,
+      actor:  a.user.fullName,
+      label:  a.fieldName === "status"
+                ? `Status → ${a.newValue}`
+                : `${a.fieldName.replace(/_/g, " ")} changed`,
+      detail: a.oldValue && a.newValue ? `"${a.oldValue}" → "${a.newValue}"` : (a.newValue ?? ""),
+    })),
+  ].sort((a, b) => a.time - b.time);
+
+  // Cluster events whose positions are within 2.5% of each other
+  const clusters: TLEvent[][] = [];
+  for (const ev of events) {
+    const evPct   = ((ev.time - start) / span) * 100;
+    const last    = clusters.at(-1);
+    const lastPct = last ? ((last[0].time - start) / span) * 100 : -999;
+    if (last && evPct - lastPct < 2.5) last.push(ev);
+    else clusters.push([ev]);
+  }
+
+  // 4 evenly-spaced axis ticks
+  const TICKS = 4;
+  const ticks = Array.from({ length: TICKS }, (_, i) => ({
+    pct:   (i / (TICKS - 1)) * 100,
+    label: i === TICKS - 1 && !issue.resolvedAt && !issue.closedAt
+      ? "Now"
+      : fmtDate(new Date(start + (span / (TICKS - 1)) * i).toISOString()),
+  }));
+
+  const presentKinds = (["comment", "internal", "status", "field"] as TLKind[])
+    .filter(k => events.some(e => e.kind === k));
+
+  return (
+    <div className="border rounded-lg">
+      {/* Header / toggle */}
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="flex w-full items-center justify-between px-4 py-2.5 bg-muted/30 hover:bg-muted/50 transition-colors rounded-t-lg"
+      >
+        <span className="text-sm font-medium">Timeline</span>
+        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+          <span className="flex items-center gap-1">
+            <span className="size-1.5 rounded-full bg-blue-400 inline-block" />
+            {issue.comments.length} comments
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="size-1.5 rounded-full bg-violet-400 inline-block" />
+            {issue.activities.length} events
+          </span>
+          {open
+            ? <ChevronDown  className="size-3.5" />
+            : <ChevronRight className="size-3.5" />}
+        </div>
+      </button>
+
+      {open && (
+        <div className="px-6 pt-6 pb-4">
+          {/* Track + dots */}
+          <div className="relative h-8">
+            {/* Track */}
+            <div className="absolute top-3.5 left-0 right-0 h-1 bg-muted rounded-full" />
+
+            {/* Start pin */}
+            <div
+              title="Created"
+              className="absolute top-2.5 left-0 -translate-x-1/2 size-3 rounded-full bg-green-500 border-2 border-background shadow-sm z-10"
+            />
+
+            {/* End pin */}
+            <div
+              title={issue.resolvedAt ? "Resolved" : issue.closedAt ? "Closed" : "Now"}
+              className="absolute top-2.5 right-0 translate-x-1/2 size-3 rounded-full bg-muted-foreground/50 border-2 border-background shadow-sm z-10"
+            />
+
+            {/* Clusters */}
+            {clusters.map((cluster, i) => {
+              const clusterPct = ((cluster[0].time - start) / span) * 100;
+              const primary    = cluster[0].kind;
+              const flipLeft   = clusterPct > 75;
+              const flipRight  = clusterPct < 25;
+
+              return (
+                <div
+                  key={i}
+                  className="absolute top-1.5 -translate-x-1/2 group z-20 cursor-default"
+                  style={{ left: `${clusterPct}%` }}
+                >
+                  {/* Dot */}
+                  <div className={cn(
+                    "size-5 rounded-full border-2 border-background shadow-sm",
+                    "flex items-center justify-center",
+                    KIND_COLOR[primary],
+                  )}>
+                    {cluster.length > 1 && (
+                      <span className="text-white text-[8px] font-bold leading-none">
+                        {cluster.length}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Hover tooltip */}
+                  <div className={cn(
+                    "absolute top-full mt-2 hidden group-hover:block z-30",
+                    "w-52 rounded-lg border border-border bg-popover shadow-xl p-2.5",
+                    flipLeft  ? "right-0" :
+                    flipRight ? "left-0"  : "left-1/2 -translate-x-1/2",
+                  )}>
+                    <div className="space-y-2">
+                      {cluster.map(ev => (
+                        <div key={ev.id} className="text-xs border-b border-border/50 last:border-0 pb-2 last:pb-0">
+                          <div className="flex items-center gap-1.5 mb-0.5">
+                            <span className={cn("size-1.5 rounded-full shrink-0", KIND_COLOR[ev.kind])} />
+                            <span className="font-medium">{ev.label}</span>
+                          </div>
+                          <p className="text-muted-foreground pl-3">{ev.actor}</p>
+                          {ev.detail && (
+                            <p className="text-muted-foreground/80 pl-3 truncate">{ev.detail}</p>
+                          )}
+                          <p className="text-muted-foreground/60 pl-3 mt-0.5">
+                            {fmtDateTime(new Date(ev.time).toISOString())}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Date axis */}
+          <div className="relative h-5 mt-1 select-none">
+            {ticks.map((tick, i) => (
+              <span
+                key={i}
+                className="absolute text-[10px] text-muted-foreground whitespace-nowrap"
+                style={{
+                  left: `${tick.pct}%`,
+                  transform:
+                    i === 0            ? "none"
+                    : i === TICKS - 1  ? "translateX(-100%)"
+                    : "translateX(-50%)",
+                }}
+              >
+                {tick.label}
+              </span>
+            ))}
+          </div>
+
+          {/* Legend — only show kinds that actually appear */}
+          {presentKinds.length > 0 && (
+            <div className="flex items-center gap-4 mt-3 pt-3 border-t">
+              {presentKinds.map(k => (
+                <span key={k} className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                  <span className={cn("size-2 rounded-full", KIND_COLOR[k])} />
+                  {KIND_LABEL[k]}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
 
 function DetailSkeleton() {
@@ -553,6 +769,9 @@ export default function IssueDetailPage() {
       </div>
 
       <Separator />
+
+      {/* Timeline */}
+      <IssueTimeline issue={issue} />
 
       {/* 3-column layout */}
       <div className="grid grid-cols-[260px_1fr_260px] gap-6 items-start">

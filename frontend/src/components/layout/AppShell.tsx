@@ -38,9 +38,10 @@ export function AppShell() {
         <main className={cn(
           "flex-1 bg-background",
           location.pathname === "/issues"
-            ? "overflow-hidden"
+            ? "overflow-hidden p-1"
             : "overflow-y-auto p-6"
         )}>
+       
           <Outlet />
         </main>
       </div>
