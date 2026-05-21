@@ -1,14 +1,14 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import type { ReactNode } from "react";
 import {
   ArrowLeft, Loader2, Send, User, Clock, Paperclip,
   Calendar, Building2, Package, CheckCircle2,
-  MessageSquare, History, Lock, Tag, AlertCircle,
-  ChevronDown, ChevronRight, Pencil,
+  History, Lock, Tag, AlertCircle,
+  ChevronDown, ChevronRight, Pencil, ArrowRight,
   Bug, Lightbulb, HelpCircle, AlertTriangle,
 } from "lucide-react";
-import { useIssue, useAddComment, useResolveIssue, useUpdateIssue } from "@/hooks/use-issues";
+import { useIssue, useAddComment, useResolveIssue, useUpdateIssue, useFeed } from "@/hooks/use-issues";
 import { useAuth } from "@/hooks/use-auth";
 import { useTabsStore } from "@/store/tabs.store";
 import { Button } from "@/components/ui/button";
@@ -20,7 +20,7 @@ import { Separator } from "@/components/ui/separator";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import type { IssueDetail, Comment, Activity, UpdateIssueInput, IssueStatus, IssueType, ImpactLevel, UrgencyLevel } from "@/types/issues";
+import type { IssueDetail, Comment, Activity, UpdateIssueInput, IssueStatus, IssueType, ImpactLevel, UrgencyLevel, FeedItem, FeedFilter } from "@/types/issues";
 
 // ─── Config maps ──────────────────────────────────────────────────────────────
 
@@ -53,6 +53,23 @@ function fmtDate(iso: string) {
 function fmtDateTime(iso: string) {
   return new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
 }
+function relTime(ts: number): string {
+  const diff = Date.now() - ts;
+  if (diff < 60_000)         return "just now";
+  if (diff < 3_600_000)      return `${Math.floor(diff / 60_000)}m ago`;
+  if (diff < 86_400_000)     return `${Math.floor(diff / 3_600_000)}h ago`;
+  if (diff < 7 * 86_400_000) return `${Math.floor(diff / 86_400_000)}d ago`;
+  return fmtDate(new Date(ts).toISOString());
+}
+function dayKey(ts: number): string {
+  const d = new Date(ts);
+  const today     = new Date();
+  const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);
+  if (d.toDateString() === today.toDateString())     return "Today";
+  if (d.toDateString() === yesterday.toDateString()) return "Yesterday";
+  return d.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+}
+
 
 // ─── SLA Gauge ────────────────────────────────────────────────────────────────
 
@@ -233,7 +250,7 @@ function CommentBubble({ comment }: { comment: Comment }) {
               <Lock className="size-2.5" /> Internal
             </span>
           )}
-          <span className="text-xs text-muted-foreground ml-auto">{fmtDateTime(comment.createdAt)}</span>
+          <span className="text-xs text-muted-foreground ml-auto" title={fmtDateTime(comment.createdAt)}>{relTime(new Date(comment.createdAt).getTime())}</span>
         </div>
         <div
           className={`rounded-lg px-3 py-2 text-sm whitespace-pre-wrap leading-relaxed ${
@@ -251,46 +268,128 @@ function CommentBubble({ comment }: { comment: Comment }) {
 
 // ─── Activity row ─────────────────────────────────────────────────────────────
 
+function renderFieldValue(val: string | null, fieldName: string) {
+  if (!val) return <span className="text-muted-foreground/50 italic text-xs">none</span>;
+  if (fieldName === "status") {
+    const cfg = STATUS_CONFIG[val] ?? { label: val, cls: "" };
+    return <span className={cn("inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium border", cfg.cls)}>{cfg.label}</span>;
+  }
+  if (fieldName === "priority") {
+    const cfg = PRIORITY_CONFIG[val] ?? { label: val, cls: "" };
+    return <span className={cn("inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium border", cfg.cls)}>{cfg.label}</span>;
+  }
+  return <span className="inline-flex rounded px-1.5 py-0.5 text-[10px] font-mono bg-muted text-foreground/80 max-w-36 truncate">{val}</span>;
+}
+
 function ActivityRow({ activity }: { activity: Activity }) {
   const field = activity.fieldName.replace(/_/g, " ");
-  let message: string;
-  if (!activity.oldValue)  message = `set ${field} to "${activity.newValue}"`;
-  else if (!activity.newValue) message = `cleared ${field}`;
-  else message = `changed ${field} from "${activity.oldValue}" to "${activity.newValue}"`;
+  const ts    = new Date(activity.createdAt).getTime();
+  const isSet = !activity.oldValue && !!activity.newValue;
 
   return (
     <div className="flex gap-3 items-start">
-      <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-muted mt-0.5">
-        <History className="size-3.5 text-muted-foreground" />
+      <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-muted/60 mt-0.5">
+        <History className="size-3 text-muted-foreground" />
       </div>
-      <p className="flex-1 text-sm text-muted-foreground py-0.5">
-        <span className="font-medium text-foreground">{activity.user.fullName}</span>
-        {" "}{message}
-        <span className="ml-2 text-xs">{fmtDateTime(activity.createdAt)}</span>
-      </p>
+      <div className="flex-1 min-w-0 py-0.5">
+        <div className="flex items-center gap-1.5 flex-wrap text-sm leading-snug">
+          <span className="font-medium">{activity.user.fullName}</span>
+          <span className="text-muted-foreground">{isSet ? "set" : "changed"}</span>
+          <span className="font-medium capitalize text-foreground/80">{field}</span>
+          {!isSet && activity.oldValue !== null && (
+            <>
+              {renderFieldValue(activity.oldValue, activity.fieldName)}
+              <ArrowRight className="size-3 text-muted-foreground shrink-0" />
+            </>
+          )}
+          {renderFieldValue(activity.newValue, activity.fieldName)}
+        </div>
+        <p className="text-[10px] text-muted-foreground/60 mt-0.5" title={fmtDateTime(activity.createdAt)}>
+          {relTime(ts)}
+        </p>
+      </div>
     </div>
   );
 }
 
-// ─── Center panel — activity feed ─────────────────────────────────────────────
+// ─── Attachment row ───────────────────────────────────────────────────────────
+
+type FeedAttachment = Extract<FeedItem, { kind: "attachment" }>;
+
+function AttachmentRow({ item }: { item: FeedAttachment }) {
+  const ts     = new Date(item.createdAt).getTime();
+  const sizeKb = Math.round(Number(item.sizeBytes) / 1024);
+  return (
+    <div className="flex gap-3 items-start">
+      <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-muted/60 mt-0.5">
+        <Paperclip className="size-3 text-muted-foreground" />
+      </div>
+      <div className="flex-1 min-w-0 py-0.5">
+        <div className="flex items-center gap-1.5 flex-wrap text-sm leading-snug">
+          <span className="font-medium">{item.user.fullName}</span>
+          <span className="text-muted-foreground">attached</span>
+          <span className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] bg-muted border font-medium max-w-48 truncate">
+            <Paperclip className="size-2.5 shrink-0" />
+            {item.filename}
+          </span>
+          <span className="text-[10px] text-muted-foreground">{sizeKb > 0 ? `${sizeKb} KB` : "< 1 KB"}</span>
+        </div>
+        <p className="text-[10px] text-muted-foreground/60 mt-0.5" title={fmtDateTime(item.createdAt)}>
+          {relTime(ts)}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ─── Center panel — unified activity feed ────────────────────────────────────
 
 function ActivityPanel({
-  issue,
+  issueId,
   canComment,
   canInternal,
 }: {
-  issue: IssueDetail;
+  issueId: string;
   canComment: boolean;
   canInternal: boolean;
 }) {
-  const [tab, setTab]           = useState<"comments" | "activity">("comments");
-  const [commentBody, setBody]  = useState("");
-  const [isInternal, setIntern] = useState(false);
-  const commentMutation = useAddComment(issue.id);
+  const sentinelRef                                    = useRef<HTMLDivElement>(null);
+  const [filter,      setFilter]                       = useState<FeedFilter>("all");
+  const [commentBody, setBody]                         = useState("");
+  const [isInternal,  setIntern]                       = useState(false);
+  const commentMutation                                = useAddComment(issueId);
+  const { data: feedData, isLoading, isFetchingNextPage, hasNextPage, fetchNextPage } =
+    useFeed(issueId, filter);
 
-  const visibleComments = canInternal
-    ? issue.comments
-    : issue.comments.filter((c) => !c.isInternal);
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el || !hasNextPage) return;
+    const obs = new IntersectionObserver(
+      (entries) => { if (entries[0].isIntersecting) fetchNextPage(); },
+      { threshold: 0.1 },
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [hasNextPage, fetchNextPage]);
+
+  const allItems = useMemo<FeedItem[]>(
+    () => feedData?.pages.flatMap(p => p.data) ?? [],
+    [feedData],
+  );
+
+  const grouped = useMemo(() => {
+    const groups: { day: string; items: FeedItem[] }[] = [];
+    for (const item of allItems) {
+      const day  = dayKey(new Date(item.createdAt).getTime());
+      const last = groups.at(-1);
+      if (last && last.day === day) last.items.push(item);
+      else groups.push({ day, items: [item] });
+    }
+    return groups;
+  }, [allItems]);
+
+  const commentCount = allItems.filter(i => i.kind === "comment").length;
+  const changesCount = allItems.filter(i => i.kind !== "comment").length;
 
   const submit = () => {
     if (!commentBody.trim()) return;
@@ -302,29 +401,37 @@ function ActivityPanel({
 
   return (
     <div className="flex flex-col gap-0">
-      {/* Tab bar */}
-      <div className="flex border-b mb-4">
-        {(["comments", "activity"] as const).map((t) => (
+
+      {/* Filter chips */}
+      <div className="flex items-center gap-1.5 mb-4">
+        {([
+          ["all",      "All",      commentCount + changesCount],
+          ["comments", "Comments", commentCount],
+          ["changes",  "Changes",  changesCount],
+        ] as const).map(([f, label, count]) => (
           <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
-              tab === t
-                ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
-            }`}
-          >
-            {t === "comments" ? (
-              <><MessageSquare className="size-3.5" />Comments ({visibleComments.length})</>
-            ) : (
-              <><History className="size-3.5" />Activity ({issue.activities.length})</>
+            key={f}
+            onClick={() => setFilter(f)}
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",
+              filter === f
+                ? "bg-primary text-primary-foreground border-primary"
+                : "text-muted-foreground hover:text-foreground border-border",
             )}
+          >
+            {label}
+            <span className={cn(
+              "tabular-nums rounded-full px-1.5 text-[10px]",
+              filter === f ? "bg-primary-foreground/20" : "bg-muted",
+            )}>
+              {count}
+            </span>
           </button>
         ))}
       </div>
 
-      {/* Comment composer — shown at top of comments tab */}
-      {canComment && tab === "comments" && (
+      {/* Comment composer — top of feed */}
+      {canComment && (filter === "all" || filter === "comments") && (
         <div className="border rounded-lg p-3 mb-5 bg-card">
           <p className="text-xs text-muted-foreground mb-2">
             {isInternal
@@ -335,50 +442,65 @@ function ActivityPanel({
             className="w-full bg-transparent text-sm placeholder:text-muted-foreground focus-visible:outline-none resize-none min-h-18"
             placeholder="Write a comment…"
             value={commentBody}
-            onChange={(e) => setBody(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) submit(); }}
+            onChange={e => setBody(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) submit(); }}
           />
           <div className="flex items-center justify-between pt-2 border-t mt-2">
             {canInternal ? (
               <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={isInternal}
-                  onChange={(e) => setIntern(e.target.checked)}
-                  className="rounded"
-                />
+                <input type="checkbox" checked={isInternal} onChange={e => setIntern(e.target.checked)} className="rounded" />
                 <Lock className="size-3" /> Internal note
               </label>
-            ) : (
-              <span />
-            )}
-            <Button
-              size="sm"
-              disabled={!commentBody.trim() || commentMutation.isPending}
-              onClick={submit}
-            >
-              {commentMutation.isPending
-                ? <Loader2 className="size-4 animate-spin mr-1.5" />
-                : <Send className="size-4 mr-1.5" />}
-              Post Comment
+            ) : <span />}
+            <Button size="sm" disabled={!commentBody.trim() || commentMutation.isPending} onClick={submit}>
+              {commentMutation.isPending ? <Loader2 className="size-4 animate-spin mr-1.5" /> : <Send className="size-4 mr-1.5" />}
+              Post
             </Button>
           </div>
         </div>
       )}
 
       {/* Feed */}
-      <div className="space-y-5">
-        {tab === "comments" && (
-          visibleComments.length === 0
-            ? <p className="text-sm text-muted-foreground py-6 text-center">No comments yet.</p>
-            : visibleComments.map((c) => <CommentBubble key={c.id} comment={c} />)
-        )}
-        {tab === "activity" && (
-          issue.activities.length === 0
-            ? <p className="text-sm text-muted-foreground py-6 text-center">No activity yet.</p>
-            : issue.activities.map((a) => <ActivityRow key={a.id} activity={a} />)
-        )}
-      </div>
+      {isLoading ? (
+        <div className="space-y-4 py-2">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="flex gap-3">
+              <div className="size-6 rounded-full bg-muted animate-pulse shrink-0" />
+              <div className="flex-1 space-y-1.5">
+                <div className="h-4 bg-muted animate-pulse rounded w-3/4" />
+                <div className="h-3 bg-muted animate-pulse rounded w-1/3" />
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : allItems.length === 0 ? (
+        <p className="text-sm text-muted-foreground py-8 text-center">Nothing here yet.</p>
+      ) : (
+        <div>
+          {grouped.map(({ day, items }) => (
+            <div key={day}>
+              <div className="flex items-center gap-2 py-3">
+                <div className="flex-1 h-px bg-border" />
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground whitespace-nowrap px-1">{day}</span>
+                <div className="flex-1 h-px bg-border" />
+              </div>
+              <div className="space-y-4">
+                {items.map(item => {
+                  if (item.kind === "comment")    return <CommentBubble key={item.id} comment={item as unknown as Comment} />;
+                  if (item.kind === "activity")   return <ActivityRow   key={item.id} activity={item as unknown as Activity} />;
+                  return                                 <AttachmentRow key={item.id} item={item} />;
+                })}
+              </div>
+            </div>
+          ))}
+          {isFetchingNextPage && (
+            <div className="flex justify-center py-4">
+              <Loader2 className="size-4 animate-spin text-muted-foreground" />
+            </div>
+          )}
+          <div ref={sentinelRef} className="h-1" />
+        </div>
+      )}
     </div>
   );
 }
@@ -1034,7 +1156,7 @@ export default function IssueDetailPage() {
           {/* 3-column layout */}
           <div className="grid grid-cols-[260px_1fr_260px] gap-6 items-start">
             <MetaPanel issue={issue} />
-            <ActivityPanel issue={issue} canComment={canComment} canInternal={isStaff} />
+            <ActivityPanel issueId={issue.id} canComment={canComment} canInternal={isStaff} />
             <RecordPanel issue={issue} />
           </div>
         </>

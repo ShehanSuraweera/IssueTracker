@@ -9,6 +9,7 @@ import {
   CreateCommentSchema,
   PresignUploadSchema,
   ConfirmAttachmentSchema,
+  FeedQuerySchema,
 } from "./issues.schemas";
 import * as IssueService from "./issues.service";
 
@@ -146,6 +147,17 @@ export async function confirmAttachment(req: Request, res: Response, next: NextF
     const input = ConfirmAttachmentSchema.parse(req.body);
     const attachment = await IssueService.confirmAttachment(id, input, req.user!);
     res.status(201).json({ data: attachment });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getFeed(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const id    = parseId(req.params.id);
+    const query = FeedQuerySchema.parse(req.query);
+    const result = await IssueService.getFeed(id, req.user!, query);
+    res.json(result);
   } catch (err) {
     next(err);
   }

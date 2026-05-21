@@ -2,11 +2,12 @@ import type { ListIssuesQuery } from "@/types/issues";
 
 export const queryKeys = {
   issues: {
-    all: () => ["issues"] as const,
-    list: (q: ListIssuesQuery, search: string) =>
-      ["issues", "list", q, search] as const,
-    detail: (id: string | undefined) => ["issues", id] as const,
-    stats: () => ["issues", "stats"] as const,
+    all:      () => ["issues"] as const,
+    list:     (q: ListIssuesQuery, search: string) => ["issues", "list", q, search] as const,
+    infinite: (q: Omit<ListIssuesQuery, "page" | "limit">, search: string) => ["issues", "infinite", q, search] as const,
+    detail:   (id: string | undefined) => ["issues", id] as const,
+    feed:     (id: string | undefined, filter: string) => ["issues", id, "feed", filter] as const,
+    stats:    () => ["issues", "stats"] as const,
   },
   companies: {
     all: () => ["companies"] as const,

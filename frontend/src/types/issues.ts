@@ -115,6 +115,39 @@ export interface UpdateIssueInput {
   slaDeadline?: string | null;
 }
 
+export type FeedFilter = "all" | "comments" | "changes";
+
+export type FeedItem =
+  | {
+      kind: "activity";
+      id: string; createdAt: string;
+      user: { id: string; fullName: string };
+      fieldName: string;
+      oldValue: string | null;
+      newValue: string | null;
+    }
+  | {
+      kind: "comment";
+      id: string; createdAt: string;
+      user: { id: string; fullName: string; role: string };
+      body: string;
+      isInternal: boolean;
+    }
+  | {
+      kind: "attachment";
+      id: string; createdAt: string;
+      user: { id: string; fullName: string };
+      filename: string;
+      mimeType: string;
+      sizeBytes: string;
+    };
+
+export interface FeedResponse {
+  data: FeedItem[];
+  nextCursor: string | null;
+  hasMore: boolean;
+}
+
 export interface ListIssuesQuery {
   search?: string;
   status?: IssueStatus;

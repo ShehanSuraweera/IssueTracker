@@ -1,11 +1,20 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Plus, Search, Filter, RefreshCw, Download,
   ChevronDown, ChevronRight, X, ArrowUpDown, ArrowUp, ArrowDown, Layers,
-  PanelLeftClose, PanelLeftOpen,
+  PanelLeftClose, PanelLeftOpen, Loader2,
 } from "lucide-react";
-import { useIssues } from "@/hooks/use-issues";
+import { useInfiniteIssues } from "@/hooks/use-issues";
+
+function useDebounce<T>(value: T, delay: number): T {
+  const [debounced, setDebounced] = useState<T>(value);
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(t);
+  }, [value, delay]);
+  return debounced;
+}
 import { useAuth } from "@/hooks/use-auth";
 import { useTabsStore } from "@/store/tabs.store";
 import type { IssueSummary, ListIssuesQuery, PriorityLevel, IssueStatus } from "@/types/issues";
@@ -93,6 +102,8 @@ export default function IssueListPage() {
     },
   ], [user]);
 
+  const sentinelRef = useRef<HTMLDivElement>(null);
+
   const [sidebarOpen,     setSidebarOpen]     = useState(true);
   const [activeViewId,    setActiveViewId]    = useState("all");
   const [activeViewQuery, setActiveViewQuery] = useState<Partial<ListIssuesQuery>>({});
@@ -103,19 +114,40 @@ export default function IssueListPage() {
   const [sortField,       setSortField]       = useState<SortField>("updatedAt");
   const [sortDir,         setSortDir]         = useState<SortDir>("desc");
   const [groupBy,         setGroupBy]         = useState<string | null>(null);
-  const [page,            setPage]            = useState(1);
 
-  const fullQuery = useMemo<ListIssuesQuery>(
-    () => ({ page, limit: 50, ...activeViewQuery }),
-    [page, activeViewQuery],
+  const debouncedSearch = useDebounce(search, 300);
+
+  const {
+    data,
+    isLoading,
+    isFetchingNextPage,
+    hasNextPage,
+    fetchNextPage,
+    refetch,
+  } = useInfiniteIssues(activeViewQuery, debouncedSearch);
+
+  // Infinite scroll sentinel
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el || !hasNextPage) return;
+    const obs = new IntersectionObserver(
+      (entries) => { if (entries[0].isIntersecting) fetchNextPage(); },
+      { threshold: 0.1 },
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [hasNextPage, fetchNextPage]);
+
+  const allItems = useMemo(
+    () => data?.pages.flatMap(p => p.data) ?? [],
+    [data],
   );
 
-  const { data, isLoading, refetch } = useIssues(fullQuery, search);
+  const totalCount = data?.pages[0]?.pagination.total ?? 0;
 
   const sortedData = useMemo(() => {
-    if (!data?.data) return [];
     const PRIO: Record<PriorityLevel, number> = { critical: 0, high: 1, moderate: 2, low: 3 };
-    return [...data.data].sort((a, b) => {
+    return [...allItems].sort((a, b) => {
       let cmp = 0;
       if      (sortField === "ticketNumber") cmp = a.ticketNumber.localeCompare(b.ticketNumber);
       else if (sortField === "title")        cmp = a.title.localeCompare(b.title);
@@ -125,7 +157,7 @@ export default function IssueListPage() {
       else                                   cmp = a.updatedAt.localeCompare(b.updatedAt);
       return sortDir === "asc" ? cmp : -cmp;
     });
-  }, [data?.data, sortField, sortDir]);
+  }, [allItems, sortField, sortDir]);
 
   const grouped = useMemo(() => {
     if (!groupBy) return null;
@@ -155,7 +187,6 @@ export default function IssueListPage() {
     setActiveViewId(item.id);
     setActiveViewQuery(item.query);
     setActiveViewLabel(item.label);
-    setPage(1);
   };
 
   const toggleCollapse = (label: string) => {
@@ -301,9 +332,9 @@ export default function IssueListPage() {
             <h1 className="text-sm font-semibold truncate">
               Issues — {activeViewLabel}
             </h1>
-            {data && (
+            {totalCount > 0 && (
               <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium tabular-nums">
-                {data.pagination.total}
+                {totalCount}
               </span>
             )}
             <span className="text-xs text-muted-foreground hidden md:block whitespace-nowrap">
@@ -485,30 +516,15 @@ export default function IssueListPage() {
           )}
         </div>
 
-        {/* Pagination */}
-        {data && data.pagination.totalPages > 1 && (
-          <div className="flex items-center justify-center gap-2 py-3 border-t shrink-0 bg-background">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={page === 1}
-              onClick={() => setPage(p => p - 1)}
-            >
-              Previous
-            </Button>
-            <span className="text-xs text-muted-foreground tabular-nums">
-              {page} / {data.pagination.totalPages}
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={page === data.pagination.totalPages}
-              onClick={() => setPage(p => p + 1)}
-            >
-              Next
-            </Button>
-          </div>
-        )}
+        {/* Infinite scroll sentinel + loading indicator */}
+        <div className="shrink-0">
+          {isFetchingNextPage && (
+            <div className="flex items-center justify-center py-3 border-t">
+              <Loader2 className="size-4 animate-spin text-muted-foreground" />
+            </div>
+          )}
+          <div ref={sentinelRef} className="h-1" />
+        </div>
       </div>
     </div>
   );

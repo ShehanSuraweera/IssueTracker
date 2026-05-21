@@ -416,6 +416,7 @@ router.post("/:id/resolve", requireRole("admin", "engineer"), IssueController.re
  *       422:
  *         $ref: '#/components/responses/ValidationFailed'
  */
+router.get("/:id/feed", IssueController.getFeed);
 router.post("/:id/comments", IssueController.addComment);
 
 /**

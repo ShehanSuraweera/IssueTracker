@@ -95,6 +95,12 @@ export const ConfirmAttachmentSchema = z.object({
   sizeBytes: z.coerce.number().int().positive(),
 });
 
+export const FeedQuerySchema = z.object({
+  cursor: z.string().datetime().optional(),
+  limit:  z.coerce.number().int().min(1).max(50).default(20),
+  filter: z.enum(["all", "comments", "changes"]).default("all"),
+});
+
 // ─── Inferred types ──────────────────────────────────────────────────────────
 
 export type CreateIssueInput = z.infer<typeof CreateIssueSchema>;
@@ -105,3 +111,4 @@ export type ExportQuery = z.infer<typeof ExportQuerySchema>;
 export type CreateCommentInput = z.infer<typeof CreateCommentSchema>;
 export type PresignUploadInput = z.infer<typeof PresignUploadSchema>;
 export type ConfirmAttachmentInput = z.infer<typeof ConfirmAttachmentSchema>;
+export type FeedQuery = z.infer<typeof FeedQuerySchema>;

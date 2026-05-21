@@ -19,6 +19,7 @@ import type {
   CreateCommentInput,
   PresignUploadInput,
   ConfirmAttachmentInput,
+  FeedQuery,
 } from "./issues.schemas";
 
 // ─── ITIL Priority Matrix ─────────────────────────────────────────────────────
@@ -422,7 +423,10 @@ export async function assignIssue(
   input: AssignIssueInput,
   user: AuthUser
 ) {
-  const existing = await prisma.issue.findUnique({ where: { id: issueId } });
+  const existing = await prisma.issue.findUnique({
+    where: { id: issueId },
+    include: { assignee: { select: { fullName: true } } },
+  });
   if (!existing) throw new AppError(404, "ISSUE_NOT_FOUND", "Issue not found");
 
   const assignee = await prisma.user.findUnique({ where: { id: input.assigneeId } });
@@ -430,7 +434,8 @@ export async function assignIssue(
     throw new AppError(422, "INVALID_ASSIGNEE", "Assignee must be an active engineer");
   }
 
-  const oldAssignee = existing.assignedTo?.toString() ?? null;
+  const oldAssigneeName = existing.assignee?.fullName ?? null;
+  const isSelfAssign    = input.assigneeId === user.id;
 
   const updated = await prisma.$transaction(async (tx) => {
     const result = await tx.issue.update({
@@ -444,13 +449,15 @@ export async function assignIssue(
     });
 
     await writeActivity(tx, issueId, user.id, [
-      { field: "assignedTo", oldValue: oldAssignee, newValue: input.assigneeId.toString() },
+      {
+        field:    isSelfAssign ? "selfAssigned" : "assignedTo",
+        oldValue: isSelfAssign ? null : oldAssigneeName,
+        newValue: assignee.fullName,
+      },
     ]);
 
     return result;
   });
-
-  // TODO: email assignee stub
 
   return {
     ...serializeIssue(updated),
@@ -496,6 +503,98 @@ export async function resolveIssue(issueId: bigint, user: AuthUser) {
     creator: serializeUser(updated.creator),
     assignee: updated.assignee ? serializeUser(updated.assignee) : null,
   };
+}
+
+// ─── Unified paginated feed ───────────────────────────────────────────────────
+
+export async function getFeed(issueId: bigint, user: AuthUser, query: FeedQuery) {
+  const issue = await prisma.issue.findFirst({
+    where: { id: issueId, ...buildTenantWhere(user) },
+    select: { id: true },
+  });
+  if (!issue) throw new AppError(404, "ISSUE_NOT_FOUND", "Issue not found");
+
+  const lt     = query.cursor ? { lt: new Date(query.cursor) } : undefined;
+  const limit  = query.limit;
+  const filter = query.filter;
+
+  const [rawActs, rawCmts, rawAtts] = await Promise.all([
+    filter !== "comments"
+      ? prisma.issueActivity.findMany({
+          where: { issueId, ...(lt && { createdAt: lt }) },
+          orderBy: { createdAt: "desc" },
+          take: limit,
+          include: { user: { select: { id: true, fullName: true } } },
+        })
+      : ([] as any[]),
+    filter !== "changes"
+      ? prisma.issueComment.findMany({
+          where: {
+            issueId,
+            ...(user.role === "client_user" && { isInternal: false }),
+            ...(lt && { createdAt: lt }),
+          },
+          orderBy: { createdAt: "desc" },
+          take: limit,
+          include: { user: { select: { id: true, fullName: true, role: true } } },
+        })
+      : ([] as any[]),
+    filter !== "comments"
+      ? prisma.issueAttachment.findMany({
+          where: { issueId, ...(lt && { createdAt: lt }) },
+          orderBy: { createdAt: "desc" },
+          take: limit,
+          include: { uploader: { select: { id: true, fullName: true } } },
+        })
+      : ([] as any[]),
+  ]);
+
+  // Merge, sort newest-first, take one extra to detect hasMore
+  const merged: any[] = [
+    ...rawActs.map((a: any) => ({ ...a, _kind: "activity" })),
+    ...rawCmts.map((c: any) => ({ ...c, _kind: "comment" })),
+    ...rawAtts.map((a: any) => ({ ...a, _kind: "attachment" })),
+  ].sort((a, b) => (b.createdAt as Date).getTime() - (a.createdAt as Date).getTime());
+
+  const page      = merged.slice(0, limit);
+  const hasMore   = merged.length > limit;
+  const nextCursor = hasMore ? (page[page.length - 1].createdAt as Date).toISOString() : null;
+
+  const data = page.map((item: any) => {
+    const base = {
+      id:        (item.id as bigint).toString(),
+      createdAt: (item.createdAt as Date).toISOString(),
+    };
+    if (item._kind === "activity") {
+      return {
+        ...base,
+        kind:      "activity" as const,
+        user:      { id: item.user.id.toString(), fullName: item.user.fullName as string },
+        fieldName: item.fieldName as string,
+        oldValue:  item.oldValue as string | null,
+        newValue:  item.newValue as string | null,
+      };
+    }
+    if (item._kind === "comment") {
+      return {
+        ...base,
+        kind:       "comment" as const,
+        user:       { id: item.user.id.toString(), fullName: item.user.fullName as string, role: item.user.role as string },
+        body:       item.body as string,
+        isInternal: item.isInternal as boolean,
+      };
+    }
+    return {
+      ...base,
+      kind:      "attachment" as const,
+      user:      { id: item.uploader.id.toString(), fullName: item.uploader.fullName as string },
+      filename:  item.filename as string,
+      mimeType:  item.mimeType as string,
+      sizeBytes: (item.sizeBytes as bigint).toString(),
+    };
+  });
+
+  return { data, nextCursor, hasMore };
 }
 
 // ─── Stats (admin dashboard) ──────────────────────────────────────────────────

@@ -9,6 +9,8 @@ import type {
   Comment,
   Attachment,
   PresignUploadResult,
+  FeedResponse,
+  FeedFilter,
 } from "@/types/issues";
 
 export async function listIssues(query: ListIssuesQuery): Promise<IssueListResponse> {
@@ -81,6 +83,17 @@ export async function confirmAttachment(
 ): Promise<Attachment> {
   const { data } = await api.post<{ data: Attachment }>(`/issues/${issueId}/attachments`, payload);
   return data.data;
+}
+
+export async function getFeed(
+  issueId: string,
+  cursor: string | null,
+  filter: FeedFilter = "all"
+): Promise<FeedResponse> {
+  const params: Record<string, string> = { filter };
+  if (cursor) params.cursor = cursor;
+  const { data } = await api.get<FeedResponse>(`/issues/${issueId}/feed`, { params });
+  return data;
 }
 
 export async function getDownloadUrl(
