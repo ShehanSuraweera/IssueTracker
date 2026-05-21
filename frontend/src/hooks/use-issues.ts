@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { listIssues, getIssue, getStats, createIssue, addComment, resolveIssue } from "@/api/issues";
+import { listIssues, getIssue, getStats, createIssue, updateIssue, addComment, resolveIssue } from "@/api/issues";
 import { queryKeys } from "./query-keys";
-import type { ListIssuesQuery } from "@/types/issues";
+import type { ListIssuesQuery, UpdateIssueInput } from "@/types/issues";
 
 export function useIssues(query: ListIssuesQuery, search: string) {
   return useQuery({
@@ -30,6 +30,17 @@ export function useCreateIssue() {
   return useMutation({
     mutationFn: createIssue,
     onSuccess:  () => qc.invalidateQueries({ queryKey: queryKeys.issues.all() }),
+  });
+}
+
+export function useUpdateIssue(issueId: string | undefined) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: UpdateIssueInput) => updateIssue(issueId!, input),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.issues.detail(issueId) });
+      qc.invalidateQueries({ queryKey: queryKeys.issues.all() });
+    },
   });
 }
 

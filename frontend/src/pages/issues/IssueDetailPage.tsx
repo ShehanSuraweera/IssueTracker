@@ -5,18 +5,22 @@ import {
   ArrowLeft, Loader2, Send, User, Clock, Paperclip,
   Calendar, Building2, Package, CheckCircle2,
   MessageSquare, History, Lock, Tag, AlertCircle,
-  ChevronDown, ChevronRight,
+  ChevronDown, ChevronRight, Pencil,
+  Bug, Lightbulb, HelpCircle, AlertTriangle,
 } from "lucide-react";
-import { useIssue, useAddComment, useResolveIssue } from "@/hooks/use-issues";
+import { useIssue, useAddComment, useResolveIssue, useUpdateIssue } from "@/hooks/use-issues";
 import { useAuth } from "@/hooks/use-auth";
 import { useTabsStore } from "@/store/tabs.store";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import type { IssueDetail, Comment, Activity } from "@/types/issues";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import type { IssueDetail, Comment, Activity, UpdateIssueInput, IssueStatus, IssueType, ImpactLevel, UrgencyLevel } from "@/types/issues";
 
 // ─── Config maps ──────────────────────────────────────────────────────────────
 
@@ -672,6 +676,195 @@ function IssueTimeline({ issue }: { issue: IssueDetail }) {
   );
 }
 
+// ─── Edit panel config ────────────────────────────────────────────────────────
+
+const EDIT_TYPE_OPTIONS: Array<{
+  value: IssueType; label: string; Icon: React.ElementType; desc: string; iconCls: string;
+}> = [
+  { value: "bug",             label: "Bug",      Icon: Bug,           desc: "Something isn't working", iconCls: "text-red-500"    },
+  { value: "feature_request", label: "Feature",  Icon: Lightbulb,     desc: "Suggest an improvement",  iconCls: "text-yellow-500" },
+  { value: "question",        label: "Question", Icon: HelpCircle,    desc: "Need clarification",      iconCls: "text-blue-500"   },
+  { value: "incident",        label: "Incident", Icon: AlertTriangle, desc: "Service disruption",      iconCls: "text-orange-500" },
+];
+
+const EDIT_LEVEL_OPTIONS: Array<{ value: ImpactLevel | UrgencyLevel; label: string }> = [
+  { value: "low",    label: "Low"    },
+  { value: "medium", label: "Medium" },
+  { value: "high",   label: "High"   },
+];
+
+const EDIT_LEVEL_COLORS: Record<string, { active: string; idle: string }> = {
+  low:    { active: "bg-slate-500 text-white", idle: "text-slate-500 hover:bg-slate-100/70" },
+  medium: { active: "bg-amber-400 text-white", idle: "text-amber-600 hover:bg-amber-50"    },
+  high:   { active: "bg-red-500   text-white", idle: "text-red-500   hover:bg-red-50"      },
+};
+
+// Valid next statuses per current status (mirrors backend transition machine)
+const STATUS_TRANSITIONS: Record<IssueStatus, IssueStatus[]> = {
+  new:         ["in_progress", "cancelled"],
+  in_progress: ["on_hold", "resolved", "cancelled"],
+  on_hold:     ["in_progress", "cancelled"],
+  resolved:    ["closed", "in_progress"],
+  closed:      [],
+  cancelled:   [],
+};
+
+// ─── Edit panel ───────────────────────────────────────────────────────────────
+
+function EditPanel({
+  issue, onSave, onCancel, isPending, isStaff,
+}: {
+  issue: IssueDetail;
+  onSave: (input: UpdateIssueInput) => void;
+  onCancel: () => void;
+  isPending: boolean;
+  isStaff: boolean;
+}) {
+  const [title,       setTitle]   = useState(issue.title);
+  const [description, setDesc]    = useState(issue.description);
+  const [type,        setType]    = useState<IssueType>(issue.type);
+  const [impact,      setImpact]  = useState<ImpactLevel>(issue.impact as ImpactLevel);
+  const [urgency,     setUrgency] = useState<UrgencyLevel>(issue.urgency as UrgencyLevel);
+  const [status,      setStatus]  = useState<IssueStatus>(issue.status);
+
+  const isDirty =
+    title !== issue.title ||
+    description !== issue.description ||
+    type   !== issue.type   ||
+    impact !== issue.impact ||
+    urgency !== issue.urgency ||
+    (isStaff && status !== issue.status);
+
+  const handleSave = () => {
+    if (!title.trim() || !description.trim()) return;
+    const input: UpdateIssueInput = {};
+    if (title       !== issue.title)       input.title       = title;
+    if (description !== issue.description) input.description = description;
+    if (type        !== issue.type)        input.type        = type;
+    if (impact      !== issue.impact)      input.impact      = impact;
+    if (urgency     !== issue.urgency)     input.urgency     = urgency;
+    if (isStaff && status !== issue.status) input.status     = status;
+    onSave(input);
+  };
+
+  const validNextStatuses = STATUS_TRANSITIONS[issue.status];
+
+  return (
+    <div className="rounded-lg border bg-card p-5 space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-semibold">Edit Issue</p>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={onCancel} disabled={isPending}>
+            Cancel
+          </Button>
+          <Button size="sm" disabled={!isDirty || isPending} onClick={handleSave}>
+            {isPending && <Loader2 className="mr-1.5 size-3.5 animate-spin" />}
+            Save changes
+          </Button>
+        </div>
+      </div>
+
+      {/* Title */}
+      <div className="space-y-1.5">
+        <Label>Title</Label>
+        <Input value={title} onChange={e => setTitle(e.target.value)} />
+      </div>
+
+      {/* Description */}
+      <div className="space-y-1.5">
+        <Label>Description</Label>
+        <textarea
+          rows={5}
+          value={description}
+          onChange={e => setDesc(e.target.value)}
+          className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none"
+        />
+      </div>
+
+      {/* Type cards */}
+      <div className="space-y-1.5">
+        <Label>Type</Label>
+        <div className="grid grid-cols-4 gap-2">
+          {EDIT_TYPE_OPTIONS.map(({ value, label, Icon, desc, iconCls }) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setType(value)}
+              className={cn(
+                "flex flex-col items-center gap-1.5 rounded-lg border p-3 text-center transition-all",
+                type === value
+                  ? "border-primary bg-primary/5 text-primary shadow-sm"
+                  : "border-border text-muted-foreground hover:border-primary/40 hover:bg-muted/30",
+              )}
+            >
+              <Icon className={cn("size-4", iconCls)} />
+              <span className="text-xs font-medium">{label}</span>
+              <span className="text-[10px] leading-tight opacity-70">{desc}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Impact + Urgency */}
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-1.5">
+          <Label>Impact</Label>
+          <div className="flex rounded-md border border-input overflow-hidden">
+            {EDIT_LEVEL_OPTIONS.map(({ value, label }) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setImpact(value as ImpactLevel)}
+                className={cn(
+                  "flex-1 py-1.5 text-xs font-medium transition-colors",
+                  impact === value ? EDIT_LEVEL_COLORS[value].active : EDIT_LEVEL_COLORS[value].idle,
+                )}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="space-y-1.5">
+          <Label>Urgency</Label>
+          <div className="flex rounded-md border border-input overflow-hidden">
+            {EDIT_LEVEL_OPTIONS.map(({ value, label }) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setUrgency(value as UrgencyLevel)}
+                className={cn(
+                  "flex-1 py-1.5 text-xs font-medium transition-colors",
+                  urgency === value ? EDIT_LEVEL_COLORS[value].active : EDIT_LEVEL_COLORS[value].idle,
+                )}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Status — staff only, only valid transitions */}
+      {isStaff && validNextStatuses.length > 0 && (
+        <div className="space-y-1.5">
+          <Label>Status</Label>
+          <select
+            value={status}
+            onChange={e => setStatus(e.target.value as IssueStatus)}
+            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <option value={issue.status}>{STATUS_CONFIG[issue.status]?.label ?? issue.status}</option>
+            {validNextStatuses.map(s => (
+              <option key={s} value={s}>{STATUS_CONFIG[s]?.label ?? s}</option>
+            ))}
+          </select>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
 
 function DetailSkeleton() {
@@ -703,13 +896,17 @@ function DetailSkeleton() {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function IssueDetailPage() {
-  const { id }       = useParams<{ id: string }>();
-  const navigate     = useNavigate();
-  const { hasRole }  = useAuth();
+  const { id }      = useParams<{ id: string }>();
+  const navigate    = useNavigate();
+  const { hasRole } = useAuth();
 
   const { data: issue, isLoading } = useIssue(id);
   const resolveMutation = useResolveIssue(id);
+  const updateMutation  = useUpdateIssue(id);
   const { updateLabel, updateMeta } = useTabsStore();
+
+  const [isEditing,          setIsEditing]          = useState(false);
+  const [showResolveConfirm, setShowResolveConfirm] = useState(false);
 
   useEffect(() => {
     if (!issue || !id) return;
@@ -721,36 +918,87 @@ export default function IssueDetailPage() {
     });
   }, [issue?.ticketNumber, issue?.status, issue?.priority, id]);
 
+  // Exit edit mode whenever the issue reloads after a save
+  useEffect(() => { setIsEditing(false); }, [issue?.updatedAt]);
+
   if (isLoading) return <DetailSkeleton />;
   if (!issue)    return null;
 
-  const isStaff  = hasRole("admin", "engineer");
+  const isStaff    = hasRole("admin", "engineer");
+  const canEdit    = isStaff || issue.status === "new";
   const canResolve = isStaff && (issue.status === "in_progress" || issue.status === "on_hold");
   const canComment = issue.status !== "closed" && issue.status !== "cancelled";
+  const isLocked   = !isStaff && issue.status !== "new";
 
-  const status   = STATUS_CONFIG[issue.status]    ?? { label: issue.status,   cls: "" };
+  const status   = STATUS_CONFIG[issue.status]     ?? { label: issue.status,   cls: "" };
   const priority = PRIORITY_CONFIG[issue.priority] ?? { label: issue.priority, cls: "" };
 
   return (
     <div className="space-y-4">
       {/* Top bar */}
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex items-center justify-between gap-4 flex-wrap">
         <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="-ml-2">
           <ArrowLeft className="mr-1.5 size-4" />
           Back
         </Button>
-        {canResolve && (
-          <Button
-            size="sm"
-            onClick={() => resolveMutation.mutate()}
-            disabled={resolveMutation.isPending}
-          >
-            {resolveMutation.isPending
-              ? <Loader2 className="mr-1.5 size-4 animate-spin" />
-              : <CheckCircle2 className="mr-1.5 size-4" />}
-            Mark Resolved
-          </Button>
-        )}
+
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Edit button — always visible unless terminal status or already editing */}
+          {!isEditing && issue.status !== "closed" && issue.status !== "cancelled" && (
+            isLocked ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span tabIndex={0}>
+                    <Button variant="outline" size="sm" disabled>
+                      <Pencil className="mr-1.5 size-3.5" />
+                      Edit
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" align="end" className="p-3 max-w-64">
+                  <p className="font-mono text-[10px] text-muted-foreground mb-1">Edit locked</p>
+                  <p className="text-sm font-medium leading-snug mb-2">
+                    An engineer has picked this up
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Contact support to request changes.
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            ) : canEdit ? (
+              <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
+                <Pencil className="mr-1.5 size-3.5" />
+                Edit
+              </Button>
+            ) : null
+          )}
+
+          {/* Resolve with inline confirmation */}
+          {canResolve && !isEditing && (
+            showResolveConfirm ? (
+              <div className="flex items-center gap-2 rounded-md border bg-muted/40 px-3 py-1.5">
+                <span className="text-sm text-muted-foreground">Mark as resolved?</span>
+                <Button variant="outline" size="sm" onClick={() => setShowResolveConfirm(false)}>
+                  No
+                </Button>
+                <Button
+                  size="sm"
+                  disabled={resolveMutation.isPending}
+                  onClick={() => { resolveMutation.mutate(); setShowResolveConfirm(false); }}
+                >
+                  {resolveMutation.isPending
+                    ? <Loader2 className="size-3.5 animate-spin" />
+                    : "Yes, resolve"}
+                </Button>
+              </div>
+            ) : (
+              <Button size="sm" onClick={() => setShowResolveConfirm(true)}>
+                <CheckCircle2 className="mr-1.5 size-4" />
+                Mark Resolved
+              </Button>
+            )
+          )}
+        </div>
       </div>
 
       {/* Title area */}
@@ -770,15 +1018,27 @@ export default function IssueDetailPage() {
 
       <Separator />
 
-      {/* Timeline */}
-      <IssueTimeline issue={issue} />
+      {isEditing ? (
+        <EditPanel
+          issue={issue}
+          isPending={updateMutation.isPending}
+          isStaff={isStaff}
+          onCancel={() => setIsEditing(false)}
+          onSave={input => updateMutation.mutate(input)}
+        />
+      ) : (
+        <>
+          {/* Timeline */}
+          <IssueTimeline issue={issue} />
 
-      {/* 3-column layout */}
-      <div className="grid grid-cols-[260px_1fr_260px] gap-6 items-start">
-        <MetaPanel issue={issue} />
-        <ActivityPanel issue={issue} canComment={canComment} canInternal={isStaff} />
-        <RecordPanel issue={issue} />
-      </div>
+          {/* 3-column layout */}
+          <div className="grid grid-cols-[260px_1fr_260px] gap-6 items-start">
+            <MetaPanel issue={issue} />
+            <ActivityPanel issue={issue} canComment={canComment} canInternal={isStaff} />
+            <RecordPanel issue={issue} />
+          </div>
+        </>
+      )}
     </div>
   );
 }

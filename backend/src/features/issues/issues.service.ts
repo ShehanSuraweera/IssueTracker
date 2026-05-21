@@ -312,6 +312,15 @@ export async function updateIssue(
     throw new AppError(404, "ISSUE_NOT_FOUND", "Issue not found");
   }
 
+  // Soft-lock: clients cannot edit once an engineer has picked the issue up
+  if (user.role === "client_user" && existing.status !== "new") {
+    throw new AppError(
+      403,
+      "ISSUE_LOCKED",
+      "This issue is locked for editing once it has been picked up. Contact support to request changes."
+    );
+  }
+
   if (input.status && input.status !== existing.status) {
     assertTransition(existing.status, input.status as IssueStatus);
   }
@@ -322,11 +331,16 @@ export async function updateIssue(
     ? computePriority(newImpact, newUrgency)
     : existing.priority;
 
+  const trunc = (s: string) => s.length > 120 ? s.slice(0, 120) + "…" : s;
+
   const changes: { field: string; oldValue?: string | null; newValue?: string | null }[] = [];
-  if (input.title  && input.title  !== existing.title)  changes.push({ field: "title",    oldValue: existing.title,    newValue: input.title });
-  if (input.type   && input.type   !== existing.type)   changes.push({ field: "type",     oldValue: existing.type,     newValue: input.type });
-  if (input.status && input.status !== existing.status) changes.push({ field: "status",   oldValue: existing.status,   newValue: input.status });
-  if (newPriority  !== existing.priority)               changes.push({ field: "priority", oldValue: existing.priority, newValue: newPriority });
+  if (input.title       && input.title       !== existing.title)       changes.push({ field: "title",       oldValue: existing.title,            newValue: input.title });
+  if (input.type        && input.type        !== existing.type)        changes.push({ field: "type",        oldValue: existing.type,             newValue: input.type });
+  if (input.status      && input.status      !== existing.status)      changes.push({ field: "status",      oldValue: existing.status,           newValue: input.status });
+  if (newPriority       !== existing.priority)                         changes.push({ field: "priority",    oldValue: existing.priority,         newValue: newPriority });
+  if (input.description && input.description !== existing.description) changes.push({ field: "description", oldValue: trunc(existing.description), newValue: trunc(input.description) });
+  if (input.impact      && input.impact      !== existing.impact)      changes.push({ field: "impact",      oldValue: existing.impact,           newValue: input.impact });
+  if (input.urgency     && input.urgency     !== existing.urgency)     changes.push({ field: "urgency",     oldValue: existing.urgency,          newValue: input.urgency });
 
   const resolvedAt =
     input.status === "resolved" && existing.status !== "resolved"
