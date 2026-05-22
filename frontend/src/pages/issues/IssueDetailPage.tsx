@@ -16,6 +16,7 @@ import type { User as AuthUser } from "@/types/users";
 import { useTabsStore } from "@/store/tabs.store";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { InlineConfirm } from "@/components/ui/inline-confirm";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -1197,10 +1198,7 @@ export default function IssueDetailPage() {
   const assignSelfMutation = useAssignIssue(id);
   const { updateLabel, updateMeta } = useTabsStore();
 
-  const [isEditing,             setIsEditing]             = useState(false);
-  const [showResolveConfirm,    setShowResolveConfirm]    = useState(false);
-  const [showAssignSelfConfirm, setShowAssignSelfConfirm] = useState(false);
-  const [showCloseConfirm,      setShowCloseConfirm]      = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
     if (!issue || !id) return;
@@ -1271,78 +1269,51 @@ export default function IssueDetailPage() {
 
           {/* Assign to Me — engineer shortcut */}
           {canAssignSelf && !isEditing && (
-            showAssignSelfConfirm ? (
-              <div className="flex items-center gap-2 rounded-md border bg-muted/40 px-3 py-1.5">
-                <span className="text-sm text-muted-foreground">Assign this issue to yourself?</span>
-                <Button variant="outline" size="sm" onClick={() => setShowAssignSelfConfirm(false)}>Cancel</Button>
-                <Button
-                  size="sm"
-                  disabled={assignSelfMutation.isPending}
-                  onClick={() => {
-                    user && assignSelfMutation.mutate(user.id, { onSettled: () => setShowAssignSelfConfirm(false) });
-                  }}
-                >
-                  {assignSelfMutation.isPending ? <Loader2 className="size-3.5 animate-spin" /> : "Assign to Me"}
+            <InlineConfirm
+              trigger={
+                <Button variant="outline" size="sm">
+                  <UserPlus className="mr-1.5 size-3.5" />
+                  Assign to Me
                 </Button>
-              </div>
-            ) : (
-              <Button variant="outline" size="sm" onClick={() => setShowAssignSelfConfirm(true)}>
-                <UserPlus className="mr-1.5 size-3.5" />
-                Assign to Me
-              </Button>
-            )
+              }
+              message="Assign this issue to yourself?"
+              confirmLabel="Assign to Me"
+              isPending={assignSelfMutation.isPending}
+              onConfirm={() => user && assignSelfMutation.mutate(user.id)}
+            />
           )}
 
-          {/* Resolve with inline confirmation */}
+          {/* Resolve with confirmation */}
           {canResolve && !isEditing && (
-            showResolveConfirm ? (
-              <div className="flex items-center gap-2 rounded-md border bg-muted/40 px-3 py-1.5">
-                <span className="text-sm text-muted-foreground">Mark as resolved?</span>
-                <Button variant="outline" size="sm" onClick={() => setShowResolveConfirm(false)}>
-                  No
+            <InlineConfirm
+              trigger={
+                <Button size="sm">
+                  <CheckCircle2 className="mr-1.5 size-4" />
+                  Mark Resolved
                 </Button>
-                <Button
-                  size="sm"
-                  disabled={resolveMutation.isPending}
-                  onClick={() => { resolveMutation.mutate(); setShowResolveConfirm(false); }}
-                >
-                  {resolveMutation.isPending
-                    ? <Loader2 className="size-3.5 animate-spin" />
-                    : "Yes, resolve"}
-                </Button>
-              </div>
-            ) : (
-              <Button size="sm" onClick={() => setShowResolveConfirm(true)}>
-                <CheckCircle2 className="mr-1.5 size-4" />
-                Mark Resolved
-              </Button>
-            )
+              }
+              message="Mark as resolved?"
+              confirmLabel="Yes, resolve"
+              cancelLabel="No"
+              isPending={resolveMutation.isPending}
+              onConfirm={() => resolveMutation.mutate()}
+            />
           )}
 
           {/* Close Issue — admin or client after resolution */}
           {canClose && !isEditing && (
-            showCloseConfirm ? (
-              <div className="flex items-center gap-2 rounded-md border bg-muted/40 px-3 py-1.5">
-                <span className="text-sm text-muted-foreground">Close this issue?</span>
-                <Button variant="outline" size="sm" onClick={() => setShowCloseConfirm(false)}>
-                  Cancel
+            <InlineConfirm
+              trigger={
+                <Button variant="outline" size="sm">
+                  <CheckCircle2 className="mr-1.5 size-3.5" />
+                  Close Issue
                 </Button>
-                <Button
-                  size="sm"
-                  disabled={updateMutation.isPending}
-                  onClick={() => {
-                    updateMutation.mutate({ status: "closed" }, { onSettled: () => setShowCloseConfirm(false) });
-                  }}
-                >
-                  {updateMutation.isPending ? <Loader2 className="size-3.5 animate-spin" /> : "Close Issue"}
-                </Button>
-              </div>
-            ) : (
-              <Button variant="outline" size="sm" onClick={() => setShowCloseConfirm(true)}>
-                <CheckCircle2 className="mr-1.5 size-3.5" />
-                Close Issue
-              </Button>
-            )
+              }
+              message="Close this issue?"
+              confirmLabel="Close Issue"
+              isPending={updateMutation.isPending}
+              onConfirm={() => updateMutation.mutate({ status: "closed" })}
+            />
           )}
         </div>
       </div>
