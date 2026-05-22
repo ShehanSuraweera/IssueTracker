@@ -25,7 +25,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "24"
           cache: "npm"
           cache-dependency-path: backend/package-lock.json
 
@@ -33,6 +33,7 @@ jobs:
         working-directory: backend
         run: |
           npm ci
+          npx prisma generate
           npm run build
 
       # 3. SSH into the EC2 server and run the deployment
