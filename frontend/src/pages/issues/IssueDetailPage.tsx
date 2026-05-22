@@ -6,8 +6,12 @@ import {
   Calendar, Building2, Package, CheckCircle2,
   History, Lock, Tag, AlertCircle,
   ChevronDown, ChevronRight, Pencil, ArrowRight,
-  Search, UserPlus,
+  Search, UserPlus, X, ArrowUpDown, Layers,
 } from "lucide-react";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem,
+  DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel,
+} from "@/components/ui/dropdown-menu";
 import { useIssue, useAddComment, useResolveIssue, useUpdateIssue, useFeed, useAssignIssue } from "@/hooks/use-issues";
 import { useEngineers } from "@/hooks/use-users";
 import { useAuth } from "@/hooks/use-auth";
@@ -215,31 +219,45 @@ function MetaPanel({ issue }: { issue: IssueDetail }) {
 
 // ─── Comment bubble ───────────────────────────────────────────────────────────
 
-function CommentBubble({ comment }: { comment: Comment }) {
+function CommentBubble({ comment, isSelf }: { comment: Comment; isSelf: boolean }) {
   return (
-    <div className="flex gap-3">
+    <div className={cn("flex items-end gap-2", isSelf && "flex-row-reverse")}>
       <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary font-semibold text-xs">
         {comment.user.fullName.charAt(0).toUpperCase()}
       </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-          <span className="text-sm font-medium">{comment.user.fullName}</span>
-          <span className="text-xs text-muted-foreground capitalize">
-            {comment.user.role.replace("_", " ")}
-          </span>
+      <div className={cn("flex flex-col min-w-0 max-w-[78%]", isSelf && "items-end")}>
+        <div className={cn("flex items-center gap-1.5 mb-1 flex-wrap", isSelf && "flex-row-reverse")}>
+          {!isSelf && (
+            <>
+              <span className="text-xs font-semibold">{comment.user.fullName}</span>
+              <span className="text-[10px] text-muted-foreground capitalize">
+                {comment.user.role.replace("_", " ")}
+              </span>
+            </>
+          )}
           {comment.isInternal && (
             <span className="inline-flex items-center gap-1 text-[10px] font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5">
               <Lock className="size-2.5" /> Internal
             </span>
           )}
-          <span className="text-xs text-muted-foreground ml-auto" title={fmtDateTime(comment.createdAt)}>{relTime(new Date(comment.createdAt).getTime())}</span>
+          <span className="text-[10px] text-muted-foreground" title={fmtDateTime(comment.createdAt)}>
+            {relTime(new Date(comment.createdAt).getTime())}
+          </span>
         </div>
         <div
-          className={`rounded-lg px-3 py-2 text-sm whitespace-pre-wrap leading-relaxed ${
+          className={cn(
+            "px-3.5 py-2 text-sm whitespace-pre-wrap leading-relaxed border",
+            isSelf ? "rounded-2xl rounded-br-sm" : "rounded-2xl rounded-bl-sm",
             comment.isInternal
-              ? "bg-amber-50 border border-amber-200 text-amber-900"
-              : "bg-muted/40 border border-border"
-          }`}
+              ? "bg-amber-50 border-amber-200 text-amber-900"
+              : isSelf
+              ? "border-transparent"
+              : "bg-background border-border",
+          )}
+          style={isSelf && !comment.isInternal ? {
+            background: "color-mix(in srgb, var(--brand-green) 22%, var(--background))",
+            borderColor: "color-mix(in srgb, var(--brand-green) 35%, transparent)",
+          } : undefined}
         >
           {comment.body}
         </div>
@@ -257,18 +275,21 @@ function renderFieldValue(val: string | null, fieldName: string) {
   return <span className="inline-flex rounded px-1.5 py-0.5 text-[10px] font-mono bg-muted text-foreground/80 max-w-36 truncate">{val}</span>;
 }
 
-function ActivityRow({ activity }: { activity: Activity }) {
+function ActivityRow({ activity, isSelf }: { activity: Activity; isSelf: boolean }) {
   const field = activity.fieldName.replace(/_/g, " ");
   const ts    = new Date(activity.createdAt).getTime();
   const isSet = !activity.oldValue && !!activity.newValue;
 
   return (
-    <div className="flex gap-3 items-start">
-      <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-muted/60 mt-0.5">
+    <div className={cn("flex gap-2 items-start", isSelf && "justify-end")}>
+      <div className={cn(
+        "flex size-6 shrink-0 items-center justify-center rounded-full bg-muted/60 mt-0.5",
+        isSelf && "order-last",
+      )}>
         <History className="size-3 text-muted-foreground" />
       </div>
-      <div className="flex-1 min-w-0 py-0.5">
-        <div className="flex items-center gap-1.5 flex-wrap text-sm leading-snug">
+      <div className={cn("min-w-0 py-0.5 max-w-[78%]", isSelf && "text-right")}>
+        <div className={cn("flex items-center gap-1.5 flex-wrap text-sm leading-snug", isSelf && "justify-end")}>
           <span className="font-medium">{activity.user.fullName}</span>
           <span className="text-muted-foreground">{isSet ? "set" : "changed"}</span>
           <span className="font-medium capitalize text-foreground/80">{field}</span>
@@ -292,16 +313,19 @@ function ActivityRow({ activity }: { activity: Activity }) {
 
 type FeedAttachment = Extract<FeedItem, { kind: "attachment" }>;
 
-function AttachmentRow({ item }: { item: FeedAttachment }) {
+function AttachmentRow({ item, isSelf }: { item: FeedAttachment; isSelf: boolean }) {
   const ts     = new Date(item.createdAt).getTime();
   const sizeKb = Math.round(Number(item.sizeBytes) / 1024);
   return (
-    <div className="flex gap-3 items-start">
-      <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-muted/60 mt-0.5">
+    <div className={cn("flex gap-2 items-start", isSelf && "justify-end")}>
+      <div className={cn(
+        "flex size-6 shrink-0 items-center justify-center rounded-full bg-muted/60 mt-0.5",
+        isSelf && "order-last",
+      )}>
         <Paperclip className="size-3 text-muted-foreground" />
       </div>
-      <div className="flex-1 min-w-0 py-0.5">
-        <div className="flex items-center gap-1.5 flex-wrap text-sm leading-snug">
+      <div className={cn("min-w-0 py-0.5 max-w-[78%]", isSelf && "text-right")}>
+        <div className={cn("flex items-center gap-1.5 flex-wrap text-sm leading-snug", isSelf && "justify-end")}>
           <span className="font-medium">{item.user.fullName}</span>
           <span className="text-muted-foreground">attached</span>
           <span className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] bg-muted border font-medium max-w-48 truncate">
@@ -320,29 +344,48 @@ function AttachmentRow({ item }: { item: FeedAttachment }) {
 
 // ─── Center panel — unified activity feed ────────────────────────────────────
 
+type ActGroup = "day" | "type" | "user" | "none";
+type ActSort  = "desc" | "asc";
+
+const GROUP_LABELS: Record<ActGroup, string> = {
+  day:  "By day",
+  type: "By type",
+  user: "By user",
+  none: "None",
+};
+
 function ActivityPanel({
   issueId,
   canComment,
   canInternal,
+  currentUserId,
 }: {
   issueId: string;
   canComment: boolean;
   canInternal: boolean;
+  currentUserId?: string;
 }) {
-  const sentinelRef                                    = useRef<HTMLDivElement>(null);
-  const [filter,      setFilter]                       = useState<FeedFilter>("all");
-  const [commentBody, setBody]                         = useState("");
-  const [isInternal,  setIntern]                       = useState(false);
-  const commentMutation                                = useAddComment(issueId);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  const scrollRef   = useRef<HTMLDivElement>(null);
+
+  const [filter,      setFilter] = useState<FeedFilter>("all");
+  const [commentBody, setBody]   = useState("");
+  const [isInternal,  setIntern] = useState(false);
+  const [actSearch,   setSearch] = useState("");
+  const [actSort,     setSort]   = useState<ActSort>("desc");
+  const [actGroup,    setGroup]  = useState<ActGroup>("day");
+
+  const commentMutation = useAddComment(issueId);
   const { data: feedData, isLoading, isFetchingNextPage, hasNextPage, fetchNextPage } =
     useFeed(issueId, filter);
 
   useEffect(() => {
-    const el = sentinelRef.current;
+    const el   = sentinelRef.current;
+    const root = scrollRef.current;
     if (!el || !hasNextPage) return;
     const obs = new IntersectionObserver(
       (entries) => { if (entries[0].isIntersecting) fetchNextPage(); },
-      { threshold: 0.1 },
+      { threshold: 0.1, root },
     );
     obs.observe(el);
     return () => obs.disconnect();
@@ -353,16 +396,45 @@ function ActivityPanel({
     [feedData],
   );
 
-  const grouped = useMemo(() => {
-    const groups: { day: string; items: FeedItem[] }[] = [];
-    for (const item of allItems) {
-      const day  = dayKey(new Date(item.createdAt).getTime());
-      const last = groups.at(-1);
-      if (last && last.day === day) last.items.push(item);
-      else groups.push({ day, items: [item] });
+  const displayItems = useMemo<FeedItem[]>(() => {
+    let items = allItems;
+    if (actSearch.trim()) {
+      const q = actSearch.toLowerCase();
+      items = items.filter(item => {
+        if (item.kind === "comment")    return item.body.toLowerCase().includes(q) || item.user.fullName.toLowerCase().includes(q);
+        if (item.kind === "activity")   return item.fieldName.toLowerCase().includes(q) || (item.newValue ?? "").toLowerCase().includes(q) || (item.oldValue ?? "").toLowerCase().includes(q) || item.user.fullName.toLowerCase().includes(q);
+        if (item.kind === "attachment") return item.filename.toLowerCase().includes(q) || item.user.fullName.toLowerCase().includes(q);
+        return true;
+      });
     }
-    return groups;
-  }, [allItems]);
+    return actSort === "asc" ? [...items].reverse() : items;
+  }, [allItems, actSearch, actSort]);
+
+  const grouped = useMemo(() => {
+    if (actGroup === "none") return [{ label: "", items: displayItems }];
+
+    if (actGroup === "day") {
+      const groups: { label: string; items: FeedItem[] }[] = [];
+      for (const item of displayItems) {
+        const key  = dayKey(new Date(item.createdAt).getTime());
+        const last = groups.at(-1);
+        if (last && last.label === key) last.items.push(item);
+        else groups.push({ label: key, items: [item] });
+      }
+      return groups;
+    }
+
+    const map = new Map<string, FeedItem[]>();
+    for (const item of displayItems) {
+      const key = actGroup === "type"
+        ? item.kind === "comment" ? "Comments" : item.kind === "activity" ? "Activity" : "Attachments"
+        : item.user.fullName;
+      const existing = map.get(key);
+      if (existing) existing.push(item);
+      else map.set(key, [item]);
+    }
+    return Array.from(map.entries()).map(([label, items]) => ({ label, items }));
+  }, [displayItems, actGroup]);
 
   const commentCount = allItems.filter(i => i.kind === "comment").length;
   const changesCount = allItems.filter(i => i.kind !== "comment").length;
@@ -375,53 +447,36 @@ function ActivityPanel({
     );
   };
 
+  const borderColor = "color-mix(in srgb, var(--brand-green) 30%, transparent)";
+
   return (
-    <div className="flex flex-col gap-0">
-
-      {/* Filter chips */}
-      <div className="flex items-center gap-1.5 mb-4">
-        {([
-          ["all",      "All",      commentCount + changesCount],
-          ["comments", "Comments", commentCount],
-          ["changes",  "Changes",  changesCount],
-        ] as const).map(([f, label, count]) => (
-          <button
-            key={f}
-            onClick={() => setFilter(f)}
-            className={cn(
-              "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",
-              filter === f
-                ? "bg-primary text-primary-foreground border-primary"
-                : "text-muted-foreground hover:text-foreground border-border",
-            )}
-          >
-            {label}
-            <span className={cn(
-              "tabular-nums rounded-full px-1.5 text-[10px]",
-              filter === f ? "bg-primary-foreground/20" : "bg-muted",
-            )}>
-              {count}
-            </span>
-          </button>
-        ))}
-      </div>
-
-      {/* Comment composer — top of feed */}
-      {canComment && (filter === "all" || filter === "comments") && (
-        <div className="border rounded-lg p-3 mb-5 bg-card">
+    <div
+      className="flex flex-col rounded-lg border overflow-hidden"
+      style={{
+        height: "min(680px, calc(100vh - 280px))",
+        borderColor,
+        background: "color-mix(in srgb, var(--brand-green) 5%, var(--background))",
+      }}
+    >
+      {/* Pinned composer */}
+      {canComment && (
+        <div
+          className="shrink-0 px-4 py-3 border-b bg-background/60 backdrop-blur-sm"
+          style={{ borderColor }}
+        >
           <p className="text-xs text-muted-foreground mb-2">
             {isInternal
               ? "Internal note — only visible to engineers and admins"
               : "Everyone can see this comment"}
           </p>
           <textarea
-            className="w-full bg-transparent text-sm placeholder:text-muted-foreground focus-visible:outline-none resize-none min-h-18"
+            className="w-full bg-transparent text-sm placeholder:text-muted-foreground focus-visible:outline-none resize-none min-h-16"
             placeholder="Write a comment…"
             value={commentBody}
             onChange={e => setBody(e.target.value)}
             onKeyDown={e => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) submit(); }}
           />
-          <div className="flex items-center justify-between pt-2 border-t mt-2">
+          <div className="flex items-center justify-between pt-2 border-t mt-1">
             {canInternal ? (
               <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none">
                 <input type="checkbox" checked={isInternal} onChange={e => setIntern(e.target.checked)} className="rounded" />
@@ -436,47 +491,167 @@ function ActivityPanel({
         </div>
       )}
 
-      {/* Feed */}
-      {isLoading ? (
-        <div className="space-y-4 py-2">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="flex gap-3">
-              <div className="size-6 rounded-full bg-muted animate-pulse shrink-0" />
-              <div className="flex-1 space-y-1.5">
-                <div className="h-4 bg-muted animate-pulse rounded w-3/4" />
-                <div className="h-3 bg-muted animate-pulse rounded w-1/3" />
-              </div>
-            </div>
-          ))}
+      {/* Pinned activity header */}
+      <div
+        className="shrink-0 px-4 pt-3 pb-2.5 border-b space-y-2"
+        style={{ borderColor }}
+      >
+        {/* Row 1 — title + sort + group */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold">Activity</span>
+            {displayItems.length > 0 && (
+              <span className="inline-flex items-center justify-center h-4.5 min-w-4.5 px-1 rounded-full bg-muted text-muted-foreground text-[10px] font-bold tabular-nums">
+                {displayItems.length}
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-1">
+            {/* Sort toggle */}
+            <button
+              onClick={() => setSort(s => s === "desc" ? "asc" : "desc")}
+              className={cn(
+                "inline-flex items-center gap-1 rounded px-2 py-1 text-xs border transition-colors",
+                actSort !== "desc"
+                  ? "bg-primary/10 border-primary/30 text-primary"
+                  : "border-border text-muted-foreground hover:text-foreground",
+              )}
+              title={actSort === "desc" ? "Newest first" : "Oldest first"}
+            >
+              <ArrowUpDown className="size-3" />
+              {actSort === "desc" ? "Newest" : "Oldest"}
+            </button>
+
+            {/* Group dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  className={cn(
+                    "inline-flex items-center gap-1 rounded px-2 py-1 text-xs border transition-colors",
+                    actGroup !== "day"
+                      ? "bg-primary/10 border-primary/30 text-primary"
+                      : "border-border text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  <Layers className="size-3" />
+                  {GROUP_LABELS[actGroup]}
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-36">
+                <DropdownMenuLabel className="text-xs py-1.5">Group by</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {(["day", "type", "user", "none"] as ActGroup[]).map(g => (
+                  <DropdownMenuItem
+                    key={g}
+                    onClick={() => setGroup(g)}
+                    className="justify-between text-xs"
+                  >
+                    {GROUP_LABELS[g]}
+                    {actGroup === g && <span className="text-primary">✓</span>}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
-      ) : allItems.length === 0 ? (
-        <p className="text-sm text-muted-foreground py-8 text-center">Nothing here yet.</p>
-      ) : (
-        <div>
-          {grouped.map(({ day, items }) => (
-            <div key={day}>
-              <div className="flex items-center gap-2 py-3">
-                <div className="flex-1 h-px bg-border" />
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground whitespace-nowrap px-1">{day}</span>
-                <div className="flex-1 h-px bg-border" />
-              </div>
-              <div className="space-y-4">
-                {items.map(item => {
-                  if (item.kind === "comment")    return <CommentBubble key={item.id} comment={item as unknown as Comment} />;
-                  if (item.kind === "activity")   return <ActivityRow   key={item.id} activity={item as unknown as Activity} />;
-                  return                                 <AttachmentRow key={item.id} item={item} />;
-                })}
-              </div>
-            </div>
-          ))}
-          {isFetchingNextPage && (
-            <div className="flex justify-center py-4">
-              <Loader2 className="size-4 animate-spin text-muted-foreground" />
-            </div>
+
+        {/* Row 2 — search */}
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
+          <input
+            type="text"
+            placeholder="Search activity…"
+            value={actSearch}
+            onChange={e => setSearch(e.target.value)}
+            className="w-full pl-8 pr-7 py-1.5 text-xs rounded-md border border-input bg-background/80 focus:outline-none focus:ring-1 focus:ring-ring"
+          />
+          {actSearch && (
+            <button
+              onClick={() => setSearch("")}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            >
+              <X className="size-3" />
+            </button>
           )}
-          <div ref={sentinelRef} className="h-1" />
         </div>
-      )}
+
+        {/* Row 3 — filter chips */}
+        <div className="flex items-center gap-1.5">
+          {([
+            ["all",      "All",      commentCount + changesCount],
+            ["comments", "Comments", commentCount],
+            ["changes",  "Changes",  changesCount],
+          ] as const).map(([f, label, count]) => (
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",
+                filter === f
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "text-muted-foreground hover:text-foreground border-border",
+              )}
+            >
+              {label}
+              <span className={cn(
+                "tabular-nums rounded-full px-1.5 text-[10px]",
+                filter === f ? "bg-primary-foreground/20" : "bg-muted",
+              )}>
+                {count}
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Scrollable feed */}
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4">
+        {isLoading ? (
+          <div className="space-y-4 py-2">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="flex gap-3">
+                <div className="size-6 rounded-full bg-muted animate-pulse shrink-0" />
+                <div className="flex-1 space-y-1.5">
+                  <div className="h-4 bg-muted animate-pulse rounded w-3/4" />
+                  <div className="h-3 bg-muted animate-pulse rounded w-1/3" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : displayItems.length === 0 ? (
+          <p className="text-sm text-muted-foreground py-8 text-center">
+            {actSearch ? "No activity matches your search." : "Nothing here yet."}
+          </p>
+        ) : (
+          <div>
+            {grouped.map(({ label, items }) => (
+              <div key={label}>
+                {label && (
+                  <div className="flex items-center gap-2 py-3">
+                    <div className="flex-1 h-px bg-border/50" />
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground whitespace-nowrap px-1">{label}</span>
+                    <div className="flex-1 h-px bg-border/50" />
+                  </div>
+                )}
+                <div className="space-y-3">
+                  {items.map(item => {
+                    const isSelf = item.user.id === currentUserId;
+                    if (item.kind === "comment")  return <CommentBubble key={item.id} comment={item as unknown as Comment}  isSelf={isSelf} />;
+                    if (item.kind === "activity") return <ActivityRow   key={item.id} activity={item as unknown as Activity} isSelf={isSelf} />;
+                    return                               <AttachmentRow key={item.id} item={item}                            isSelf={isSelf} />;
+                  })}
+                </div>
+              </div>
+            ))}
+            {isFetchingNextPage && (
+              <div className="flex justify-center py-4">
+                <Loader2 className="size-4 animate-spin text-muted-foreground" />
+              </div>
+            )}
+            <div ref={sentinelRef} className="h-1" />
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -1151,7 +1326,7 @@ export default function IssueDetailPage() {
         {/* 3-column layout */}
         <div className="grid grid-cols-[260px_1fr_260px] gap-6 items-start">
           <MetaPanel issue={issue} />
-          <ActivityPanel issueId={issue.id} canComment={canComment} canInternal={isStaff} />
+          <ActivityPanel issueId={issue.id} canComment={canComment} canInternal={isStaff} currentUserId={user?.id} />
           <div className="space-y-4">
             <AssignmentCard
               issue={issue}
