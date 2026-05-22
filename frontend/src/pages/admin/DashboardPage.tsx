@@ -1,122 +1,114 @@
-import { TicketCheck, AlertTriangle, Clock, CheckCircle } from "lucide-react";
 import { useIssueStats } from "@/hooks/use-issues";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
+import { relativeTime } from "@/lib/utils";
+import { STATUS_CONFIG } from "@/lib/theme";
+import type { IssueStatus } from "@/types/issues";
 
-interface StatCardProps {
-  label:   string;
-  value:   number | undefined;
-  icon:    React.ElementType;
-  color:   string;
+function numClass(accent?: "red" | "orange") {
+  if (accent === "red")    return "text-red-600";
+  if (accent === "orange") return "text-orange-500";
+  return "text-foreground";
 }
 
-function StatCard({ label, value, icon: Icon, color }: StatCardProps) {
+interface TileProps {
+  title:     string;
+  value:     number | undefined;
+  updatedAt: number;
+  accent?:   "red" | "orange";
+}
+
+function KpiTile({ title, value, updatedAt, accent }: TileProps) {
   return (
     <Card>
-      <CardContent className="p-5 flex items-center gap-4">
-        <div className={`flex size-10 items-center justify-center rounded-lg ${color}`}>
-          <Icon className="size-5 text-white" />
-        </div>
-        <div>
-          {value === undefined ? (
-            <Skeleton className="h-7 w-12 mb-1" />
-          ) : (
-            <p className="text-2xl font-bold">{value}</p>
-          )}
-          <p className="text-sm text-muted-foreground">{label}</p>
-        </div>
+      <CardContent className="p-5 flex flex-col gap-4">
+        <p className="text-sm font-medium text-foreground/80 leading-snug">{title}</p>
+        {value === undefined ? (
+          <Skeleton className="h-14 w-16" />
+        ) : (
+          <p className={cn("text-6xl font-light tracking-tight", numClass(accent))}>
+            {value}
+          </p>
+        )}
+        <p className="text-xs text-muted-foreground">
+          {updatedAt > 0 ? `Updated ${relativeTime(updatedAt)}` : "Loading…"}
+        </p>
       </CardContent>
     </Card>
   );
 }
 
+function Section({
+  title,
+  tiles,
+  isLoading,
+  skeletonCount = 4,
+}: {
+  title:         string;
+  tiles:         TileProps[];
+  isLoading:     boolean;
+  skeletonCount?: number;
+}) {
+  return (
+    <div>
+      <h2 className="text-sm font-semibold mb-3">{title}</h2>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {isLoading
+          ? Array.from({ length: skeletonCount }).map((_, i) => (
+              <Card key={i}>
+                <CardContent className="p-5 flex flex-col gap-4">
+                  <Skeleton className="h-4 w-40" />
+                  <Skeleton className="h-14 w-16" />
+                  <Skeleton className="h-3 w-28" />
+                </CardContent>
+              </Card>
+            ))
+          : tiles.map((tile) => <KpiTile key={tile.title} {...tile} />)
+        }
+      </div>
+    </div>
+  );
+}
+
 export default function DashboardPage() {
-  const { data: stats, isLoading } = useIssueStats();
+  const { data: stats, dataUpdatedAt } = useIssueStats({ refetchInterval: 60_000 });
+
+  const ts         = dataUpdatedAt ?? 0;
+  const isLoading  = !stats;
+
+  const overviewTiles: TileProps[] = [
+    { title: "Open Issues",        value: stats?.summary.totalOpen,        updatedAt: ts              },
+    { title: "Critical",           value: stats?.summary.critical,          updatedAt: ts, accent: "red"    },
+    { title: "SLA at Risk",        value: stats?.summary.atSlaRisk,         updatedAt: ts, accent: "orange" },
+    { title: "Resolved This Week", value: stats?.summary.resolvedThisWeek, updatedAt: ts              },
+  ];
+
+  const priorityTiles: TileProps[] = [
+    { title: "Critical", value: stats?.byPriority?.["critical"] as number | undefined, updatedAt: ts, accent: "red"    },
+    { title: "High",     value: stats?.byPriority?.["high"]     as number | undefined, updatedAt: ts, accent: "orange" },
+    { title: "Moderate", value: stats?.byPriority?.["moderate"] as number | undefined, updatedAt: ts              },
+    { title: "Low",      value: stats?.byPriority?.["low"]      as number | undefined, updatedAt: ts              },
+  ];
+
+  const statusTiles: TileProps[] = Object.entries(stats?.byStatus ?? {}).map(([status, count]) => ({
+    title:     STATUS_CONFIG[status as IssueStatus]?.label ?? status.replace("_", " "),
+    value:     count as number,
+    updatedAt: ts,
+  }));
+
+  const regionTiles: TileProps[] = Object.entries(stats?.byRegion ?? {}).map(([region, count]) => ({
+    title:     region,
+    value:     count as number,
+    updatedAt: ts,
+  }));
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold">Dashboard</h1>
-        <p className="text-sm text-muted-foreground">Portfolio overview</p>
-      </div>
-
-      {/* KPI cards */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard label="Open issues"       value={stats?.summary.totalOpen}        icon={TicketCheck}    color="bg-primary" />
-        <StatCard label="Critical"          value={stats?.summary.critical}         icon={AlertTriangle}  color="bg-red-500" />
-        <StatCard label="SLA at risk"       value={stats?.summary.atSlaRisk}        icon={Clock}          color="bg-orange-500" />
-        <StatCard label="Resolved this week" value={stats?.summary.resolvedThisWeek} icon={CheckCircle}    color="bg-green-500" />
-      </div>
-
-      {/* By status + by priority */}
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">By Status</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <div className="space-y-2">
-                {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-5 w-full" />)}
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {Object.entries(stats?.byStatus ?? {}).map(([status, count]) => (
-                  <div key={status} className="flex items-center justify-between text-sm">
-                    <span className="capitalize">{status.replace("_", " ")}</span>
-                    <span className="font-medium">{count as number}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">By Priority</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <div className="space-y-2">
-                {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-5 w-full" />)}
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {Object.entries(stats?.byPriority ?? {}).map(([priority, count]) => (
-                  <div key={priority} className="flex items-center justify-between text-sm">
-                    <span className="capitalize">{priority}</span>
-                    <span className="font-medium">{count as number}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* By region */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium">By Region</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="flex gap-6">
-              {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-12 w-24" />)}
-            </div>
-          ) : (
-            <div className="flex gap-6">
-              {Object.entries(stats?.byRegion ?? {}).map(([region, count]) => (
-                <div key={region} className="text-center">
-                  <p className="text-2xl font-bold">{count as number}</p>
-                  <p className="text-xs text-muted-foreground">{region}</p>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+    <div className="space-y-8 p-5">
+      <Section title="Overview"    tiles={overviewTiles}  isLoading={isLoading} skeletonCount={4} />
+      <Section title="By Priority" tiles={priorityTiles}  isLoading={isLoading} skeletonCount={4} />
+      <Section title="By Status"   tiles={statusTiles}    isLoading={isLoading} skeletonCount={6} />
+      <Section title="By Region"   tiles={regionTiles}    isLoading={isLoading} skeletonCount={3} />
     </div>
   );
 }
