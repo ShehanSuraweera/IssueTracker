@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import {
   Plus, Filter, RefreshCw, Download,
   ChevronDown, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, Layers,
-  PanelLeftClose, PanelLeftOpen, Loader2,
+  PanelLeftClose, PanelLeftOpen, Loader2, Pin,
 } from "lucide-react";
 import { useInfiniteIssues } from "@/hooks/use-issues";
 import { relativeTime } from "@/lib/utils";
@@ -105,6 +105,10 @@ export default function IssueListPage() {
   const [activeViewQuery, setActiveViewQuery] = useState<Partial<ListIssuesQuery>>({});
   const [activeViewLabel, setActiveViewLabel] = useState("All Issues");
   const [collapsed,       setCollapsed]       = useState<Set<string>>(new Set());
+  const [pinned,          setPinned]          = useState<Set<string>>(() => {
+    try { return new Set(JSON.parse(localStorage.getItem("sidebar-pinned") ?? "[]")); }
+    catch { return new Set(); }
+  });
   const [search,          setSearch]          = useState("");
   const [sortField,       setSortField]       = useState<SortField>("updatedAt");
   const [sortDir,         setSortDir]         = useState<SortDir>("desc");
@@ -194,6 +198,23 @@ export default function IssueListPage() {
     });
   };
 
+  const togglePin = (label: string) => {
+    setPinned(prev => {
+      const next = new Set(prev);
+      next.has(label) ? next.delete(label) : next.add(label);
+      localStorage.setItem("sidebar-pinned", JSON.stringify([...next]));
+      return next;
+    });
+  };
+
+  const sortedGroups = useMemo(() => {
+    const filtered = NAV_GROUPS.filter(g => g.items.length > 0);
+    return [
+      ...filtered.filter(g => pinned.has(g.label)),
+      ...filtered.filter(g => !pinned.has(g.label)),
+    ];
+  }, [NAV_GROUPS, pinned]);
+
   const cycleSort = (field: SortField) => {
     if (sortField === field) setSortDir(d => d === "asc" ? "desc" : "asc");
     else { setSortField(field); setSortDir("asc"); }
@@ -271,20 +292,37 @@ export default function IssueListPage() {
         </div>
         {/* Nav groups */}
         <nav className="flex-1 overflow-y-auto py-2">
-          {NAV_GROUPS.filter(g => g.items.length > 0).map(group => {
+          {sortedGroups.map((group, idx) => {
             const isCollapsed = collapsed.has(group.label);
+            const isPinned    = pinned.has(group.label);
+            const firstUnpinned = idx > 0 && !isPinned && pinned.has(sortedGroups[idx - 1].label);
             return (
               <div key={group.label} className="mb-1">
-                <button
-                  onClick={() => toggleCollapse(group.label)}
-                  className="flex w-full items-center gap-1 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  {isCollapsed
-                    ? <ChevronRight className="size-3 shrink-0" />
-                    : <ChevronDown  className="size-3 shrink-0" />
-                  }
-                  {group.label}
-                </button>
+                {firstUnpinned && <div className="mx-3 mb-1 border-t border-dashed border-border/60" />}
+                <div className="group/grp flex items-center">
+                  <button
+                    onClick={() => toggleCollapse(group.label)}
+                    className="flex flex-1 items-center gap-1 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground hover:text-foreground transition-colors min-w-0"
+                  >
+                    {isCollapsed
+                      ? <ChevronRight className="size-3 shrink-0" />
+                      : <ChevronDown  className="size-3 shrink-0" />
+                    }
+                    <span className="truncate">{group.label}</span>
+                  </button>
+                  <button
+                    onClick={() => togglePin(group.label)}
+                    title={isPinned ? "Unpin group" : "Pin to top"}
+                    className={cn(
+                      "mr-2 p-0.5 rounded transition-colors",
+                      isPinned
+                        ? "text-primary"
+                        : "text-transparent group-hover/grp:text-muted-foreground hover:text-foreground!",
+                    )}
+                  >
+                    <Pin className={cn("size-3", isPinned && "fill-current")} />
+                  </button>
+                </div>
                 {!isCollapsed && group.items.map(item => (
                   <button
                     key={item.id}
