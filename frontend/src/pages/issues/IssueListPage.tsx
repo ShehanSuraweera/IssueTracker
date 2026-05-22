@@ -17,7 +17,7 @@ function useDebounce<T>(value: T, delay: number): T {
 }
 import { useAuth } from "@/hooks/use-auth";
 import { useTabsStore } from "@/store/tabs.store";
-import type { IssueSummary, ListIssuesQuery, PriorityLevel, IssueStatus } from "@/types/issues";
+import type { IssueSummary, ListIssuesQuery, PriorityLevel } from "@/types/issues";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -26,28 +26,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
-
-const IMPACT_BADGE: Record<string, string> = {
-  low:    "bg-slate-100 text-slate-600 border-slate-200",
-  medium: "bg-yellow-100 text-yellow-700 border-yellow-200",
-  high:   "bg-rose-100 text-rose-700 border-rose-200",
-};
-
-const PRIORITY_BADGE: Record<PriorityLevel, string> = {
-  low:      "bg-slate-100 text-slate-700 border-slate-200",
-  moderate: "bg-blue-100 text-blue-700 border-blue-200",
-  high:     "bg-orange-100 text-orange-700 border-orange-200",
-  critical: "bg-red-100 text-red-700 border-red-200",
-};
-
-const STATUS_BADGE: Record<IssueStatus, string> = {
-  new:         "bg-purple-100 text-purple-700",
-  in_progress: "bg-blue-100 text-blue-700",
-  on_hold:     "bg-amber-100 text-amber-700",
-  resolved:    "bg-green-100 text-green-700",
-  closed:      "bg-gray-100 text-gray-600",
-  cancelled:   "bg-red-100 text-red-700",
-};
+import { STATUS_CONFIG, PRIORITY_CONFIG, IMPACT_BADGE } from "@/lib/theme";
 
 type SortField = "ticketNumber" | "title" | "status" | "priority" | "assignee" | "updatedAt";
 type SortDir   = "asc" | "desc";
@@ -253,12 +232,12 @@ export default function IssueListPage() {
         {issue.product.name}
       </td>
       <td className="px-4 py-2.5">
-        <span className={cn("inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium capitalize", STATUS_BADGE[issue.status])}>
+        <span className={cn("inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium capitalize", STATUS_CONFIG[issue.status]?.cls)}>
           {issue.status.replace(/_/g, " ")}
         </span>
       </td>
       <td className="px-4 py-2.5">
-        <span className={cn("inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium capitalize border", PRIORITY_BADGE[issue.priority])}>
+        <span className={cn("inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium capitalize border", PRIORITY_CONFIG[issue.priority]?.cls)}>
           {issue.priority}
         </span>
       </td>

@@ -7,25 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent } from "@/components/ui/card";
 import heroImg from "@/assets/hero.png";
-import type { IssueSummary, PriorityLevel, IssueStatus } from "@/types/issues";
-
-// ─── Config ───────────────────────────────────────────────────────────────────
-
-const PRIORITY_STYLES: Record<PriorityLevel, string> = {
-  low:      "bg-sky-100 text-sky-700 border-sky-200",
-  moderate: "bg-yellow-100 text-yellow-700 border-yellow-200",
-  high:     "bg-orange-100 text-orange-700 border-orange-200",
-  critical: "bg-red-100 text-red-700 border-red-200",
-};
-
-const STATUS_STYLES: Record<IssueStatus, string> = {
-  new:         "bg-purple-100 text-purple-700",
-  in_progress: "bg-blue-100 text-blue-700",
-  on_hold:     "bg-amber-100 text-amber-700",
-  resolved:    "bg-green-100 text-green-700",
-  closed:      "bg-gray-100 text-gray-600",
-  cancelled:   "bg-red-100 text-red-700",
-};
+import type { IssueSummary } from "@/types/issues";
+import { STATUS_CONFIG, PRIORITY_CONFIG } from "@/lib/theme";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -290,12 +273,12 @@ export default function HomePage() {
                         <span className="font-medium truncate block">{issue.title}</span>
                       </td>
                       <td className="px-3 py-2.5 whitespace-nowrap">
-                        <Badge variant="outline" className={`text-[10px] ${PRIORITY_STYLES[issue.priority]}`}>
+                        <Badge variant="outline" className={`text-[10px] ${PRIORITY_CONFIG[issue.priority]?.cls}`}>
                           {issue.priority}
                         </Badge>
                       </td>
                       <td className="px-3 py-2.5 whitespace-nowrap">
-                        <Badge variant="outline" className={`text-[10px] ${STATUS_STYLES[issue.status]}`}>
+                        <Badge variant="outline" className={`text-[10px] ${STATUS_CONFIG[issue.status]?.cls}`}>
                           {issue.status.replace("_", " ")}
                         </Badge>
                       </td>

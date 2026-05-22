@@ -12,33 +12,21 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-
-const STATUS_STYLE: Record<string, string> = {
-  new:         "bg-purple-100 text-purple-700",
-  in_progress: "bg-blue-100 text-blue-700",
-  on_hold:     "bg-amber-100 text-amber-700",
-  resolved:    "bg-green-100 text-green-700",
-  closed:      "bg-gray-100 text-gray-600",
-  cancelled:   "bg-red-100 text-red-600",
-};
-
-const PRIORITY_STYLE: Record<string, string> = {
-  critical: "bg-red-100 text-red-700",
-  high:     "bg-orange-100 text-orange-700",
-  moderate: "bg-yellow-100 text-yellow-700",
-  low:      "bg-sky-100 text-sky-700",
-};
-
-const ROLE_LABEL: Record<string, string> = {
-  admin:       "Admin",
-  engineer:    "Engineer",
-  client_user: "Client",
-};
+import { STATUS_CONFIG, PRIORITY_CONFIG, ROLE_LABEL } from "@/lib/theme";
 
 function initials(name: string): string {
-  return name.split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase();
+  return name
+    .split(" ")
+    .map((n) => n[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
 }
 
 export function Header() {
@@ -54,8 +42,8 @@ export function Header() {
   const handleClose = (e: React.MouseEvent, tab: AppTab) => {
     e.stopPropagation();
     const state = useTabsStore.getState();
-    const idx   = state.tabs.findIndex((t) => t.id === tab.id);
-    const next  = state.tabs.filter((t) => t.id !== tab.id);
+    const idx = state.tabs.findIndex((t) => t.id === tab.id);
+    const next = state.tabs.filter((t) => t.id !== tab.id);
     if (state.activeId === tab.id) {
       const newActive = next[Math.max(0, idx - 1)] ?? next[0];
       navigate(newActive?.path ?? "/");
@@ -65,11 +53,10 @@ export function Header() {
 
   return (
     <header className="flex h-14 border-b bg-muted/30 shrink-0">
-
       {/* ── Tabs (sit flush at the bottom of the header) ───────────── */}
       <div className="flex flex-1 items-end overflow-x-auto min-w-0 px-2 gap-0.5 scrollbar-none [&::-webkit-scrollbar]:hidden">
         {tabs.map((tab) => {
-          const isActive   = tab.id === activeId;
+          const isActive = tab.id === activeId;
           const isIssueTab = tab.id.startsWith("issue:");
 
           const tabButton = (
@@ -128,16 +115,22 @@ export function Header() {
                   {tab.meta.title}
                 </p>
                 <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className={cn(
-                    "inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium capitalize",
-                    STATUS_STYLE[tab.meta.status] ?? "bg-muted text-muted-foreground",
-                  )}>
+                  <span
+                    className={cn(
+                      "inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium capitalize",
+                      STATUS_CONFIG[tab.meta.status]?.cls ??
+                        "bg-muted text-muted-foreground",
+                    )}
+                  >
                     {tab.meta.status.replace("_", " ")}
                   </span>
-                  <span className={cn(
-                    "inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium capitalize",
-                    PRIORITY_STYLE[tab.meta.priority] ?? "bg-muted text-muted-foreground",
-                  )}>
+                  <span
+                    className={cn(
+                      "inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium capitalize",
+                      PRIORITY_CONFIG[tab.meta.priority]?.cls ??
+                        "bg-muted text-muted-foreground",
+                    )}
+                  >
                     {tab.meta.priority}
                   </span>
                 </div>
@@ -153,10 +146,14 @@ export function Header() {
           <DropdownMenu>
             <DropdownMenuTrigger className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent outline-none">
               <Avatar className="size-7">
-                <AvatarFallback className="text-xs">{initials(user.fullName)}</AvatarFallback>
+                <AvatarFallback className="text-xs">
+                  {initials(user.fullName)}
+                </AvatarFallback>
               </Avatar>
               <span className="font-medium">{user.fullName}</span>
-              <Badge variant="secondary" className="text-xs">{ROLE_LABEL[user.role]}</Badge>
+              <Badge variant="secondary" className="text-xs">
+                {ROLE_LABEL[user.role]}
+              </Badge>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
               <DropdownMenuLabel className="font-normal">

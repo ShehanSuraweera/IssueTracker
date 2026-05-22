@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { PRIORITY_CONFIG, LEVEL_COLORS } from "@/lib/theme";
 
 // ─── Schema ───────────────────────────────────────────────────────────────────
 
@@ -47,25 +48,6 @@ const PRIORITY_MATRIX: Record<string, Record<string, string>> = {
   low:    { low: "low",      medium: "low",       high: "moderate" },
 };
 
-const PRIORITY_BADGE: Record<string, string> = {
-  critical: "bg-red-100    text-red-700    border-red-300",
-  high:     "bg-orange-100 text-orange-700 border-orange-300",
-  moderate: "bg-yellow-100 text-yellow-700 border-yellow-300",
-  low:      "bg-slate-100  text-slate-600  border-slate-300",
-};
-
-const PRIORITY_CELL: Record<string, string> = {
-  critical: "bg-red-100    text-red-700",
-  high:     "bg-orange-100 text-orange-700",
-  moderate: "bg-yellow-100 text-yellow-700",
-  low:      "bg-slate-100  text-slate-600",
-};
-
-const LEVEL_COLORS: Record<string, { active: string; idle: string }> = {
-  low:    { active: "bg-slate-500  text-white", idle: "text-slate-500  hover:bg-slate-100/70" },
-  medium: { active: "bg-amber-400  text-white", idle: "text-amber-600  hover:bg-amber-50" },
-  high:   { active: "bg-red-500    text-white", idle: "text-red-500    hover:bg-red-50" },
-};
 
 const TIPS = [
   "Use a specific title — avoid vague terms like \"it broke\"",
@@ -260,7 +242,7 @@ export default function IssueCreatePage() {
             <div className="flex items-center gap-2">
               <span className={cn(
                 "inline-flex items-center rounded-full border px-3 py-1 text-sm font-semibold capitalize",
-                PRIORITY_BADGE[derivedPriority],
+                PRIORITY_CONFIG[derivedPriority as keyof typeof PRIORITY_CONFIG]?.cls,
               )}>
                 {derivedPriority}
               </span>
@@ -310,7 +292,7 @@ export default function IssueCreatePage() {
                         key={`${imp}-${urg}`}
                         className={cn(
                           "text-center py-1 rounded font-medium transition-all",
-                          PRIORITY_CELL[p],
+                          PRIORITY_CONFIG[p as keyof typeof PRIORITY_CONFIG]?.cls,
                           isActive && "ring-2 ring-offset-0 ring-foreground/25 scale-105",
                         )}
                       >

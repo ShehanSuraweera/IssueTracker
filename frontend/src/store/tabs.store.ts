@@ -1,10 +1,11 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
+import type { IssueStatus, PriorityLevel } from "@/types/issues";
 
 export interface TabMeta {
   title: string;
-  status: string;
-  priority: string;
+  status: IssueStatus;
+  priority: PriorityLevel;
 }
 
 export interface AppTab {

@@ -23,25 +23,8 @@ import { Separator } from "@/components/ui/separator";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import type { IssueDetail, Comment, Activity, UpdateIssueInput, IssueStatus, IssueType, ImpactLevel, UrgencyLevel, FeedItem, FeedFilter } from "@/types/issues";
-
-// ─── Config maps ──────────────────────────────────────────────────────────────
-
-const STATUS_CONFIG: Record<string, { label: string; cls: string }> = {
-  new:         { label: "New",         cls: "bg-purple-100 text-purple-700 border-purple-200" },
-  in_progress: { label: "In Progress", cls: "bg-blue-100 text-blue-700 border-blue-200" },
-  on_hold:     { label: "On Hold",     cls: "bg-amber-100 text-amber-700 border-amber-200" },
-  resolved:    { label: "Resolved",    cls: "bg-green-100 text-green-700 border-green-200" },
-  closed:      { label: "Closed",      cls: "bg-gray-100 text-gray-600 border-gray-200" },
-  cancelled:   { label: "Cancelled",   cls: "bg-red-100 text-red-600 border-red-200" },
-};
-
-const PRIORITY_CONFIG: Record<string, { label: string; cls: string }> = {
-  critical: { label: "Critical", cls: "bg-red-100 text-red-700 border-red-200" },
-  high:     { label: "High",     cls: "bg-orange-100 text-orange-700 border-orange-200" },
-  moderate: { label: "Moderate", cls: "bg-yellow-100 text-yellow-700 border-yellow-200" },
-  low:      { label: "Low",      cls: "bg-sky-100 text-sky-700 border-sky-200" },
-};
+import type { IssueDetail, Comment, Activity, UpdateIssueInput, IssueStatus, PriorityLevel, IssueType, ImpactLevel, UrgencyLevel, FeedItem, FeedFilter } from "@/types/issues";
+import { STATUS_CONFIG, PRIORITY_CONFIG, LEVEL_COLORS } from "@/lib/theme";
 
 const TYPE_LABELS: Record<string, string> = {
   bug:             "Bug",
@@ -274,11 +257,11 @@ function CommentBubble({ comment }: { comment: Comment }) {
 function renderFieldValue(val: string | null, fieldName: string) {
   if (!val) return <span className="text-muted-foreground/50 italic text-xs">none</span>;
   if (fieldName === "status") {
-    const cfg = STATUS_CONFIG[val] ?? { label: val, cls: "" };
+    const cfg = STATUS_CONFIG[val as IssueStatus] ?? { label: val, cls: "" };
     return <span className={cn("inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium border", cfg.cls)}>{cfg.label}</span>;
   }
   if (fieldName === "priority") {
-    const cfg = PRIORITY_CONFIG[val] ?? { label: val, cls: "" };
+    const cfg = PRIORITY_CONFIG[val as PriorityLevel] ?? { label: val, cls: "" };
     return <span className={cn("inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium border", cfg.cls)}>{cfg.label}</span>;
   }
   return <span className="inline-flex rounded px-1.5 py-0.5 text-[10px] font-mono bg-muted text-foreground/80 max-w-36 truncate">{val}</span>;
@@ -1016,11 +999,6 @@ const EDIT_LEVEL_OPTIONS: Array<{ value: ImpactLevel | UrgencyLevel; label: stri
   { value: "high",   label: "High"   },
 ];
 
-const EDIT_LEVEL_COLORS: Record<string, { active: string; idle: string }> = {
-  low:    { active: "bg-slate-500 text-white", idle: "text-slate-500 hover:bg-slate-100/70" },
-  medium: { active: "bg-amber-400 text-white", idle: "text-amber-600 hover:bg-amber-50"    },
-  high:   { active: "bg-red-500   text-white", idle: "text-red-500   hover:bg-red-50"      },
-};
 
 // Valid next statuses per current status (mirrors backend transition machine)
 const STATUS_TRANSITIONS: Record<IssueStatus, IssueStatus[]> = {
@@ -1140,7 +1118,7 @@ function EditPanel({
                 onClick={() => setImpact(value as ImpactLevel)}
                 className={cn(
                   "flex-1 py-1.5 text-xs font-medium transition-colors",
-                  impact === value ? EDIT_LEVEL_COLORS[value].active : EDIT_LEVEL_COLORS[value].idle,
+                  impact === value ? LEVEL_COLORS[value].active : LEVEL_COLORS[value].idle,
                 )}
               >
                 {label}
@@ -1158,7 +1136,7 @@ function EditPanel({
                 onClick={() => setUrgency(value as UrgencyLevel)}
                 className={cn(
                   "flex-1 py-1.5 text-xs font-medium transition-colors",
-                  urgency === value ? EDIT_LEVEL_COLORS[value].active : EDIT_LEVEL_COLORS[value].idle,
+                  urgency === value ? LEVEL_COLORS[value].active : LEVEL_COLORS[value].idle,
                 )}
               >
                 {label}

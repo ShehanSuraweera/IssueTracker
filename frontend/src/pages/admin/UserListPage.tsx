@@ -5,13 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent } from "@/components/ui/card";
-import type { UserRole } from "@/types/users";
-
-const ROLE_COLORS: Record<UserRole, string> = {
-  admin:       "bg-primary/10 text-primary border-primary/20",
-  engineer:    "bg-blue-100 text-blue-700 border-blue-200",
-  client_user: "bg-gray-100 text-gray-700 border-gray-200",
-};
+import { ROLE_COLORS } from "@/lib/theme";
 
 export default function UserListPage() {
   const { data: users, isLoading } = useUsers();
