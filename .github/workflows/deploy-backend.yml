@@ -59,11 +59,11 @@ jobs:
             echo "==> Installing dependencies"
             npm ci
 
+            echo "==> Generating Prisma client"
+            npx prisma generate
+
             echo "==> Compiling TypeScript"
             npm run build
-
-            echo "==> Regenerating Prisma client (matches new schema if changed)"
-            npx prisma generate
 
             echo "==> Applying any new database migrations"
             npx prisma migrate deploy
