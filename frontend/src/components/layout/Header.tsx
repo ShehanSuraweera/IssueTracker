@@ -70,7 +70,7 @@ export function Header() {
           "rounded-t-lg transition-all whitespace-nowrap shrink-0 select-none",
           isActive
             ? [
-                "h-10 bg-background border border-border border-b-0",
+                "h-10 bg-background border border-border border-b-0 shadow-sm",
                 "text-foreground -mb-px z-10",
                 "before:absolute before:bottom-0 before:-left-2 before:size-2",
                 "before:rounded-br-full before:[box-shadow:4px_4px_0_4px_var(--background)]",
@@ -160,7 +160,7 @@ export function Header() {
   };
 
   return (
-    <header className="flex h-14 border-b bg-muted/30 shrink-0">
+    <header className="flex h-14 border-b bg-linear-to-b from-background to-muted/50 shrink-0">
       {/* ── Tabs ───────────────────────────────────────────────────── */}
       <div className="flex flex-1 items-end overflow-x-auto min-w-0 px-2 gap-0.5 scrollbar-none [&::-webkit-scrollbar]:hidden">
         {renderTab(homeTab)}
@@ -183,12 +183,12 @@ export function Header() {
           <DropdownMenu>
             <DropdownMenuTrigger className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent outline-none">
               <Avatar className="size-7">
-                <AvatarFallback className="text-xs">
+                <AvatarFallback className="text-xs text-white bg-brand-green">
                   {initials(user.fullName)}
                 </AvatarFallback>
               </Avatar>
               <span className="font-medium">{user.fullName}</span>
-              <Badge variant="secondary" className="text-xs">
+              <Badge variant="outline" className="text-xs border-brand-green/40 bg-brand-green/10 text-brand-green">
                 {ROLE_LABEL[user.role]}
               </Badge>
             </DropdownMenuTrigger>
