@@ -24,7 +24,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { IssueDetail, Comment, Activity, UpdateIssueInput, IssueStatus, PriorityLevel, IssueType, ImpactLevel, UrgencyLevel, FeedItem, FeedFilter } from "@/types/issues";
-import { STATUS_CONFIG, PRIORITY_CONFIG, LEVEL_COLORS } from "@/lib/theme";
+import { LEVEL_COLORS, STATUS_CONFIG } from "@/lib/theme";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { PriorityBadge } from "@/components/ui/priority-badge";
 
 const TYPE_LABELS: Record<string, string> = {
   bug:             "Bug",
@@ -123,15 +125,12 @@ function MetaRow({ icon, label, value }: { icon: ReactNode; label: string; value
 // ─── Left panel — metadata ────────────────────────────────────────────────────
 
 function MetaPanel({ issue }: { issue: IssueDetail }) {
-  const status   = STATUS_CONFIG[issue.status]   ?? { label: issue.status,   cls: "" };
-  const priority = PRIORITY_CONFIG[issue.priority] ?? { label: issue.priority, cls: "" };
-
   return (
     <div>
       {/* Status / priority / type badges */}
       <div className="flex flex-wrap gap-1.5 mb-4">
-        <Badge variant="outline" className={`text-xs ${status.cls}`}>{status.label}</Badge>
-        <Badge variant="outline" className={`text-xs ${priority.cls}`}>{priority.label}</Badge>
+        <StatusBadge status={issue.status} />
+        <PriorityBadge priority={issue.priority} />
         <Badge variant="outline" className="text-xs">{TYPE_LABELS[issue.type] ?? issue.type}</Badge>
       </div>
 
@@ -256,14 +255,8 @@ function CommentBubble({ comment }: { comment: Comment }) {
 
 function renderFieldValue(val: string | null, fieldName: string) {
   if (!val) return <span className="text-muted-foreground/50 italic text-xs">none</span>;
-  if (fieldName === "status") {
-    const cfg = STATUS_CONFIG[val as IssueStatus] ?? { label: val, cls: "" };
-    return <span className={cn("inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium border", cfg.cls)}>{cfg.label}</span>;
-  }
-  if (fieldName === "priority") {
-    const cfg = PRIORITY_CONFIG[val as PriorityLevel] ?? { label: val, cls: "" };
-    return <span className={cn("inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium border", cfg.cls)}>{cfg.label}</span>;
-  }
+  if (fieldName === "status")   return <StatusBadge   status={val as IssueStatus}     />;
+  if (fieldName === "priority") return <PriorityBadge priority={val as PriorityLevel} />;
   return <span className="inline-flex rounded px-1.5 py-0.5 text-[10px] font-mono bg-muted text-foreground/80 max-w-36 truncate">{val}</span>;
 }
 
@@ -703,9 +696,6 @@ function AssignmentCard({
 // ─── Right panel — record info ────────────────────────────────────────────────
 
 function RecordPanel({ issue }: { issue: IssueDetail }) {
-  const status   = STATUS_CONFIG[issue.status]    ?? { label: issue.status,   cls: "" };
-  const priority = PRIORITY_CONFIG[issue.priority] ?? { label: issue.priority, cls: "" };
-
   return (
     <div className="space-y-4">
       {/* Record information */}
@@ -721,11 +711,11 @@ function RecordPanel({ issue }: { issue: IssueDetail }) {
             </div>
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Priority</p>
-              <Badge variant="outline" className={`text-[10px] mt-0.5 ${priority.cls}`}>{priority.label}</Badge>
+              <PriorityBadge priority={issue.priority} className="mt-0.5" />
             </div>
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">State</p>
-              <Badge variant="outline" className={`text-[10px] mt-0.5 ${status.cls}`}>{status.label}</Badge>
+              <StatusBadge status={issue.status} className="mt-0.5" />
             </div>
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Type</p>
@@ -1239,9 +1229,6 @@ export default function IssueDetailPage() {
   const canComment   = issue.status !== "closed" && issue.status !== "cancelled";
   const isLocked     = !isStaff && issue.status !== "new";
 
-  const status   = STATUS_CONFIG[issue.status]     ?? { label: issue.status,   cls: "" };
-  const priority = PRIORITY_CONFIG[issue.priority] ?? { label: issue.priority, cls: "" };
-
   return (
     <div className="space-y-4">
       {/* Top bar */}
@@ -1366,8 +1353,8 @@ export default function IssueDetailPage() {
           <span className="font-mono text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">
             {issue.ticketNumber}
           </span>
-          <Badge variant="outline" className={`text-xs ${status.cls}`}>{status.label}</Badge>
-          <Badge variant="outline" className={`text-xs ${priority.cls}`}>{priority.label}</Badge>
+          <StatusBadge status={issue.status} />
+          <PriorityBadge priority={issue.priority} />
         </div>
         <h1 className="text-xl font-semibold leading-snug">{issue.title}</h1>
         <p className="text-sm text-muted-foreground mt-1">

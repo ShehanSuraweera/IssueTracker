@@ -3,12 +3,12 @@ import { RefreshCw, Plus } from "lucide-react";
 import { useIssues, useIssueStats } from "@/hooks/use-issues";
 import { useAuth } from "@/hooks/use-auth";
 import { useTabsStore } from "@/store/tabs.store";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent } from "@/components/ui/card";
 import heroImg from "@/assets/hero.png";
 import type { IssueSummary } from "@/types/issues";
-import { STATUS_CONFIG, PRIORITY_CONFIG } from "@/lib/theme";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { PriorityBadge } from "@/components/ui/priority-badge";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -273,14 +273,10 @@ export default function HomePage() {
                         <span className="font-medium truncate block">{issue.title}</span>
                       </td>
                       <td className="px-3 py-2.5 whitespace-nowrap">
-                        <Badge variant="outline" className={`text-[10px] ${PRIORITY_CONFIG[issue.priority]?.cls}`}>
-                          {issue.priority}
-                        </Badge>
+                        <PriorityBadge priority={issue.priority} />
                       </td>
                       <td className="px-3 py-2.5 whitespace-nowrap">
-                        <Badge variant="outline" className={`text-[10px] ${STATUS_CONFIG[issue.status]?.cls}`}>
-                          {issue.status.replace("_", " ")}
-                        </Badge>
+                        <StatusBadge status={issue.status} />
                       </td>
                       <td className="px-3 py-2.5 text-xs text-muted-foreground whitespace-nowrap">
                         {issue.product.name}

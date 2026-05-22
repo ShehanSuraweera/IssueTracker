@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent } from "@/components/ui/card";
-import { ROLE_COLORS } from "@/lib/theme";
+import { RoleBadge } from "@/components/ui/role-badge";
 
 export default function UserListPage() {
   const { data: users, isLoading } = useUsers();
@@ -45,12 +45,7 @@ export default function UserListPage() {
                   <p className="text-xs text-muted-foreground">{user.email}</p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                  <Badge
-                    variant="outline"
-                    className={`text-xs ${ROLE_COLORS[user.role]}`}
-                  >
-                    {user.role.replace("_", " ")}
-                  </Badge>
+                  <RoleBadge role={user.role} />
                   {!user.isActive && (
                     <Badge variant="destructive" className="text-xs">inactive</Badge>
                   )}

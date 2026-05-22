@@ -26,7 +26,9 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
-import { STATUS_CONFIG, PRIORITY_CONFIG, IMPACT_BADGE } from "@/lib/theme";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { PriorityBadge } from "@/components/ui/priority-badge";
+import { ImpactBadge } from "@/components/ui/impact-badge";
 
 type SortField = "ticketNumber" | "title" | "status" | "priority" | "assignee" | "updatedAt";
 type SortDir   = "asc" | "desc";
@@ -232,19 +234,13 @@ export default function IssueListPage() {
         {issue.product.name}
       </td>
       <td className="px-4 py-2.5">
-        <span className={cn("inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium capitalize", STATUS_CONFIG[issue.status]?.cls)}>
-          {issue.status.replace(/_/g, " ")}
-        </span>
+        <StatusBadge status={issue.status} />
       </td>
       <td className="px-4 py-2.5">
-        <span className={cn("inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium capitalize border", PRIORITY_CONFIG[issue.priority]?.cls)}>
-          {issue.priority}
-        </span>
+        <PriorityBadge priority={issue.priority} />
       </td>
       <td className="px-4 py-2.5">
-        <span className={cn("inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium capitalize border", IMPACT_BADGE[issue.impact])}>
-          {issue.impact}
-        </span>
+        <ImpactBadge impact={issue.impact} />
       </td>
       <td className="px-4 py-2.5 text-xs text-muted-foreground whitespace-nowrap">
         {issue.assignee?.fullName ?? <em className="not-italic text-muted-foreground/40">Unassigned</em>}
