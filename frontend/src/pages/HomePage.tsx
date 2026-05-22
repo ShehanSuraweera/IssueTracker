@@ -5,8 +5,8 @@ import { useAuth } from "@/hooks/use-auth";
 import { useTabsStore } from "@/store/tabs.store";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent } from "@/components/ui/card";
-import heroImg from "@/assets/hero.png";
 import type { IssueSummary } from "@/types/issues";
+import { NewnopLogo } from "@/components/ui/newnop-logo";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { PriorityBadge } from "@/components/ui/priority-badge";
 
@@ -135,28 +135,27 @@ export default function HomePage() {
   return (
     <div className="space-y-7">
       {/* ── Hero ──────────────────────────────────────────────────────── */}
-      <div className="relative overflow-hidden rounded-xl border bg-linear-to-br from-primary/5 to-muted/20">
-        {/* Ripple rings */}
-        <div
-          className="absolute inset-0 pointer-events-none"
-          style={{
-            opacity: 0.045,
-            backgroundImage:
-              "repeating-radial-gradient(circle at 68% 50%, var(--primary) 0, var(--primary) 1px, transparent 0, transparent 48px)",
-          }}
-        />
-        <div className="relative flex items-center justify-between px-8 py-7">
+      <div className="relative overflow-hidden rounded-xl border bg-linear-to-br from-primary/12 to-transparent">
+        {/* Brand green top accent bar */}
+        <div className="absolute top-0 inset-x-0 h-0.75" style={{ backgroundColor: "var(--brand-green)" }} />
+        <div className="relative flex items-center justify-between px-8 py-8">
           <div>
+            <div className="flex items-center gap-2 mb-3">
+              <div className="h-1 w-6 rounded-full" style={{ backgroundColor: "var(--brand-green)" }} />
+              <span className="text-xs font-semibold tracking-widest uppercase text-primary">NewnopDesk</span>
+            </div>
             <h1 className="text-2xl font-semibold">Hello, {firstName}!</h1>
             <p className="mt-1.5 text-sm text-muted-foreground max-w-sm leading-relaxed">
               Get a little help monitoring your work with your personal home page.
             </p>
           </div>
-          <img
-            src={heroImg}
-            alt=""
-            className="h-28 w-auto opacity-90 select-none pointer-events-none hidden sm:block"
-          />
+          <div className="relative hidden sm:flex items-center justify-center shrink-0 ml-8">
+            <div
+              className="absolute rounded-full blur-2xl"
+              style={{ width: 90, height: 90, backgroundColor: "var(--brand-green)", opacity: 0.2 }}
+            />
+            <NewnopLogo width={100} height={87} className="relative select-none pointer-events-none" />
+          </div>
         </div>
       </div>
 
