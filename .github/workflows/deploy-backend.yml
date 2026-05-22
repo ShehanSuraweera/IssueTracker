@@ -1,0 +1,72 @@
+name: Deploy Backend
+
+# WHEN: only when files inside backend/ change (or this workflow itself changes)
+# WHY: avoids restarting the server when you only changed a React component
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - ".github/workflows/deploy-backend.yml"
+
+jobs:
+  deploy:
+    name: Deploy to EC2
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Check out code (needed here to verify it builds before touching the server)
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 2. Verify TypeScript compiles cleanly on the runner BEFORE touching the server
+      #    WHY: if there's a type error, we want to fail fast here, not mid-deployment
+      #    on the live server which would leave it in a broken state
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies and verify build
+        working-directory: backend
+        run: |
+          npm ci
+          npm run build
+
+      # 3. SSH into the EC2 server and run the deployment
+      #    WHY SSH: the EC2 is the real runtime environment — it has the .env file,
+      #    the RSA keys, and the database connection. We pull the code there and build.
+      - name: Deploy to EC2 via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          # Each command runs sequentially. If any fails, the rest are skipped.
+          script: |
+            set -e
+
+            echo "==> Pulling latest code"
+            cd /var/www/newnopdesk/backend
+            git fetch origin main
+            git reset --hard origin/main
+
+            echo "==> Installing dependencies"
+            npm ci
+
+            echo "==> Compiling TypeScript"
+            npm run build
+
+            echo "==> Regenerating Prisma client (matches new schema if changed)"
+            npx prisma generate
+
+            echo "==> Applying any new database migrations"
+            npx prisma migrate deploy
+
+            echo "==> Restarting the API server"
+            pm2 restart newnopdesk-api
+
+            echo "==> Deployment complete"
+            pm2 status

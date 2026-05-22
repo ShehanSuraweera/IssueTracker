@@ -1,0 +1,71 @@
+name: Deploy Frontend
+
+# WHEN: only when files inside frontend/ change (or this workflow itself changes)
+# WHY: avoids re-deploying the frontend when you only change backend code
+on:
+  push:
+    branches: [main]
+    paths:
+      - "frontend/**"
+      - ".github/workflows/deploy-frontend.yml"
+
+jobs:
+  deploy:
+    name: Build and Deploy to S3 + CloudFront
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Check out the repository code onto the runner machine
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 2. Install Node.js 20 — matches what you use locally
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      # 3. Install frontend dependencies
+      #    npm ci = clean install from lock file, faster and reproducible
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      # 4. Build the React app
+      #    Vite compiles TypeScript, bundles everything into frontend/dist/
+      #    No VITE_API_URL needed — the app defaults to "/api" which CloudFront proxies
+      - name: Build
+        working-directory: frontend
+        run: npm run build
+
+      # 5. Configure AWS credentials so we can talk to S3 and CloudFront
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-northeast-2
+
+      # 6. Upload the built files to S3
+      #    --delete removes files from S3 that no longer exist in dist/
+      #    This keeps S3 in sync with exactly what was just built
+      - name: Sync to S3
+        run: |
+          aws s3 sync frontend/dist s3://${{ secrets.S3_FRONTEND_BUCKET }} \
+            --delete \
+            --cache-control "max-age=31536000,immutable" \
+            --exclude "index.html"
+          # index.html gets a short cache so users always get the latest app shell
+          aws s3 cp frontend/dist/index.html s3://${{ secrets.S3_FRONTEND_BUCKET }}/index.html \
+            --cache-control "no-cache,no-store,must-revalidate"
+
+      # 7. Tell CloudFront to forget its cached files
+      #    Without this, users would see the old version for up to 24 hours
+      #    "/*" means invalidate everything
+      - name: Invalidate CloudFront cache
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} \
+            --paths "/*"
