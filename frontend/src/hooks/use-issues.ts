@@ -3,16 +3,22 @@ import { listIssues, getIssue, getStats, createIssue, updateIssue, addComment, r
 import { queryKeys } from "./query-keys";
 import type { ListIssuesQuery, UpdateIssueInput, FeedFilter } from "@/types/issues";
 
-export function useIssues(query: ListIssuesQuery, search: string) {
+export function useIssues(
+  query: ListIssuesQuery,
+  search: string,
+  options?: { refetchInterval?: number },
+) {
   return useQuery({
-    queryKey: queryKeys.issues.list(query, search),
-    queryFn:  () => listIssues({ ...query, search: search || undefined }),
+    queryKey:        queryKeys.issues.list(query, search),
+    queryFn:         () => listIssues({ ...query, search: search || undefined }),
+    refetchInterval: options?.refetchInterval,
   });
 }
 
 export function useInfiniteIssues(
   query: Omit<ListIssuesQuery, "page" | "limit">,
   search: string,
+  options?: { refetchInterval?: number },
 ) {
   return useInfiniteQuery({
     queryKey:         queryKeys.issues.infinite(query, search),
@@ -23,6 +29,7 @@ export function useInfiniteIssues(
         ? last.pagination.page + 1
         : undefined,
     initialPageParam: 1,
+    refetchInterval:  options?.refetchInterval,
   });
 }
 
@@ -45,10 +52,11 @@ export function useIssue(id: string | undefined) {
   });
 }
 
-export function useIssueStats() {
+export function useIssueStats(options?: { refetchInterval?: number }) {
   return useQuery({
-    queryKey: queryKeys.issues.stats(),
-    queryFn:  getStats,
+    queryKey:        queryKeys.issues.stats(),
+    queryFn:         getStats,
+    refetchInterval: options?.refetchInterval,
   });
 }
 

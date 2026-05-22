@@ -6,6 +6,7 @@ import { useTabsStore } from "@/store/tabs.store";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent } from "@/components/ui/card";
 import type { IssueSummary } from "@/types/issues";
+import { relativeTime } from "@/lib/utils";
 import { NewnopLogo } from "@/components/ui/newnop-logo";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { PriorityBadge } from "@/components/ui/priority-badge";
@@ -19,15 +20,6 @@ function slaInfo(deadline: string | null): { label: string; breached: boolean } 
   const d = Math.floor(rem / 86_400_000);
   const h = Math.floor((rem % 86_400_000) / 3_600_000);
   return { label: d > 0 ? `${d}d ${h}h` : `${h}h`, breached: false };
-}
-
-function relativeTime(ts: number): string {
-  const mins = Math.floor((Date.now() - ts) / 60_000);
-  if (mins < 1) return "just now";
-  if (mins === 1) return "1 minute ago";
-  if (mins < 60) return `${mins} minutes ago`;
-  const hrs = Math.floor(mins / 60);
-  return `${hrs} hour${hrs > 1 ? "s" : ""} ago`;
 }
 
 // ─── KPI Tile ─────────────────────────────────────────────────────────────────
@@ -112,13 +104,13 @@ export default function HomePage() {
   const navigate = useNavigate();
   const { openTab } = useTabsStore();
 
-  const { data: stats } = useIssueStats();
+  const { data: stats, refetch: refetchStats } = useIssueStats({ refetchInterval: 60_000 });
 
   const workQuery = hasRole("engineer") && user
     ? { assigned_to: user.id, limit: 15, sort: "updatedAt_desc" as const }
     : { limit: 15, sort: "updatedAt_desc" as const };
 
-  const { data: myWork, dataUpdatedAt } = useIssues(workQuery, "");
+  const { data: myWork, dataUpdatedAt, isFetching, refetch: refetchWork } = useIssues(workQuery, "", { refetchInterval: 60_000 });
 
   const openIssue = (issue: IssueSummary) => {
     openTab({
@@ -211,10 +203,13 @@ export default function HomePage() {
             )}
           </div>
           {dataUpdatedAt > 0 && (
-            <span className="flex items-center gap-1 text-xs text-muted-foreground">
-              <RefreshCw className="size-3" />
+            <button
+              onClick={() => { refetchWork(); refetchStats(); }}
+              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <RefreshCw className={`size-3 ${isFetching ? "animate-spin" : ""}`} />
               Last refreshed {relativeTime(dataUpdatedAt)}
-            </span>
+            </button>
           )}
         </div>
         <p className="text-xs text-muted-foreground mb-3">

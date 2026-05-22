@@ -6,6 +6,7 @@ import {
   PanelLeftClose, PanelLeftOpen, Loader2,
 } from "lucide-react";
 import { useInfiniteIssues } from "@/hooks/use-issues";
+import { relativeTime } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
 import { useTabsStore } from "@/store/tabs.store";
 import { useDebounce } from "@/hooks/use-debounce";
@@ -114,11 +115,13 @@ export default function IssueListPage() {
   const {
     data,
     isLoading,
+    isFetching,
     isFetchingNextPage,
+    dataUpdatedAt,
     hasNextPage,
     fetchNextPage,
     refetch,
-  } = useInfiniteIssues(activeViewQuery, debouncedSearch);
+  } = useInfiniteIssues(activeViewQuery, debouncedSearch, { refetchInterval: 60_000 });
 
   // Infinite scroll sentinel
   useEffect(() => {
@@ -325,9 +328,11 @@ export default function IssueListPage() {
                 {totalCount}
               </span>
             )}
-            <span className="text-xs text-muted-foreground hidden md:block whitespace-nowrap">
-              Last refreshed just now.
-            </span>
+            {dataUpdatedAt > 0 && (
+              <span className="text-xs text-muted-foreground hidden md:block whitespace-nowrap">
+                Last refreshed {relativeTime(dataUpdatedAt)}
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
             <Button
@@ -337,7 +342,7 @@ export default function IssueListPage() {
               onClick={() => refetch()}
               title="Refresh"
             >
-              <RefreshCw className="size-3.5" />
+              <RefreshCw className={`size-3.5 ${isFetching ? "animate-spin" : ""}`} />
             </Button>
             <Button variant="outline" size="sm" className="h-8 text-xs">
               <Download className="size-3.5 mr-1.5" />
