@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, Plus } from "lucide-react";
 import { useIssues, useIssueStats } from "@/hooks/use-issues";
 import { useAuth } from "@/hooks/use-auth";
 import { useTabsStore } from "@/store/tabs.store";
@@ -311,6 +311,17 @@ export default function HomePage() {
           </table>
         </div>
       </div>
+
+      {/* ── FAB: New Task (client only) ───────────────────────────────── */}
+      {hasRole("client_user") && (
+        <button
+          onClick={() => navigate("/issues/new")}
+          title="New task"
+          className="fixed bottom-6 right-6 z-50 flex items-center justify-center size-14 rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 hover:shadow-xl active:scale-95 transition-all"
+        >
+          <Plus className="size-6" />
+        </button>
+      )}
     </div>
   );
 }
