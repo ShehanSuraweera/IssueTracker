@@ -1,25 +1,16 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
-  Plus, Search, Filter, RefreshCw, Download,
-  ChevronDown, ChevronRight, X, ArrowUpDown, ArrowUp, ArrowDown, Layers,
+  Plus, Filter, RefreshCw, Download,
+  ChevronDown, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, Layers,
   PanelLeftClose, PanelLeftOpen, Loader2,
 } from "lucide-react";
 import { useInfiniteIssues } from "@/hooks/use-issues";
-
-function useDebounce<T>(value: T, delay: number): T {
-  const [debounced, setDebounced] = useState<T>(value);
-  useEffect(() => {
-    const t = setTimeout(() => setDebounced(value), delay);
-    return () => clearTimeout(t);
-  }, [value, delay]);
-  return debounced;
-}
 import { useAuth } from "@/hooks/use-auth";
 import { useTabsStore } from "@/store/tabs.store";
+import { useDebounce } from "@/hooks/use-debounce";
 import type { IssueSummary, ListIssuesQuery, PriorityLevel } from "@/types/issues";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import {
@@ -29,6 +20,7 @@ import {
 import { StatusBadge } from "@/components/ui/status-badge";
 import { PriorityBadge } from "@/components/ui/priority-badge";
 import { ImpactBadge } from "@/components/ui/impact-badge";
+import { SearchInput } from "@/components/ui/search-input";
 
 type SortField = "ticketNumber" | "title" | "status" | "priority" | "assignee" | "updatedAt";
 type SortDir   = "asc" | "desc";
@@ -113,7 +105,6 @@ export default function IssueListPage() {
   const [activeViewLabel, setActiveViewLabel] = useState("All Issues");
   const [collapsed,       setCollapsed]       = useState<Set<string>>(new Set());
   const [search,          setSearch]          = useState("");
-  const [showSearch,      setShowSearch]      = useState(false);
   const [sortField,       setSortField]       = useState<SortField>("updatedAt");
   const [sortDir,         setSortDir]         = useState<SortDir>("desc");
   const [groupBy,         setGroupBy]         = useState<string | null>(null);
@@ -363,34 +354,11 @@ export default function IssueListPage() {
 
         {/* Toolbar */}
         <div className="flex items-center gap-1.5 px-5 py-2 border-b bg-background shrink-0 flex-wrap">
-          {showSearch ? (
-            <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
-              <Input
-                autoFocus
-                className="h-7 pl-8 pr-7 text-xs w-56"
-                placeholder="Search issues…"
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-              />
-              <button
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                onClick={() => { setSearch(""); setShowSearch(false); }}
-              >
-                <X className="size-3" />
-              </button>
-            </div>
-          ) : (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 w-7 px-0"
-              onClick={() => setShowSearch(true)}
-              title="Search"
-            >
-              <Search className="size-3.5" />
-            </Button>
-          )}
+          <SearchInput
+            value={search}
+            onChange={setSearch}
+            placeholder="Search issues…"
+          />
 
           {filterCount > 0 && (
             <span className="inline-flex items-center gap-1 rounded-md border border-border px-2.5 h-7 text-xs text-muted-foreground">
