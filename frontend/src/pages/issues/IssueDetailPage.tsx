@@ -683,11 +683,11 @@ function AssignmentCard({
             {isEngineer && !isSelf && (
               pendingAssignId === user?.id ? (
                 <div className="rounded-md border bg-muted/40 px-3 py-2.5 space-y-2">
-                  <p className="text-xs text-muted-foreground">Accept and take ownership?</p>
+                  <p className="text-xs text-muted-foreground">Assign this issue to yourself?</p>
                   <div className="flex items-center gap-2 justify-end">
                     <Button variant="outline" size="sm" onClick={() => setPendingAssignId(null)}>Cancel</Button>
                     <Button size="sm" disabled={assignMutation.isPending} onClick={confirmAssign}>
-                      {assignMutation.isPending ? <Loader2 className="size-3.5 animate-spin" /> : "Accept"}
+                      {assignMutation.isPending ? <Loader2 className="size-3.5 animate-spin" /> : "Assign to Me"}
                     </Button>
                   </div>
                 </div>
@@ -700,7 +700,7 @@ function AssignmentCard({
                   onClick={() => user && setPendingAssignId(user.id)}
                 >
                   <UserPlus className="size-3.5 mr-1.5" />
-                  Accept
+                  Assign to Me
                 </Button>
               )
             )}
@@ -1224,12 +1224,15 @@ export default function IssueDetailPage() {
   const { hasRole, user } = useAuth();
 
   const { data: issue, isLoading } = useIssue(id);
-  const resolveMutation = useResolveIssue(id);
-  const updateMutation  = useUpdateIssue(id);
+  const resolveMutation    = useResolveIssue(id);
+  const updateMutation     = useUpdateIssue(id);
+  const assignSelfMutation = useAssignIssue(id);
   const { updateLabel, updateMeta } = useTabsStore();
 
-  const [isEditing,          setIsEditing]          = useState(false);
-  const [showResolveConfirm, setShowResolveConfirm] = useState(false);
+  const [isEditing,             setIsEditing]             = useState(false);
+  const [showResolveConfirm,    setShowResolveConfirm]    = useState(false);
+  const [showAssignSelfConfirm, setShowAssignSelfConfirm] = useState(false);
+  const [showCloseConfirm,      setShowCloseConfirm]      = useState(false);
 
   useEffect(() => {
     if (!issue || !id) return;
@@ -1247,11 +1250,16 @@ export default function IssueDetailPage() {
   if (isLoading) return <DetailSkeleton />;
   if (!issue)    return null;
 
-  const isStaff    = hasRole("admin", "engineer");
-  const canEdit    = isStaff || issue.status === "new";
-  const canResolve = isStaff && (issue.status === "in_progress" || issue.status === "on_hold");
-  const canComment = issue.status !== "closed" && issue.status !== "cancelled";
-  const isLocked   = !isStaff && issue.status !== "new";
+  const isStaff      = hasRole("admin", "engineer");
+  const isEngineer   = hasRole("engineer");
+  const isClosed     = issue.status === "closed" || issue.status === "cancelled";
+  const isSelf       = !!user && !!issue.assignee && issue.assignee.id === user.id;
+  const canEdit      = isStaff || issue.status === "new";
+  const canResolve   = isStaff && (issue.status === "in_progress" || issue.status === "on_hold");
+  const canAssignSelf = isEngineer && !isSelf && !isClosed;
+  const canClose      = (hasRole("admin") || hasRole("client_user")) && issue.status === "resolved";
+  const canComment   = issue.status !== "closed" && issue.status !== "cancelled";
+  const isLocked     = !isStaff && issue.status !== "new";
 
   const status   = STATUS_CONFIG[issue.status]     ?? { label: issue.status,   cls: "" };
   const priority = PRIORITY_CONFIG[issue.priority] ?? { label: issue.priority, cls: "" };
@@ -1296,6 +1304,30 @@ export default function IssueDetailPage() {
             ) : null
           )}
 
+          {/* Assign to Me — engineer shortcut */}
+          {canAssignSelf && !isEditing && (
+            showAssignSelfConfirm ? (
+              <div className="flex items-center gap-2 rounded-md border bg-muted/40 px-3 py-1.5">
+                <span className="text-sm text-muted-foreground">Assign this issue to yourself?</span>
+                <Button variant="outline" size="sm" onClick={() => setShowAssignSelfConfirm(false)}>Cancel</Button>
+                <Button
+                  size="sm"
+                  disabled={assignSelfMutation.isPending}
+                  onClick={() => {
+                    user && assignSelfMutation.mutate(user.id, { onSettled: () => setShowAssignSelfConfirm(false) });
+                  }}
+                >
+                  {assignSelfMutation.isPending ? <Loader2 className="size-3.5 animate-spin" /> : "Assign to Me"}
+                </Button>
+              </div>
+            ) : (
+              <Button variant="outline" size="sm" onClick={() => setShowAssignSelfConfirm(true)}>
+                <UserPlus className="mr-1.5 size-3.5" />
+                Assign to Me
+              </Button>
+            )
+          )}
+
           {/* Resolve with inline confirmation */}
           {canResolve && !isEditing && (
             showResolveConfirm ? (
@@ -1318,6 +1350,32 @@ export default function IssueDetailPage() {
               <Button size="sm" onClick={() => setShowResolveConfirm(true)}>
                 <CheckCircle2 className="mr-1.5 size-4" />
                 Mark Resolved
+              </Button>
+            )
+          )}
+
+          {/* Close Issue — admin or client after resolution */}
+          {canClose && !isEditing && (
+            showCloseConfirm ? (
+              <div className="flex items-center gap-2 rounded-md border bg-muted/40 px-3 py-1.5">
+                <span className="text-sm text-muted-foreground">Close this issue?</span>
+                <Button variant="outline" size="sm" onClick={() => setShowCloseConfirm(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  disabled={updateMutation.isPending}
+                  onClick={() => {
+                    updateMutation.mutate({ status: "closed" }, { onSettled: () => setShowCloseConfirm(false) });
+                  }}
+                >
+                  {updateMutation.isPending ? <Loader2 className="size-3.5 animate-spin" /> : "Close Issue"}
+                </Button>
+              </div>
+            ) : (
+              <Button variant="outline" size="sm" onClick={() => setShowCloseConfirm(true)}>
+                <CheckCircle2 className="mr-1.5 size-3.5" />
+                Close Issue
               </Button>
             )
           )}

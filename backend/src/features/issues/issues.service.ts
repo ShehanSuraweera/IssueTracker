@@ -314,13 +314,25 @@ export async function updateIssue(
     throw new AppError(404, "ISSUE_NOT_FOUND", "Issue not found");
   }
 
-  // Soft-lock: clients cannot edit once an engineer has picked the issue up
-  if (user.role === "client_user" && existing.status !== "new") {
+  // Clients may close a resolved issue (their confirmation that the fix worked)
+  const clientClosing =
+    user.role === "client_user" &&
+    input.status === "closed" &&
+    existing.status === "resolved";
+
+  // Soft-lock: clients cannot edit once an engineer has picked the issue up,
+  // except to close a resolved issue
+  if (user.role === "client_user" && existing.status !== "new" && !clientClosing) {
     throw new AppError(
       403,
       "ISSUE_LOCKED",
       "This issue is locked for editing once it has been picked up. Contact support to request changes."
     );
+  }
+
+  // Clients cannot change status except to close a resolved issue
+  if (user.role === "client_user" && !clientClosing) {
+    delete input.status;
   }
 
   if (input.status && input.status !== existing.status) {
