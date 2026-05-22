@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#091035"/>
+      <stop offset="100%" stop-color="#0a1a5c"/>
+    </linearGradient>
+    <linearGradient id="grad-blue" x1="0.131" x2="0.869" y1="1" y2="0">
+      <stop offset="0" stop-color="rgb(0,54,206)"/>
+      <stop offset="1" stop-color="rgb(9,16,53)"/>
+    </linearGradient>
+    <linearGradient id="grad-green" x1="0.858" x2="0.142" y1="0" y2="1">
+      <stop offset="0" stop-color="rgb(145,217,77)"/>
+      <stop offset="1" stop-color="rgb(27,150,9)"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="20" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="630" fill="url(#bg)"/>
+
+  <!-- Subtle dot grid overlay -->
+  <pattern id="dots" x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse">
+    <circle cx="20" cy="20" r="1" fill="rgba(255,255,255,0.04)"/>
+  </pattern>
+  <rect width="1200" height="630" fill="url(#dots)"/>
+
+  <!-- Glow accent top-right -->
+  <ellipse cx="1050" cy="120" rx="280" ry="180" fill="rgba(0,54,206,0.18)" filter="url(#glow)"/>
+  <!-- Glow accent bottom-left -->
+  <ellipse cx="160" cy="520" rx="220" ry="150" fill="rgba(145,217,77,0.10)" filter="url(#glow)"/>
+
+  <!-- Newnop logo — scaled up to 120x105 at position (80, 80) -->
+  <!-- Scale factor: 120/27.541 ≈ 4.357 -->
+  <g transform="translate(80, 80) scale(4.357)">
+    <path d="M 6.087 0.402 C 6.719 0.08 7.48 0.14 8.054 0.558 L 21.187 10.1 C 19.654 12.21 16.702 12.678 14.592 11.145 L 3.542 3.115 C 3.542 3.115 2.453 2.252 1.294 2.842 L 6.086 0.402 Z" fill="rgb(0,54,206)"/>
+    <path d="M 3.542 3.115 C 3.542 3.115 2.453 2.252 1.294 2.842 L 1.281 2.847 C 0.648 3.169 0.249 3.819 0.249 4.529 L 0.249 21.439 C 0.249 22.742 1.306 23.798 2.609 23.798 C 3.912 23.798 4.969 22.742 4.969 21.439 L 4.969 6.007 C 4.969 5.236 5.845 4.791 6.468 5.243 L 3.537 3.115 Z" fill="url(#grad-blue)"/>
+    <path d="M 21.327 23.598 C 20.695 23.92 19.934 23.86 19.36 23.442 L 6.224 13.899 C 7.757 11.789 10.709 11.321 12.819 12.855 L 23.871 20.885 C 23.871 20.885 24.96 21.747 26.119 21.157 L 21.33 23.598 Z" fill="rgb(145,217,77)"/>
+    <path d="M 23.871 20.885 C 23.871 20.885 24.96 21.748 26.119 21.157 L 26.132 21.152 C 26.765 20.831 27.164 20.181 27.164 19.471 L 27.164 2.556 C 27.161 1.252 26.103 0.197 24.799 0.196 C 24.174 0.196 23.573 0.445 23.131 0.887 C 22.688 1.33 22.44 1.93 22.44 2.556 L 22.44 17.99 C 22.44 18.762 21.564 19.206 20.94 18.754 L 23.871 20.882 Z" fill="url(#grad-green)"/>
+  </g>
+
+  <!-- Brand name next to logo -->
+  <text x="220" y="148" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="36" font-weight="700" fill="white" letter-spacing="-0.5">newnop</text>
+
+  <!-- Divider line -->
+  <line x1="80" y1="218" x2="1120" y2="218" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+
+  <!-- Main headline -->
+  <text x="80" y="320" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="72" font-weight="800" fill="white" letter-spacing="-2">NewnopDesk</text>
+
+  <!-- Subtitle -->
+  <text x="80" y="390" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="30" font-weight="400" fill="rgba(255,255,255,0.65)">Client Issue Portal for Software Agencies</text>
+
+  <!-- Feature pills -->
+  <g transform="translate(80, 440)">
+    <!-- Pill 1 -->
+    <rect x="0" y="0" width="180" height="44" rx="22" fill="rgba(0,54,206,0.35)" stroke="rgba(0,54,206,0.6)" stroke-width="1.5"/>
+    <text x="90" y="28" font-family="system-ui, -apple-system, sans-serif" font-size="16" font-weight="500" fill="white" text-anchor="middle">Multi-tenant</text>
+    <!-- Pill 2 -->
+    <rect x="196" y="0" width="200" height="44" rx="22" fill="rgba(0,54,206,0.35)" stroke="rgba(0,54,206,0.6)" stroke-width="1.5"/>
+    <text x="296" y="28" font-family="system-ui, -apple-system, sans-serif" font-size="16" font-weight="500" fill="white" text-anchor="middle">Issue Tracking</text>
+    <!-- Pill 3 -->
+    <rect x="412" y="0" width="220" height="44" rx="22" fill="rgba(145,217,77,0.18)" stroke="rgba(145,217,77,0.45)" stroke-width="1.5"/>
+    <text x="522" y="28" font-family="system-ui, -apple-system, sans-serif" font-size="16" font-weight="500" fill="rgb(145,217,77)" text-anchor="middle">Real-time Feed</text>
+    <!-- Pill 4 -->
+    <rect x="648" y="0" width="200" height="44" rx="22" fill="rgba(145,217,77,0.18)" stroke="rgba(145,217,77,0.45)" stroke-width="1.5"/>
+    <text x="748" y="28" font-family="system-ui, -apple-system, sans-serif" font-size="16" font-weight="500" fill="rgb(145,217,77)" text-anchor="middle">SLA Tracking</text>
+  </g>
+
+  <!-- Bottom bar -->
+  <rect x="0" y="580" width="1200" height="50" fill="rgba(0,0,0,0.25)"/>
+  <text x="80" y="612" font-family="system-ui, -apple-system, sans-serif" font-size="18" fill="rgba(255,255,255,0.45)">newnop.com</text>
+  <text x="1120" y="612" font-family="system-ui, -apple-system, sans-serif" font-size="18" fill="rgba(255,255,255,0.45)" text-anchor="end">Powered by Newnop Engineering</text>
+</svg>
