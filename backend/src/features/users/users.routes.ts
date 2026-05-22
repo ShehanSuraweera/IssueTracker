@@ -27,6 +27,8 @@ router.use(authenticate);
  */
 router.get("/me", UserController.getMe);
 
+router.get("/engineers", requireRole("admin", "engineer"), UserController.listEngineers);
+
 /**
  * @openapi
  * /api/users/me/password:

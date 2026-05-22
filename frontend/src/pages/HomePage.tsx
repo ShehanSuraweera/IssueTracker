@@ -82,17 +82,56 @@ function KpiTile({
   );
 }
 
+// ─── Engineer Swimlanes ───────────────────────────────────────────────────────
+
+function EngineerStats({ stats }: { stats: ReturnType<typeof useIssueStats>["data"] }) {
+  const navigate = useNavigate();
+  const ev = stats?.engineerView;
+
+  const tiles: {
+    label: string;
+    value: number | undefined;
+    accent?: "red" | "orange" | "default";
+    navViewId?: string;
+    nav?: boolean;
+  }[] = [
+    { label: "My Open",            value: ev?.mine.open,             navViewId: "my_assigned" },
+    { label: "My Critical",        value: ev?.mine.critical,         accent: "red",    navViewId: "my_critical" },
+    { label: "Pending Breach",     value: ev?.mine.atSlaRisk,        accent: "orange" },
+    { label: "Resolved This Week", value: ev?.mine.resolvedThisWeek },
+    { label: "Unassigned",         value: ev?.unassigned.open,       navViewId: "unassigned" },
+    { label: "All Resolved",       value: ev?.mine.resolvedAll },
+  ];
+
+  return (
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+      {tiles.map(({ label, value, accent = "default", navViewId, nav }) => (
+        <KpiTile
+          key={label}
+          label={label}
+          value={value}
+          accent={accent}
+          onClick={
+            navViewId ? () => navigate("/issues", { state: { viewId: navViewId } }) :
+            nav       ? () => navigate("/issues") :
+            undefined
+          }
+        />
+      ))}
+    </div>
+  );
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function HomePage() {
   const { user, hasRole } = useAuth();
   const navigate = useNavigate();
   const { openTab } = useTabsStore();
-  const isStaff = hasRole("admin", "engineer");
 
   const { data: stats } = useIssueStats();
 
-  const workQuery = isStaff && user
+  const workQuery = hasRole("engineer") && user
     ? { assigned_to: user.id, limit: 15, sort: "updatedAt_desc" as const }
     : { limit: 15, sort: "updatedAt_desc" as const };
 
@@ -144,39 +183,45 @@ export default function HomePage() {
         <p className="text-xs text-muted-foreground mt-0.5 mb-3">
           Check these metrics to see the most important items to work on.
         </p>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-          <KpiTile
-            label={isStaff ? "My Open" : "Open"}
-            value={myWork?.pagination.total}
-            onClick={() => navigate("/issues")}
-          />
-          <KpiTile
-            label="Critical"
-            value={stats?.summary.critical}
-            accent="red"
-            onClick={() => navigate("/issues")}
-          />
-          <KpiTile
-            label="SLA At Risk"
-            value={stats?.summary.atSlaRisk}
-            accent="orange"
-          />
-          <KpiTile
-            label="Resolved This Week"
-            value={stats?.summary.resolvedThisWeek}
-          />
-          <KpiTile
-            label="Total Open"
-            value={stats?.summary.totalOpen}
-          />
-        </div>
+        {hasRole("engineer") ? (
+          <EngineerStats stats={stats} />
+        ) : (
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+            <KpiTile
+              label={hasRole("admin") ? "All Unassigned" : "Open"}
+              value={hasRole("admin") ? stats?.adminView?.unassignedOpen : myWork?.pagination.total}
+              onClick={() => navigate("/issues", { state: { viewId: "unassigned" } })}
+            />
+            <KpiTile
+              label="Critical"
+              value={stats?.summary.critical}
+              accent="red"
+              onClick={() => navigate("/issues", { state: { viewId: "p_critical" } })}
+            />
+            <KpiTile
+              label="SLA At Risk"
+              value={stats?.summary.atSlaRisk}
+              accent="orange"
+            />
+            <KpiTile
+              label="Resolved This Week"
+              value={stats?.summary.resolvedThisWeek}
+            />
+            <KpiTile
+              label="Total Open"
+              value={stats?.summary.totalOpen}
+            />
+          </div>
+        )}
       </div>
 
       {/* ── My Work ───────────────────────────────────────────────────── */}
       <div>
         <div className="flex items-center justify-between mb-0.5">
           <div className="flex items-center gap-2">
-            <h2 className="text-sm font-semibold">My Work</h2>
+            <h2 className="text-sm font-semibold">
+              {user?.role === "client_user" ? "My Issues" : user?.role === "admin" ? "All Work" : "My Work"}
+            </h2>
             {myWork && (
               <span className="inline-flex items-center justify-center h-5 min-w-5 px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-bold">
                 {myWork.pagination.total > 99 ? "99+" : myWork.pagination.total}
@@ -191,7 +236,11 @@ export default function HomePage() {
           )}
         </div>
         <p className="text-xs text-muted-foreground mb-3">
-          Track your active tasks and the tasks your team is working on.
+          {user?.role === "client_user"
+            ? "Track the issues you've submitted and follow up on their progress."
+            : user?.role === "admin"
+            ? "Overview of all active issues across the workspace."
+            : "Track your active tasks and stay on top of your queue."}
         </p>
 
         <div className="rounded-lg border overflow-hidden">

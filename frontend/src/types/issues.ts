@@ -86,7 +86,12 @@ export interface IssueStats {
   };
   byStatus: Record<string, number>;
   byPriority: Record<string, number>;
-  byRegion: Record<string, number>;
+  byRegion?: Record<string, number>;
+  adminView?: { unassignedOpen: number };
+  engineerView?: {
+    mine:       { open: number; critical: number; atSlaRisk: number; resolvedThisWeek: number; resolvedAll: number };
+    unassigned: { open: number; critical: number };
+  };
 }
 
 export interface PresignUploadResult {
@@ -155,6 +160,7 @@ export interface ListIssuesQuery {
   type?: IssueType;
   product_id?: string;
   assigned_to?: string;
+  unassigned?: boolean;
   page?: number;
   limit?: number;
   sort?: "createdAt_desc" | "createdAt_asc" | "updatedAt_desc";

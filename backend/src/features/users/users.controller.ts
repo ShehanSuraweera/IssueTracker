@@ -33,6 +33,15 @@ export async function changePassword(req: Request, res: Response, next: NextFunc
   }
 }
 
+export async function listEngineers(_req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const engineers = await UserService.listEngineers();
+    res.json({ data: engineers });
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function list(_req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const users = await UserService.listUsers();

@@ -12,6 +12,11 @@ export async function listUsers(): Promise<User[]> {
   return data.data;
 }
 
+export async function listEngineers(): Promise<User[]> {
+  const { data } = await api.get<{ data: User[] }>("/users/engineers");
+  return data.data;
+}
+
 export async function getUser(id: string): Promise<UserDetail> {
   const { data } = await api.get<{ data: UserDetail }>(`/users/${id}`);
   return data.data;

@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   listUsers,
+  listEngineers,
   getUser,
   revokeProductAccess,
   changePassword,
@@ -12,6 +13,13 @@ export function useUsers() {
   return useQuery({
     queryKey: queryKeys.users.all(),
     queryFn: listUsers,
+  });
+}
+
+export function useEngineers() {
+  return useQuery({
+    queryKey: queryKeys.users.engineers(),
+    queryFn:  listEngineers,
   });
 }
 

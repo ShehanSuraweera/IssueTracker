@@ -93,9 +93,9 @@ export async function resolve(req: Request, res: Response, next: NextFunction): 
   }
 }
 
-export async function stats(_req: Request, res: Response, next: NextFunction): Promise<void> {
+export async function stats(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const result = await IssueService.getStats();
+    const result = await IssueService.getStats(req.user!);
     res.json({ data: result });
   } catch (err) {
     next(err);

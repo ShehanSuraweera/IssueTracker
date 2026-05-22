@@ -31,7 +31,7 @@ router.use(authenticate);
  *       403:
  *         $ref: '#/components/responses/Forbidden'
  */
-router.get("/stats", requireRole("admin"), IssueController.stats);
+router.get("/stats", IssueController.stats);
 
 /**
  * @openapi

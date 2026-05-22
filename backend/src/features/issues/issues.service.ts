@@ -126,7 +126,8 @@ export async function listIssues(query: ListIssuesQuery, user: AuthUser) {
     ...(query.priority  && { priority:  query.priority  }),
     ...(query.type      && { type:      query.type      }),
     ...(query.product_id  && { productId:  query.product_id  }),
-    ...(query.assigned_to && { assignedTo: query.assigned_to }),
+    ...(query.assigned_to  && { assignedTo: query.assigned_to }),
+    ...(query.unassigned   && { assignedTo: null }),
     ...(query.search && {
       OR: [
         { title:        { contains: query.search } },
@@ -599,39 +600,29 @@ export async function getFeed(issueId: bigint, user: AuthUser, query: FeedQuery)
 
 // ─── Stats (admin dashboard) ──────────────────────────────────────────────────
 
-export async function getStats() {
-  const now = new Date();
-  const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+export async function getStats(user: AuthUser) {
+  const now              = new Date();
+  const weekAgo          = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
   const slaWarningCutoff = new Date(now.getTime() + 24 * 60 * 60 * 1000);
   const openStatuses: IssueStatus[] = ["new", "in_progress", "on_hold"];
 
+  const scope = buildTenantWhere(user);
+
   const [byStatus, byPriority, totalOpen, critical, atSlaRisk, resolvedThisWeek] =
     await prisma.$transaction([
-      prisma.issue.groupBy({ by: ["status"],   _count: { id: true } }),
-      prisma.issue.groupBy({ by: ["priority"], _count: { id: true } }),
-      prisma.issue.count({ where: { status: { in: openStatuses } } }),
-      prisma.issue.count({ where: { priority: "critical", status: { in: openStatuses } } }),
+      prisma.issue.groupBy({ by: ["status"],   where: scope, _count: { id: true } }),
+      prisma.issue.groupBy({ by: ["priority"], where: scope, _count: { id: true } }),
+      prisma.issue.count({ where: { ...scope, status: { in: openStatuses } } }),
+      prisma.issue.count({ where: { ...scope, priority: "critical", status: { in: openStatuses } } }),
       prisma.issue.count({
-        where: {
-          status: { in: openStatuses },
-          slaDeadline: { not: null, lte: slaWarningCutoff },
-        },
+        where: { ...scope, status: { in: openStatuses }, slaDeadline: { not: null, lte: slaWarningCutoff } },
       }),
       prisma.issue.count({
-        where: { status: "resolved", resolvedAt: { gte: weekAgo } },
+        where: { ...scope, status: "resolved", resolvedAt: { gte: weekAgo } },
       }),
     ]);
 
-  type RegionRow = { region: string; count: bigint };
-  const byRegionRaw = await prisma.$queryRaw<RegionRow[]>`
-    SELECT c.region, COUNT(i.id) AS count
-    FROM issues i
-    JOIN products p ON p.id = i.product_id
-    JOIN companies c ON c.id = p.company_id
-    GROUP BY c.region
-  `;
-
-  return {
+  const base = {
     summary: { totalOpen, critical, atSlaRisk, resolvedThisWeek },
     byStatus: byStatus.reduce<Record<string, number>>(
       (acc, s) => ({ ...acc, [s.status]: s._count.id }), {}
@@ -639,6 +630,45 @@ export async function getStats() {
     byPriority: byPriority.reduce<Record<string, number>>(
       (acc, p) => ({ ...acc, [p.priority]: p._count.id }), {}
     ),
+  };
+
+  if (user.role === "engineer") {
+    const [mineOpen, mineCritical, mineAtRisk, mineResolved, mineResolvedAll, unassignedOpen, unassignedCritical] =
+      await prisma.$transaction([
+        prisma.issue.count({ where: { ...scope, assignedTo: user.id, status: { in: openStatuses } } }),
+        prisma.issue.count({ where: { ...scope, assignedTo: user.id, priority: "critical", status: { in: openStatuses } } }),
+        prisma.issue.count({ where: { ...scope, assignedTo: user.id, status: { in: openStatuses }, slaDeadline: { not: null, lte: slaWarningCutoff } } }),
+        prisma.issue.count({ where: { ...scope, assignedTo: user.id, status: "resolved", resolvedAt: { gte: weekAgo } } }),
+        prisma.issue.count({ where: { ...scope, assignedTo: user.id, status: "resolved" } }),
+        prisma.issue.count({ where: { ...scope, assignedTo: null, status: { in: openStatuses } } }),
+        prisma.issue.count({ where: { ...scope, assignedTo: null, priority: "critical", status: { in: openStatuses } } }),
+      ]);
+    return {
+      ...base,
+      engineerView: {
+        mine:       { open: mineOpen, critical: mineCritical, atSlaRisk: mineAtRisk, resolvedThisWeek: mineResolved, resolvedAll: mineResolvedAll },
+        unassigned: { open: unassignedOpen, critical: unassignedCritical },
+      },
+    };
+  }
+
+  if (user.role !== "admin") return base;
+
+  type RegionRow = { region: string; count: bigint };
+  const [byRegionRaw, unassignedOpen] = await Promise.all([
+    prisma.$queryRaw<RegionRow[]>`
+      SELECT c.region, COUNT(i.id) AS count
+      FROM issues i
+      JOIN products p ON p.id = i.product_id
+      JOIN companies c ON c.id = p.company_id
+      GROUP BY c.region
+    `,
+    prisma.issue.count({ where: { ...scope, assignedTo: null, status: { in: openStatuses } } }),
+  ]);
+
+  return {
+    ...base,
+    adminView: { unassignedOpen },
     byRegion: byRegionRaw.reduce<Record<string, number>>(
       (acc, r) => ({ ...acc, [r.region]: Number(r.count) }), {}
     ),

@@ -63,6 +63,20 @@ export async function changePassword(userId: bigint, input: ChangePasswordInput)
   await prisma.user.update({ where: { id: userId }, data: { passwordHash: newHash } });
 }
 
+// ─── List engineers (admin + engineer) ───────────────────────────────────────
+
+export async function listEngineers() {
+  const users = await prisma.user.findMany({
+    where: { role: "engineer", isActive: true },
+    orderBy: { fullName: "asc" },
+    select: {
+      id: true, email: true, fullName: true, role: true,
+      companyId: true, office: true, isActive: true, createdAt: true,
+    },
+  });
+  return users.map(serializeUser);
+}
+
 // ─── List users (admin) ───────────────────────────────────────────────────────
 
 export async function listUsers() {

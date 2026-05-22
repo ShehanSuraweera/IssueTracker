@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   Plus, Search, Filter, RefreshCw, Download,
   ChevronDown, ChevronRight, X, ArrowUpDown, ArrowUp, ArrowDown, Layers,
@@ -70,6 +70,7 @@ const COLS: Array<{ key: SortField | null; label: string; cls?: string }> = [
 export default function IssueListPage() {
   const { hasRole, user } = useAuth();
   const navigate          = useNavigate();
+  const location          = useLocation();
   const { openTab }       = useTabsStore();
 
   const NAV_GROUPS = useMemo<NavGroup[]>(() => [
@@ -94,13 +95,34 @@ export default function IssueListPage() {
         { id: "p_low",      label: "Low",      query: { priority: "low" } },
       ],
     },
-    {
+    ...(hasRole("engineer") ? [{
       label: "My Work",
       items: user
-        ? [{ id: "my_assigned", label: "Assigned to Me", query: { assigned_to: user.id } }]
+        ? [
+            { id: "my_assigned", label: "Assigned to Me",  query: { assigned_to: user.id } },
+            { id: "my_critical", label: "My Critical",     query: { assigned_to: user.id, priority: "critical" as const } },
+            { id: "unassigned",  label: "Unassigned",      query: { unassigned: true } },
+          ]
         : [],
-    },
+    }] : []),
+    ...(hasRole("admin") ? [{
+      label: "Assignment",
+      items: [
+        { id: "unassigned", label: "Unassigned", query: { unassigned: true } },
+      ],
+    }] : []),
   ], [user]);
+
+  // Activate a view passed via navigation state (e.g. from homepage "My Open" tile)
+  useEffect(() => {
+    const viewId = (location.state as { viewId?: string } | null)?.viewId;
+    if (!viewId) return;
+    const item = NAV_GROUPS.flatMap(g => g.items).find(i => i.id === viewId);
+    if (item) selectView(item);
+    // Clear the state so a manual refresh doesn't re-apply it
+    window.history.replaceState({}, "");
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [NAV_GROUPS]);
 
   const sentinelRef = useRef<HTMLDivElement>(null);
 
