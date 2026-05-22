@@ -23,7 +23,7 @@ export function useInfiniteIssues(
   return useInfiniteQuery({
     queryKey:         queryKeys.issues.infinite(query, search),
     queryFn:          ({ pageParam }) =>
-      listIssues({ ...query, page: pageParam as number, limit: 30, search: search || undefined }),
+      listIssues({ ...query, page: pageParam as number, limit: 15, search: search || undefined }),
     getNextPageParam: (last) =>
       last.pagination.page < last.pagination.totalPages
         ? last.pagination.page + 1

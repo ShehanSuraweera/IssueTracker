@@ -1,11 +1,14 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { RefreshCw, Plus } from "lucide-react";
+import { RefreshCw, Plus, ArrowRight, X } from "lucide-react";
 import { useIssues, useIssueStats } from "@/hooks/use-issues";
 import { useAuth } from "@/hooks/use-auth";
+import { useDebounce } from "@/hooks/use-debounce";
 import { useTabsStore } from "@/store/tabs.store";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent } from "@/components/ui/card";
-import type { IssueSummary } from "@/types/issues";
+import { SearchInput } from "@/components/ui/search-input";
+import type { IssueSummary, IssueStatus, PriorityLevel } from "@/types/issues";
 import { relativeTime } from "@/lib/utils";
 import { NewnopLogo } from "@/components/ui/newnop-logo";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -104,13 +107,27 @@ export default function HomePage() {
   const navigate = useNavigate();
   const { openTab } = useTabsStore();
 
+  const [searchRaw,  setSearch]   = useState("");
+  const [statusFilter,  setStatus]   = useState<IssueStatus | "">("");
+  const [priorityFilter, setPriority] = useState<PriorityLevel | "">("");
+  const debouncedSearch = useDebounce(searchRaw, 300);
+
+  const hasFilters = !!debouncedSearch || !!statusFilter || !!priorityFilter;
+
   const { data: stats, refetch: refetchStats } = useIssueStats({ refetchInterval: 60_000 });
 
-  const workQuery = hasRole("engineer") && user
-    ? { assigned_to: user.id, limit: 15, sort: "updatedAt_desc" as const }
-    : { limit: 15, sort: "updatedAt_desc" as const };
+  const baseQuery = hasRole("engineer") && user
+    ? { assigned_to: user.id, sort: "updatedAt_desc" as const }
+    : { sort: "updatedAt_desc" as const };
 
-  const { data: myWork, dataUpdatedAt, isFetching, refetch: refetchWork } = useIssues(workQuery, "", { refetchInterval: 60_000 });
+  const workQuery = {
+    ...baseQuery,
+    limit: 50,
+    ...(statusFilter   ? { status:   statusFilter   } : {}),
+    ...(priorityFilter ? { priority: priorityFilter } : {}),
+  };
+
+  const { data: myWork, dataUpdatedAt, isFetching, refetch: refetchWork } = useIssues(workQuery, debouncedSearch, { refetchInterval: 60_000 });
 
   const openIssue = (issue: IssueSummary) => {
     openTab({
@@ -191,6 +208,7 @@ export default function HomePage() {
 
       {/* ── My Work ───────────────────────────────────────────────────── */}
       <div>
+        {/* title row */}
         <div className="flex items-center justify-between mb-0.5">
           <div className="flex items-center gap-2">
             <h2 className="text-sm font-semibold">
@@ -220,6 +238,51 @@ export default function HomePage() {
             : "Track your active tasks and stay on top of your queue."}
         </p>
 
+        {/* filter bar */}
+        <div className="flex items-center gap-2 mb-3 flex-wrap">
+          <SearchInput
+            value={searchRaw}
+            onChange={setSearch}
+            placeholder="Search by title or ticket…"
+          />
+
+          <select
+            value={statusFilter}
+            onChange={e => setStatus(e.target.value as IssueStatus | "")}
+            className="h-7 rounded-md border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+          >
+            <option value="">All statuses</option>
+            <option value="new">New</option>
+            <option value="in_progress">In Progress</option>
+            <option value="on_hold">On Hold</option>
+            <option value="resolved">Resolved</option>
+            <option value="closed">Closed</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+
+          <select
+            value={priorityFilter}
+            onChange={e => setPriority(e.target.value as PriorityLevel | "")}
+            className="h-7 rounded-md border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+          >
+            <option value="">All priorities</option>
+            <option value="critical">Critical</option>
+            <option value="high">High</option>
+            <option value="moderate">Moderate</option>
+            <option value="low">Low</option>
+          </select>
+
+          {hasFilters && (
+            <button
+              onClick={() => { setSearch(""); setStatus(""); setPriority(""); }}
+              className="flex items-center gap-1 h-7 px-2 rounded-md text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            >
+              <X className="size-3" />
+              Clear
+            </button>
+          )}
+        </div>
+
         <div className="rounded-lg border overflow-hidden">
           <table className="w-full text-sm">
             <thead>
@@ -234,71 +297,87 @@ export default function HomePage() {
                 ))}
               </tr>
             </thead>
-            <tbody>
-              {!myWork ? (
-                Array.from({ length: 5 }).map((_, i) => (
-                  <tr key={i} className="border-b">
-                    {Array.from({ length: 9 }).map((_, j) => (
-                      <td key={j} className="px-3 py-2.5">
-                        <Skeleton className="h-4 w-full" />
-                      </td>
-                    ))}
-                  </tr>
-                ))
-              ) : myWork.data.length === 0 ? (
-                <tr>
-                  <td colSpan={9} className="px-3 py-10 text-center text-sm text-muted-foreground">
-                    No active work items.
-                  </td>
-                </tr>
-              ) : (
-                myWork.data.map((issue) => {
-                  const sla = slaInfo(issue.slaDeadline);
-                  return (
-                    <tr
-                      key={issue.id}
-                      onClick={() => openIssue(issue)}
-                      className="border-b last:border-0 cursor-pointer hover:bg-muted/30 transition-colors"
-                    >
-                      <td className="px-3 py-2.5 whitespace-nowrap">
-                        <span className="font-mono text-xs text-muted-foreground">{issue.ticketNumber}</span>
-                      </td>
-                      <td className="px-3 py-2.5 max-w-55">
-                        <span className="font-medium truncate block">{issue.title}</span>
-                      </td>
-                      <td className="px-3 py-2.5 whitespace-nowrap">
-                        <PriorityBadge priority={issue.priority} />
-                      </td>
-                      <td className="px-3 py-2.5 whitespace-nowrap">
-                        <StatusBadge status={issue.status} />
-                      </td>
-                      <td className="px-3 py-2.5 text-xs text-muted-foreground whitespace-nowrap">
-                        {issue.product.name}
-                      </td>
-                      <td className="px-3 py-2.5 text-xs whitespace-nowrap">
-                        <span className={sla.breached ? "text-red-600 font-medium" : "text-muted-foreground"}>
-                          {sla.label}
-                        </span>
-                      </td>
-                      <td className="px-3 py-2.5 text-xs whitespace-nowrap">
-                        {sla.breached ? (
-                          <span className="text-red-600 font-medium">Yes</span>
-                        ) : (
-                          <span className="text-muted-foreground">No</span>
-                        )}
-                      </td>
-                      <td className="px-3 py-2.5 text-xs text-muted-foreground whitespace-nowrap">
-                        {new Date(issue.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                      </td>
-                      <td className="px-3 py-2.5 text-xs text-muted-foreground whitespace-nowrap">
-                        {new Date(issue.updatedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
           </table>
+          {/* scrollable body — ~10 rows visible (each row ~41px) */}
+          <div className="overflow-y-auto" style={{ maxHeight: "410px" }}>
+            <table className="w-full text-sm">
+              <tbody>
+                {!myWork ? (
+                  Array.from({ length: 5 }).map((_, i) => (
+                    <tr key={i} className="border-b">
+                      {Array.from({ length: 9 }).map((_, j) => (
+                        <td key={j} className="px-3 py-2.5">
+                          <Skeleton className="h-4 w-full" />
+                        </td>
+                      ))}
+                    </tr>
+                  ))
+                ) : myWork.data.length === 0 ? (
+                  <tr>
+                    <td colSpan={9} className="px-3 py-10 text-center text-sm text-muted-foreground">
+                      {hasFilters ? "No issues match your filters." : "No active work items."}
+                    </td>
+                  </tr>
+                ) : (
+                  myWork.data.map((issue) => {
+                    const sla = slaInfo(issue.slaDeadline);
+                    return (
+                      <tr
+                        key={issue.id}
+                        onClick={() => openIssue(issue)}
+                        className="border-b last:border-0 cursor-pointer hover:bg-muted/30 transition-colors"
+                      >
+                        <td className="px-3 py-2.5 whitespace-nowrap">
+                          <span className="font-mono text-xs text-muted-foreground">{issue.ticketNumber}</span>
+                        </td>
+                        <td className="px-3 py-2.5 max-w-55">
+                          <span className="font-medium truncate block">{issue.title}</span>
+                        </td>
+                        <td className="px-3 py-2.5 whitespace-nowrap">
+                          <PriorityBadge priority={issue.priority} />
+                        </td>
+                        <td className="px-3 py-2.5 whitespace-nowrap">
+                          <StatusBadge status={issue.status} />
+                        </td>
+                        <td className="px-3 py-2.5 text-xs text-muted-foreground whitespace-nowrap">
+                          {issue.product.name}
+                        </td>
+                        <td className="px-3 py-2.5 text-xs whitespace-nowrap">
+                          <span className={sla.breached ? "text-red-600 font-medium" : "text-muted-foreground"}>
+                            {sla.label}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2.5 text-xs whitespace-nowrap">
+                          {sla.breached ? (
+                            <span className="text-red-600 font-medium">Yes</span>
+                          ) : (
+                            <span className="text-muted-foreground">No</span>
+                          )}
+                        </td>
+                        <td className="px-3 py-2.5 text-xs text-muted-foreground whitespace-nowrap">
+                          {new Date(issue.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                        </td>
+                        <td className="px-3 py-2.5 text-xs text-muted-foreground whitespace-nowrap">
+                          {new Date(issue.updatedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* view all link */}
+        <div className="flex justify-end mt-2">
+          <button
+            onClick={() => navigate("/issues")}
+            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            View all in Issues
+            <ArrowRight className="size-3" />
+          </button>
         </div>
       </div>
 
