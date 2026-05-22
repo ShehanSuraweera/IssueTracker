@@ -1,7 +1,7 @@
 import { useState, useRef } from "react";
 import { NavLink } from "react-router-dom";
 import {
-  Home, TicketCheck, LayoutDashboard, Building2, Package, Users, Settings,
+  Home, TicketCheck, SquarePen, LayoutDashboard, Building2, Package, Users, Settings,
   Pin, PinOff,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -13,12 +13,14 @@ interface NavItem {
   to: string;
   icon: React.ElementType;
   label: string;
+  end?: boolean;
   adminOnly?: boolean;
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { to: "/",                 icon: Home,            label: "Home" },
-  { to: "/issues",           icon: TicketCheck,     label: "Issues" },
+  { to: "/",                 icon: Home,            label: "Home",      end: true },
+  { to: "/issues",           icon: TicketCheck,     label: "Issues",    end: true },
+  { to: "/issues/new",       icon: SquarePen,       label: "New Issue", end: true },
   { to: "/admin/dashboard",  icon: LayoutDashboard, label: "Dashboard", adminOnly: true },
   { to: "/admin/companies",  icon: Building2,       label: "Companies", adminOnly: true },
   { to: "/admin/products",   icon: Package,         label: "Products",  adminOnly: true },
@@ -113,7 +115,7 @@ export function Sidebar() {
           <NavLink
             key={item.to}
             to={item.to}
-            end={item.to === "/"}
+            end={item.end}
             title={!isExpanded ? item.label : undefined}
             className={navLinkClass}
           >

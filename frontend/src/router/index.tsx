@@ -11,6 +11,7 @@ const HomePage          = lazy(() => import("@/pages/HomePage"));
 const IssueListPage     = lazy(() => import("@/pages/issues/IssueListPage"));
 const IssueDetailPage   = lazy(() => import("@/pages/issues/IssueDetailPage"));
 const IssueCreatePage   = lazy(() => import("@/pages/issues/IssueCreatePage"));
+const IssueEditPage     = lazy(() => import("@/pages/issues/IssueEditPage"));
 const DashboardPage     = lazy(() => import("@/pages/admin/DashboardPage"));
 const CompanyListPage   = lazy(() => import("@/pages/admin/CompanyListPage"));
 const CompanyDetailPage = lazy(() => import("@/pages/admin/CompanyDetailPage"));
@@ -52,8 +53,9 @@ export const router = createBrowserRouter([
         children: [
           { index: true,          element: wrap(<HomePage />) },
           { path: "/issues",      element: wrap(<IssueListPage />) },
-          { path: "/issues/new",  element: wrap(<IssueCreatePage />) },
-          { path: "/issues/:id",  element: wrap(<IssueDetailPage />) },
+          { path: "/issues/new",      element: wrap(<IssueCreatePage />) },
+          { path: "/issues/:id",      element: wrap(<IssueDetailPage />) },
+          { path: "/issues/:id/edit", element: wrap(<IssueEditPage />) },
 
           { path: "/settings/password", element: wrap(<PasswordPage />) },
 
