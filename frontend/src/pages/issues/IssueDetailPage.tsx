@@ -68,10 +68,10 @@ function SlaGauge({ slaDeadline, createdAt }: { slaDeadline: string; createdAt: 
   const isExpired = remaining <= 0;
 
   const arcColor = isExpired || pct <= 0.2
-    ? "#ef4444"
+    ? "var(--destructive)"
     : pct <= 0.5
-    ? "#f59e0b"
-    : "#22c55e";
+    ? "var(--warning)"
+    : "var(--brand-green)";
 
   const r = 36;
   const circumference = 2 * Math.PI * r;
@@ -85,10 +85,10 @@ function SlaGauge({ slaDeadline, createdAt }: { slaDeadline: string; createdAt: 
   return (
     <div className="flex flex-col items-center gap-2">
       <svg width="90" height="90" viewBox="0 0 90 90">
-        <circle cx="45" cy="45" r={r} fill="none" stroke="#e2e8f0" strokeWidth="7" />
+        <circle cx="45" cy="45" r={r} fill="none" style={{ stroke: "var(--border)" }} strokeWidth="7" />
         <circle
           cx="45" cy="45" r={r} fill="none"
-          stroke={arcColor}
+          style={{ stroke: arcColor }}
           strokeWidth="7"
           strokeDasharray={`${dash} ${circumference}`}
           strokeLinecap="round"

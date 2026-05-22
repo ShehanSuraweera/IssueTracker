@@ -142,7 +142,7 @@ export default function HomePage() {
           style={{
             opacity: 0.045,
             backgroundImage:
-              "repeating-radial-gradient(circle at 68% 50%, #082A9C 0, #082A9C 1px, transparent 0, transparent 48px)",
+              "repeating-radial-gradient(circle at 68% 50%, var(--primary) 0, var(--primary) 1px, transparent 0, transparent 48px)",
           }}
         />
         <div className="relative flex items-center justify-between px-8 py-7">

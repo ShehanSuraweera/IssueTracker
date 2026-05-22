@@ -63,6 +63,7 @@ export function Header() {
             <button
               key={tab.id}
               onClick={() => handleTabClick(tab)}
+              style={isActive ? { borderTopColor: "var(--brand-green)", borderTopWidth: "2px" } : undefined}
               className={cn(
                 "group relative flex items-center gap-1.5 px-3.5 text-xs font-medium",
                 "rounded-t-lg transition-all whitespace-nowrap shrink-0 select-none",
@@ -76,8 +77,8 @@ export function Header() {
                       "after:rounded-bl-full after:[box-shadow:-4px_4px_0_4px_var(--background)]",
                     ]
                   : [
-                      "h-8 text-muted-foreground",
-                      "hover:bg-background/60 hover:text-foreground hover:h-9",
+                      "h-8 bg-muted/60 border border-border border-b-0 text-muted-foreground",
+                      "hover:bg-background/80 hover:text-foreground hover:h-9",
                     ],
               )}
             >

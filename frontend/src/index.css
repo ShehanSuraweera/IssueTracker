@@ -20,6 +20,8 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-brand-green: var(--brand-green);
+  --color-warning: var(--warning);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -28,21 +30,25 @@
 
 :root {
   --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
+  --background: #FCFCFB;
+  --foreground: #171717;
+  --card: #FCFCFB;
+  --card-foreground: #171717;
+  --popover: #FCFCFB;
+  --popover-foreground: #171717;
   /* Brand primary: #082A9C (Newnop blue) */
-  --primary: oklch(0.35 0.2 264);
+  --primary: #082A9C;
   --primary-foreground: oklch(0.985 0 0);
   --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
+  --secondary-foreground: #171717;
   --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
+  --muted-foreground: #656462;
   --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
+  --accent-foreground: #171717;
+  /* Brand green: #86D24A (success states only) */
+  --brand-green: #86D24A;
+  /* Warning: amber for SLA/urgency indicators */
+  --warning: #f59e0b;
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.985 0 0);
   --border: oklch(0.922 0 0);
