@@ -1,37 +1,40 @@
 import { useState, useRef } from "react";
-import { NavLink } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   Home, TicketCheck, SquarePen, LayoutDashboard, Building2, Package, Users, Settings,
   Pin, PinOff,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
+import { useTabsStore } from "@/store/tabs.store";
 import { Separator } from "@/components/ui/separator";
 import { NewnopLogo } from "@/components/ui/newnop-logo";
 
 interface NavItem {
+  id: string;
   to: string;
   icon: React.ElementType;
   label: string;
-  end?: boolean;
+  exact?: boolean;
   adminOnly?: boolean;
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { to: "/",                 icon: Home,            label: "Home",      end: true },
-  { to: "/issues",           icon: TicketCheck,     label: "Issues",    end: true },
-  { to: "/issues/new",       icon: SquarePen,       label: "New Issue", end: true },
-  { to: "/admin/dashboard",  icon: LayoutDashboard, label: "Dashboard", adminOnly: true },
-  { to: "/admin/companies",  icon: Building2,       label: "Companies", adminOnly: true },
-  { to: "/admin/products",   icon: Package,         label: "Products",  adminOnly: true },
-  { to: "/admin/users",      icon: Users,           label: "Users",     adminOnly: true },
+  { id: "home",            to: "/",                icon: Home,            label: "Home",      exact: true },
+  { id: "issues",          to: "/issues",          icon: TicketCheck,     label: "Issues",    exact: true },
+  { id: "new",             to: "/issues/new",      icon: SquarePen,       label: "New Issue", exact: true },
+  { id: "admin-dashboard", to: "/admin/dashboard", icon: LayoutDashboard, label: "Dashboard", adminOnly: true },
+  { id: "admin-companies", to: "/admin/companies", icon: Building2,       label: "Companies", adminOnly: true },
+  { id: "admin-products",  to: "/admin/products",  icon: Package,         label: "Products",  adminOnly: true },
+  { id: "admin-users",     to: "/admin/users",     icon: Users,           label: "Users",     adminOnly: true },
 ];
 
 export function Sidebar() {
-  const { hasRole } = useAuth();
+  const { hasRole }  = useAuth();
+  const navigate     = useNavigate();
+  const location     = useLocation();
+  const { openTab }  = useTabsStore();
 
-  // locked = stays expanded permanently (persisted)
-  // hovered = peek-expand on hover (temporary)
   const [locked, setLocked] = useState(
     () => localStorage.getItem("sidebar-locked") !== "false"
   );
@@ -53,23 +56,38 @@ export function Sidebar() {
 
   const toggle = () => {
     if (locked) {
-      // Unlock → back to hover mode
       setLocked(false);
       localStorage.setItem("sidebar-locked", "false");
     } else {
-      // Lock open (works from both collapsed and peek state)
       setLocked(true);
       localStorage.setItem("sidebar-locked", "true");
     }
   };
 
-  const navLinkClass = ({ isActive }: { isActive: boolean }) =>
+  const handleNav = (item: NavItem) => {
+    openTab({ id: item.id, label: item.label, path: item.to });
+    navigate(item.to);
+  };
+
+  const handleSettings = () => {
+    openTab({ id: "settings", label: "Settings", path: "/settings/password" });
+    navigate("/settings/password");
+  };
+
+  const isActive = (item: NavItem) =>
+    item.exact
+      ? location.pathname === item.to
+      : location.pathname.startsWith(item.to);
+
+  const isSettingsActive = location.pathname.startsWith("/settings");
+
+  const itemClass = (active: boolean) =>
     cn(
       "flex w-full items-center rounded-md py-2 text-sm transition-colors",
       isExpanded ? "gap-2.5 px-3" : "justify-center",
-      isActive
+      active
         ? "bg-primary text-primary-foreground"
-        : "text-sidebar-foreground hover:bg-primary/10 hover:text-primary"
+        : "text-sidebar-foreground hover:bg-primary/10 hover:text-primary",
     );
 
   return (
@@ -80,7 +98,6 @@ export function Sidebar() {
         "flex h-screen flex-col border-r bg-sidebar text-sidebar-foreground shrink-0",
         "transition-[width] duration-200 ease-in-out",
         isExpanded ? "w-56" : "w-14",
-        // subtle shadow when peeking to signal the panel is floating temporarily
         isPeeking && "shadow-xl shadow-black/10",
       )}
     >
@@ -98,10 +115,7 @@ export function Sidebar() {
               title={locked ? "Unpin sidebar" : "Pin sidebar open"}
               className="flex items-center justify-center size-7 rounded-md shrink-0 transition-colors text-muted-foreground hover:bg-primary/10 hover:text-primary"
             >
-              {locked
-                ? <PinOff className="size-3.5" />
-                : <Pin    className="size-3.5" />
-              }
+              {locked ? <PinOff className="size-3.5" /> : <Pin className="size-3.5" />}
             </button>
           </>
         ) : (
@@ -112,30 +126,29 @@ export function Sidebar() {
       {/* Navigation */}
       <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto p-2">
         {NAV_ITEMS.filter((item) => !item.adminOnly || hasRole("admin")).map((item) => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            end={item.end}
+          <button
+            key={item.id}
+            onClick={() => handleNav(item)}
             title={!isExpanded ? item.label : undefined}
-            className={navLinkClass}
+            className={itemClass(isActive(item))}
           >
             <item.icon className="size-4 shrink-0" />
             {isExpanded && <span className="truncate">{item.label}</span>}
-          </NavLink>
+          </button>
         ))}
       </nav>
 
       {/* Settings */}
       <div className="shrink-0 p-2">
         <Separator className="mb-2" />
-        <NavLink
-          to="/settings/password"
+        <button
+          onClick={handleSettings}
           title={!isExpanded ? "Settings" : undefined}
-          className={navLinkClass}
+          className={itemClass(isSettingsActive)}
         >
           <Settings className="size-4 shrink-0" />
           {isExpanded && <span className="truncate">Settings</span>}
-        </NavLink>
+        </button>
       </div>
     </aside>
   );
