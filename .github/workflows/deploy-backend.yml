@@ -31,6 +31,8 @@ jobs:
 
       - name: Install dependencies and verify build
         working-directory: backend
+        env:
+          DATABASE_URL: "mysql://dummy:dummy@localhost:3306/dummy"
         run: |
           npm ci
           npx prisma generate
