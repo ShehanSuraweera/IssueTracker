@@ -23,6 +23,7 @@ interface TabsState {
   setActive: (id: string) => void;
   updateLabel: (id: string, label: string) => void;
   updateMeta: (id: string, meta: TabMeta) => void;
+  reset: () => void;
 }
 
 const HOME_TAB: AppTab = { id: "home", label: "Home", path: "/", closeable: false };
@@ -59,6 +60,10 @@ export const useTabsStore = create<TabsState>()(
 
       updateMeta(id, meta) {
         set(({ tabs }) => ({ tabs: tabs.map((t) => (t.id === id ? { ...t, meta } : t)) }));
+      },
+
+      reset() {
+        set({ tabs: [HOME_TAB], activeId: "home" });
       },
     }),
     {

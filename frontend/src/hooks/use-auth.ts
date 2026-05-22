@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "@/store/auth.store";
+import { useTabsStore } from "@/store/tabs.store";
 import { clearTokens } from "@/api/client";
 import * as AuthApi from "@/api/auth";
 import { queryClient } from "@/lib/query-client";
@@ -7,6 +8,7 @@ import type { UserRole } from "@/types/auth";
 
 export function useAuth() {
   const { user, isAuthenticated, setUser, clearAuth } = useAuthStore();
+  const resetTabs = useTabsStore((s) => s.reset);
   const navigate = useNavigate();
 
   async function login(email: string, password: string) {
@@ -20,6 +22,7 @@ export function useAuth() {
     await AuthApi.logout(refreshToken).catch(() => {});
     clearTokens();
     clearAuth();
+    resetTabs();
     queryClient.clear();
     navigate("/login");
   }
