@@ -1,55 +1,223 @@
+import { useState } from "react";
 import { Plus, Package } from "lucide-react";
-import { useProducts } from "@/hooks/use-products";
+import { useForm } from "react-hook-form";
+import { useProducts, useCreateProduct } from "@/hooks/use-products";
+import { useCompanies } from "@/hooks/use-companies";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from "@/components/ui/dialog";
+import type { CreateProductInput, Office } from "@/types/products";
+
+const OFFICES: { value: Office; label: string }[] = [
+  { value: "KR", label: "Korea (KR)"     },
+  { value: "LK", label: "Sri Lanka (LK)" },
+  { value: "IN", label: "India (IN)"     },
+];
+
+function NewProductDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const mutation                  = useCreateProduct();
+  const { data: companies = [] }  = useCompanies();
+  const { register, handleSubmit, reset, formState: { errors } } = useForm<CreateProductInput>({
+    defaultValues: { owningOffice: "LK" },
+  });
+
+  const onSubmit = (values: CreateProductInput) => {
+    mutation.mutate(values, {
+      onSuccess: () => { reset(); onClose(); },
+    });
+  };
+
+  const handleClose = () => { reset(); onClose(); };
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && handleClose()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>New Product</DialogTitle>
+        </DialogHeader>
+
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-2">
+          {/* Company */}
+          <div className="space-y-1.5">
+            <Label htmlFor="companyId">Company</Label>
+            <select
+              id="companyId"
+              {...register("companyId", { required: "Company is required" })}
+              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <option value="">Select a company…</option>
+              {companies.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+            {errors.companyId && <p className="text-xs text-destructive">{errors.companyId.message}</p>}
+          </div>
+
+          {/* Name */}
+          <div className="space-y-1.5">
+            <Label htmlFor="name">Product name</Label>
+            <Input
+              id="name"
+              placeholder="e.g. Cloud Platform"
+              {...register("name", { required: "Name is required", minLength: { value: 2, message: "At least 2 characters" } })}
+            />
+            {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
+          </div>
+
+          {/* Code */}
+          <div className="space-y-1.5">
+            <Label htmlFor="code">Product code</Label>
+            <Input
+              id="code"
+              placeholder="e.g. CLOUD"
+              className="font-mono uppercase"
+              {...register("code", {
+                required: "Code is required",
+                pattern: { value: /^[A-Z0-9_-]+$/i, message: "Letters, numbers, _ and - only" },
+              })}
+            />
+            {errors.code && <p className="text-xs text-destructive">{errors.code.message}</p>}
+          </div>
+
+          {/* Owning office */}
+          <div className="space-y-1.5">
+            <Label htmlFor="owningOffice">Owning office</Label>
+            <select
+              id="owningOffice"
+              {...register("owningOffice", { required: true })}
+              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              {OFFICES.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Description (optional) */}
+          <div className="space-y-1.5">
+            <Label htmlFor="description">
+              Description <span className="text-muted-foreground font-normal">(optional)</span>
+            </Label>
+            <textarea
+              id="description"
+              rows={3}
+              placeholder="Brief description of this product…"
+              {...register("description")}
+              className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none"
+            />
+          </div>
+
+          {mutation.isError && (
+            <p className="text-xs text-destructive">Something went wrong. Please try again.</p>
+          )}
+
+          <DialogFooter>
+            <Button type="button" variant="outline" size="sm" onClick={handleClose} disabled={mutation.isPending}>
+              Cancel
+            </Button>
+            <Button type="submit" size="sm" disabled={mutation.isPending}>
+              {mutation.isPending ? "Creating…" : "Create product"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 export default function ProductListPage() {
   const { data: products, isLoading } = useProducts();
+  const [dialogOpen, setDialogOpen]   = useState(false);
 
   return (
-    <div className="space-y-5">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold">Products</h1>
-          <p className="text-sm text-muted-foreground">{products?.length ?? "…"} products</p>
+    <div className="flex flex-col h-full">
+
+      {/* ── Title bar ────────────────────────────────────────────────── */}
+      <div className="flex items-center justify-between px-5 py-2.5 border-b bg-background shrink-0">
+        <div className="flex items-center gap-2.5">
+          <h1 className="text-sm font-semibold">Products</h1>
+          {products && (
+            <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium tabular-nums">
+              {products.length}
+            </span>
+          )}
         </div>
-        <Button size="sm">
-          <Plus className="mr-1.5 size-4" />
+        <Button size="sm" className="h-8 text-xs" onClick={() => setDialogOpen(true)}>
+          <Plus className="size-3.5 mr-1" />
           New product
         </Button>
       </div>
 
-      {isLoading ? (
-        <div className="space-y-2">
-          {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-16 w-full" />)}
-        </div>
-      ) : (
-        <div className="space-y-2">
-          {products?.map((product) => (
-            <Card key={product.id} className="hover:shadow-md transition-shadow">
-              <CardContent className="flex items-center gap-4 p-4">
-                <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-                  <Package className="size-4 text-primary" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium">{product.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    <span className="font-mono">{product.code}</span> · {product.company.name}
-                  </p>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <Badge variant="outline">{product.owningOffice}</Badge>
-                  <span className="text-xs text-muted-foreground">
-                    {product._count?.issues ?? 0} issues
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
+      {/* ── Table ────────────────────────────────────────────────────── */}
+      <div className="flex-1 overflow-auto">
+        {isLoading ? (
+          <div className="p-4 space-y-1.5">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <Skeleton key={i} className="h-11 w-full" />
+            ))}
+          </div>
+        ) : (
+          <table className="w-full border-collapse">
+            <thead className="sticky top-0 z-10 bg-muted/50 backdrop-blur-sm">
+              <tr className="border-b">
+                {["Product", "Code", "Company", "Office", "Issues"].map((h) => (
+                  <th
+                    key={h}
+                    className="px-4 py-2.5 text-left text-xs font-semibold text-muted-foreground whitespace-nowrap"
+                  >
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {products?.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="py-16 text-center text-sm text-muted-foreground">
+                    No products found.
+                  </td>
+                </tr>
+              )}
+              {products?.map((product) => (
+                <tr
+                  key={product.id}
+                  className="border-b hover:bg-muted/40 transition-colors group"
+                >
+                  <td className="px-4 py-2.5">
+                    <div className="flex items-center gap-2.5">
+                      <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-primary/10">
+                        <Package className="size-3.5 text-primary" />
+                      </div>
+                      <span className="text-sm font-medium group-hover:text-primary transition-colors">
+                        {product.name}
+                      </span>
+                    </div>
+                  </td>
+                  <td className="px-4 py-2.5">
+                    <span className="font-mono text-xs text-muted-foreground">{product.code}</span>
+                  </td>
+                  <td className="px-4 py-2.5 text-xs text-muted-foreground">
+                    {product.company.name}
+                  </td>
+                  <td className="px-4 py-2.5">
+                    <Badge variant="outline" className="text-xs">{product.owningOffice}</Badge>
+                  </td>
+                  <td className="px-4 py-2.5 text-xs text-muted-foreground tabular-nums">
+                    {product._count?.issues ?? 0}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      <NewProductDialog open={dialogOpen} onClose={() => setDialogOpen(false)} />
     </div>
   );
 }

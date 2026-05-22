@@ -1,50 +1,206 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Plus, UserCircle2, Clock } from "lucide-react";
-import { useUsers } from "@/hooks/use-users";
+import { Plus, Clock } from "lucide-react";
+import { useForm } from "react-hook-form";
+import { useUsers, useCreateUser } from "@/hooks/use-users";
+import { useCompanies } from "@/hooks/use-companies";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { RoleBadge } from "@/components/ui/role-badge";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
+import type { CreateUserInput, UserRole, Office } from "@/types/users";
 
 type Filter = "all" | "pending";
 
-export default function UserListPage() {
-  const { data: users, isLoading } = useUsers();
-  const [filter, setFilter] = useState<Filter>("all");
+const ROLES: { value: UserRole; label: string }[] = [
+  { value: "client_user", label: "Client user" },
+  { value: "engineer",    label: "Engineer"    },
+  { value: "admin",       label: "Admin"       },
+];
 
-  const pendingCount = users?.filter((u) => !u.isActive).length ?? 0;
-  const visible = filter === "pending"
-    ? users?.filter((u) => !u.isActive)
-    : users;
+const OFFICES: { value: Office; label: string }[] = [
+  { value: "KR", label: "Korea (KR)"     },
+  { value: "LK", label: "Sri Lanka (LK)" },
+  { value: "IN", label: "India (IN)"     },
+];
+
+function initials(name: string) {
+  return name.split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase();
+}
+
+function NewUserDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const mutation                 = useCreateUser();
+  const { data: companies = [] } = useCompanies();
+
+  const { register, handleSubmit, reset, watch, formState: { errors } } = useForm<CreateUserInput>({
+    defaultValues: { role: "client_user" },
+  });
+
+  const role = watch("role");
+
+  const onSubmit = (values: CreateUserInput) => {
+    mutation.mutate(values, {
+      onSuccess: () => { reset(); onClose(); },
+    });
+  };
+
+  const handleClose = () => { reset(); onClose(); };
 
   return (
-    <div className="space-y-5">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold">Users</h1>
-          <p className="text-sm text-muted-foreground">{users?.length ?? "…"} members</p>
+    <Dialog open={open} onOpenChange={(v) => !v && handleClose()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>New User</DialogTitle>
+        </DialogHeader>
+
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-2">
+
+          <div className="space-y-1.5">
+            <Label htmlFor="fullName">Full name</Label>
+            <Input
+              id="fullName"
+              placeholder="Jane Smith"
+              {...register("fullName", { required: "Full name is required", minLength: { value: 2, message: "At least 2 characters" } })}
+            />
+            {errors.fullName && <p className="text-xs text-destructive">{errors.fullName.message}</p>}
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="email">Email</Label>
+            <Input
+              id="email"
+              type="email"
+              placeholder="jane@example.com"
+              {...register("email", {
+                required: "Email is required",
+                pattern: { value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, message: "Enter a valid email" },
+              })}
+            />
+            {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="password">Password</Label>
+            <Input
+              id="password"
+              type="password"
+              placeholder="Min. 8 characters"
+              {...register("password", { required: "Password is required", minLength: { value: 8, message: "At least 8 characters" } })}
+            />
+            {errors.password && <p className="text-xs text-destructive">{errors.password.message}</p>}
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="role">Role</Label>
+            <select
+              id="role"
+              {...register("role", { required: true })}
+              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              {ROLES.map((r) => (
+                <option key={r.value} value={r.value}>{r.label}</option>
+              ))}
+            </select>
+          </div>
+
+          {role === "client_user" && (
+            <div className="space-y-1.5">
+              <Label htmlFor="companyId">Company</Label>
+              <select
+                id="companyId"
+                {...register("companyId")}
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <option value="">Select a company…</option>
+                {companies.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {role === "engineer" && (
+            <div className="space-y-1.5">
+              <Label htmlFor="office">Office</Label>
+              <select
+                id="office"
+                {...register("office")}
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <option value="">Select an office…</option>
+                {OFFICES.map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {mutation.isError && (
+            <p className="text-xs text-destructive">Something went wrong. Please try again.</p>
+          )}
+
+          <DialogFooter>
+            <Button type="button" variant="outline" size="sm" onClick={handleClose} disabled={mutation.isPending}>
+              Cancel
+            </Button>
+            <Button type="submit" size="sm" disabled={mutation.isPending}>
+              {mutation.isPending ? "Creating…" : "Create user"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+export default function UserListPage() {
+  const { data: users, isLoading } = useUsers();
+  const [filter, setFilter]        = useState<Filter>("all");
+  const [dialogOpen, setDialogOpen] = useState(false);
+
+  const pendingCount = users?.filter((u) => !u.isActive).length ?? 0;
+  const visible      = filter === "pending" ? users?.filter((u) => !u.isActive) : users;
+
+  return (
+    <div className="flex flex-col h-full">
+
+      {/* ── Title bar ────────────────────────────────────────────────── */}
+      <div className="flex items-center justify-between px-5 py-2.5 border-b bg-background shrink-0">
+        <div className="flex items-center gap-2.5">
+          <h1 className="text-sm font-semibold">Users</h1>
+          {users && (
+            <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium tabular-nums">
+              {users.length}
+            </span>
+          )}
         </div>
-        <Button size="sm">
-          <Plus className="mr-1.5 size-4" />
+        <Button size="sm" className="h-8 text-xs" onClick={() => setDialogOpen(true)}>
+          <Plus className="size-3.5 mr-1" />
           New user
         </Button>
       </div>
 
-      {/* filter tabs */}
-      <div className="flex items-center gap-1 border-b pb-0">
+      {/* ── Filter tabs ──────────────────────────────────────────────── */}
+      <div className="flex border-b shrink-0 bg-background">
         {(["all", "pending"] as Filter[]).map((f) => (
           <button
             key={f}
             onClick={() => setFilter(f)}
-            className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+            className={cn(
+              "flex items-center gap-1.5 px-5 py-3 text-xs font-medium whitespace-nowrap transition-colors",
               filter === f
-                ? "border-primary text-foreground"
-                : "border-transparent text-muted-foreground hover:text-foreground"
-            }`}
+                ? "border-b-2 text-foreground -mb-px"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+            style={filter === f ? { borderBottomColor: "var(--brand-green)" } : undefined}
           >
-            {f === "pending" && <Clock className="size-3.5" />}
+            {f === "pending" && <Clock className="size-3" />}
             {f === "all" ? "All users" : "Pending approval"}
             {f === "pending" && pendingCount > 0 && (
               <span className="inline-flex items-center justify-center h-4 min-w-4 px-1 rounded-full bg-orange-500 text-white text-[10px] font-bold">
@@ -55,47 +211,83 @@ export default function UserListPage() {
         ))}
       </div>
 
-      {isLoading ? (
-        <div className="space-y-2">
-          {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-16 w-full" />)}
-        </div>
-      ) : visible?.length === 0 ? (
-        <p className="text-sm text-muted-foreground py-8 text-center">
-          {filter === "pending" ? "No pending approval requests." : "No users found."}
-        </p>
-      ) : (
-        <div className="space-y-2">
-          {visible?.map((user) => (
-            <Card key={user.id} className="hover:shadow-md transition-shadow">
-              <CardContent className="flex items-center gap-4 p-4">
-                <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted">
-                  <UserCircle2 className="size-5 text-muted-foreground" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <Link
-                    to={`/admin/users/${user.id}`}
-                    className="font-medium hover:text-primary"
+      {/* ── Table ────────────────────────────────────────────────────── */}
+      <div className="flex-1 overflow-auto">
+        {isLoading ? (
+          <div className="p-4 space-y-1.5">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <Skeleton key={i} className="h-11 w-full" />
+            ))}
+          </div>
+        ) : (
+          <table className="w-full border-collapse">
+            <thead className="sticky top-0 z-10 bg-muted/50 backdrop-blur-sm">
+              <tr className="border-b">
+                {["User", "Email", "Role", "Company", "Office", "Status"].map((h) => (
+                  <th
+                    key={h}
+                    className="px-4 py-2.5 text-left text-xs font-semibold text-muted-foreground whitespace-nowrap"
                   >
-                    {user.fullName}
-                  </Link>
-                  <p className="text-xs text-muted-foreground">{user.email}</p>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <RoleBadge role={user.role} />
-                  {!user.isActive && (
-                    <Badge variant="outline" className="text-xs text-orange-600 border-orange-300 bg-orange-50">
-                      pending approval
-                    </Badge>
-                  )}
-                  {user.company && (
-                    <span className="text-xs text-muted-foreground">{user.company.name}</span>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {visible?.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="py-16 text-center text-sm text-muted-foreground">
+                    {filter === "pending" ? "No pending approval requests." : "No users found."}
+                  </td>
+                </tr>
+              )}
+              {visible?.map((user) => (
+                <tr
+                  key={user.id}
+                  className="border-b hover:bg-muted/40 transition-colors group"
+                >
+                  <td className="px-4 py-2.5">
+                    <div className="flex items-center gap-2.5">
+                      <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary text-[10px] font-semibold">
+                        {initials(user.fullName)}
+                      </div>
+                      <Link
+                        to={`/admin/users/${user.id}`}
+                        className="text-sm font-medium group-hover:text-primary transition-colors"
+                      >
+                        {user.fullName}
+                      </Link>
+                    </div>
+                  </td>
+                  <td className="px-4 py-2.5 text-xs text-muted-foreground">
+                    {user.email}
+                  </td>
+                  <td className="px-4 py-2.5">
+                    <RoleBadge role={user.role} />
+                  </td>
+                  <td className="px-4 py-2.5 text-xs text-muted-foreground">
+                    {user.company?.name ?? <span className="opacity-40">—</span>}
+                  </td>
+                  <td className="px-4 py-2.5 text-xs text-muted-foreground">
+                    {user.office ?? <span className="opacity-40">—</span>}
+                  </td>
+                  <td className="px-4 py-2.5">
+                    {user.isActive ? (
+                      <Badge variant="secondary" className="text-xs">Active</Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-xs text-orange-600 border-orange-300 bg-orange-50">
+                        Pending
+                      </Badge>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      <NewUserDialog open={dialogOpen} onClose={() => setDialogOpen(false)} />
     </div>
   );
 }
