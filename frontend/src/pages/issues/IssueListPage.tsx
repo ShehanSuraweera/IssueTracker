@@ -6,6 +6,7 @@ import {
   PanelLeftClose, PanelLeftOpen, Loader2, Pin,
 } from "lucide-react";
 import { useInfiniteIssues } from "@/hooks/use-issues";
+import { exportIssues } from "@/api/issues";
 import { relativeTime } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
 import { useTabsStore } from "@/store/tabs.store";
@@ -113,6 +114,26 @@ export default function IssueListPage() {
   const [sortField,       setSortField]       = useState<SortField>("updatedAt");
   const [sortDir,         setSortDir]         = useState<SortDir>("desc");
   const [groupBy,         setGroupBy]         = useState<string | null>(null);
+  const [isExporting,     setIsExporting]     = useState(false);
+
+  const handleExport = async (format: "csv" | "json") => {
+    setIsExporting(true);
+    try {
+      const params = {
+        ...(activeViewQuery.status     ? { status:     activeViewQuery.status     } : {}),
+        ...(activeViewQuery.product_id ? { product_id: activeViewQuery.product_id } : {}),
+      };
+      const { blob, filename } = await exportIssues(format, params);
+      const url  = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href     = url;
+      link.download = filename;
+      link.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   const debouncedSearch = useDebounce(search, 300);
 
@@ -382,10 +403,24 @@ export default function IssueListPage() {
             >
               <RefreshCw className={`size-3.5 ${isFetching ? "animate-spin" : ""}`} />
             </Button>
-            <Button variant="outline" size="sm" className="h-8 text-xs">
-              <Download className="size-3.5 mr-1.5" />
-              Export
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="h-8 text-xs" disabled={isExporting}>
+                  <Download className={`size-3.5 mr-1.5 ${isExporting ? "animate-pulse" : ""}`} />
+                  {isExporting ? "Exporting…" : "Export"}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-40">
+                <DropdownMenuLabel className="text-xs py-1.5">Export as</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem className="text-xs" onClick={() => handleExport("csv")}>
+                  CSV — spreadsheet
+                </DropdownMenuItem>
+                <DropdownMenuItem className="text-xs" onClick={() => handleExport("json")}>
+                  JSON — structured
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             {!hasRole("engineer") && (
               <Button size="sm" className="h-8 text-xs" onClick={() => navigate("/issues/new")}>
                 <Plus className="size-3.5 mr-1" />

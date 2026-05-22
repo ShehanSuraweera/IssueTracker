@@ -96,6 +96,19 @@ export async function getFeed(
   return data;
 }
 
+export async function exportIssues(
+  format: "csv" | "json",
+  params: { status?: string; product_id?: string } = {}
+): Promise<{ blob: Blob; filename: string }> {
+  const response = await api.get("/issues/export", {
+    params:       { format, ...params },
+    responseType: "blob",
+  });
+  const ext      = format === "csv" ? "csv" : "json";
+  const filename = `issues-export.${ext}`;
+  return { blob: response.data as Blob, filename };
+}
+
 export async function getDownloadUrl(
   issueId: string,
   attId: string
