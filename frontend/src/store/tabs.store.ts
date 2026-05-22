@@ -19,11 +19,13 @@ export interface AppTab {
 interface TabsState {
   tabs: AppTab[];
   activeId: string;
+  pinnedId: string | null;
   openTab: (args: { id: string; label: string; path: string; meta?: TabMeta }) => void;
   closeTab: (id: string) => void;
   setActive: (id: string) => void;
   updateLabel: (id: string, label: string) => void;
   updateMeta: (id: string, meta: TabMeta) => void;
+  pinTab: (id: string) => void;
   reset: () => void;
 }
 
@@ -34,6 +36,7 @@ export const useTabsStore = create<TabsState>()(
     (set, get) => ({
       tabs: [HOME_TAB],
       activeId: "home",
+      pinnedId: null,
 
       openTab({ id, label, path, meta }) {
         const { tabs } = get();
@@ -45,12 +48,12 @@ export const useTabsStore = create<TabsState>()(
       },
 
       closeTab(id) {
-        const { tabs, activeId } = get();
+        const { tabs, activeId, pinnedId } = get();
         const idx = tabs.findIndex((t) => t.id === id);
         if (idx === -1 || !tabs[idx].closeable) return;
         const next = tabs.filter((t) => t.id !== id);
         const newActive = activeId === id ? (next[Math.max(0, idx - 1)]?.id ?? "home") : activeId;
-        set({ tabs: next, activeId: newActive });
+        set({ tabs: next, activeId: newActive, ...(pinnedId === id ? { pinnedId: null } : {}) });
       },
 
       setActive(id) { set({ activeId: id }); },
@@ -63,8 +66,12 @@ export const useTabsStore = create<TabsState>()(
         set(({ tabs }) => ({ tabs: tabs.map((t) => (t.id === id ? { ...t, meta } : t)) }));
       },
 
+      pinTab(id) {
+        set(({ pinnedId }) => ({ pinnedId: pinnedId === id ? null : id }));
+      },
+
       reset() {
-        set({ tabs: [HOME_TAB], activeId: "home" });
+        set({ tabs: [HOME_TAB], activeId: "home", pinnedId: null });
       },
     }),
     {
