@@ -4,6 +4,7 @@ import {
   LoginSchema,
   RefreshSchema,
   LogoutSchema,
+  RequestAccessSchema,
 } from "./auth.schemas";
 import * as AuthService from "./auth.service";
 
@@ -65,6 +66,20 @@ export async function logout(
     const { refreshToken } = LogoutSchema.parse(req.body);
     await AuthService.logout(req.user!.id, refreshToken);
     res.status(200).json({ data: { message: "Logged out successfully" } });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function requestAccess(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const input = RequestAccessSchema.parse(req.body);
+    const result = await AuthService.requestAccess(input);
+    res.status(201).json({ data: result });
   } catch (err) {
     next(err);
   }

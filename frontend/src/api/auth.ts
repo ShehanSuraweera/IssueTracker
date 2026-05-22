@@ -19,3 +19,13 @@ export async function getMe(): Promise<UserProfile> {
   const { data } = await api.get<{ data: UserProfile }>("/auth/me");
   return data.data;
 }
+
+export async function requestAccess(input: {
+  fullName: string;
+  email: string;
+  companyName: string;
+  password: string;
+}): Promise<{ message: string }> {
+  const { data } = await api.post<{ data: { message: string } }>("/auth/request-access", input);
+  return data.data;
+}

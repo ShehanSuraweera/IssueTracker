@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Package, Trash2 } from "lucide-react";
-import { useUser, useRevokeProductAccess } from "@/hooks/use-users";
+import { ArrowLeft, Package, Trash2, CheckCircle2, XCircle } from "lucide-react";
+import { useUser, useRevokeProductAccess, useUpdateUser } from "@/hooks/use-users";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -12,7 +12,8 @@ export default function UserDetailPage() {
   const navigate = useNavigate();
 
   const { data: user, isLoading } = useUser(id);
-  const revokeMutation = useRevokeProductAccess(id);
+  const revokeMutation  = useRevokeProductAccess(id);
+  const updateMutation  = useUpdateUser(id);
 
   if (isLoading) {
     return (
@@ -37,9 +38,34 @@ export default function UserDetailPage() {
           <h1 className="text-xl font-semibold">{user.fullName}</h1>
           <p className="text-sm text-muted-foreground">{user.email}</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
           <Badge variant="secondary">{user.role.replace("_", " ")}</Badge>
-          {!user.isActive && <Badge variant="destructive">inactive</Badge>}
+          {!user.isActive && (
+            <Badge variant="outline" className="text-orange-600 border-orange-300 bg-orange-50">
+              pending approval
+            </Badge>
+          )}
+          {user.isActive ? (
+            <Button
+              size="sm"
+              variant="outline"
+              className="text-destructive hover:text-destructive"
+              disabled={updateMutation.isPending}
+              onClick={() => updateMutation.mutate({ isActive: false })}
+            >
+              <XCircle className="mr-1.5 size-3.5" />
+              Deactivate
+            </Button>
+          ) : (
+            <Button
+              size="sm"
+              disabled={updateMutation.isPending}
+              onClick={() => updateMutation.mutate({ isActive: true })}
+            >
+              <CheckCircle2 className="mr-1.5 size-3.5" />
+              Approve
+            </Button>
+          )}
         </div>
       </div>
 

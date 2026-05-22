@@ -4,7 +4,7 @@ import crypto from "crypto";
 import { prisma } from "../../lib/prisma";
 import { env } from "../../config/env";
 import { AppError } from "../../middleware/errorHandler";
-import type { RegisterInput, LoginInput } from "./auth.schemas";
+import type { RegisterInput, LoginInput, RequestAccessInput } from "./auth.schemas";
 import type { UserRole } from "@prisma/client";
 
 const BCRYPT_ROUNDS = 10;
@@ -127,8 +127,8 @@ export async function login(
     where: { email: input.email.toLowerCase() },
   });
 
-  // Constant-time comparison pattern — don't reveal whether the email exists
-  if (!user || !user.isActive) {
+  // Constant-time comparison — don't reveal whether the email exists
+  if (!user) {
     await bcrypt.hash("dummy-prevent-timing-attack", BCRYPT_ROUNDS);
     throw new AppError(401, "INVALID_CREDENTIALS", "Invalid email or password");
   }
@@ -136,6 +136,11 @@ export async function login(
   const passwordMatch = await bcrypt.compare(input.password, user.passwordHash);
   if (!passwordMatch) {
     throw new AppError(401, "INVALID_CREDENTIALS", "Invalid email or password");
+  }
+
+  // Only reveal pending status after correct password — prevents email enumeration
+  if (!user.isActive) {
+    throw new AppError(403, "ACCOUNT_PENDING", "Your account is pending admin approval. You will be notified once access is granted.");
   }
 
   const accessToken = issueAccessToken(user);
@@ -147,6 +152,46 @@ export async function login(
     expiresIn: env.ACCESS_TOKEN_TTL_SECONDS,
     user: serializeUser(user),
   };
+}
+
+export async function requestAccess(input: RequestAccessInput) {
+  const existing = await prisma.user.findUnique({
+    where: { email: input.email.toLowerCase() },
+  });
+
+  if (existing) {
+    throw new AppError(409, "EMAIL_TAKEN", "This email address is already registered");
+  }
+
+  const passwordHash = await bcrypt.hash(input.password, BCRYPT_ROUNDS);
+
+  // Find existing company by name (case-insensitive) or create a new one
+  let company = await prisma.company.findFirst({
+    where: { name: input.companyName },
+  });
+
+  if (!company) {
+    company = await prisma.company.create({
+      data: {
+        name:         input.companyName,
+        contactEmail: input.email.toLowerCase(),
+        region:       "GLOBAL",
+      },
+    });
+  }
+
+  await prisma.user.create({
+    data: {
+      email:        input.email.toLowerCase(),
+      passwordHash,
+      fullName:     input.fullName,
+      role:         "client_user",
+      companyId:    company.id,
+      isActive:     false,
+    },
+  });
+
+  return { message: "Access request submitted. An admin will review your request and notify you." };
 }
 
 export async function refresh(

@@ -3,11 +3,12 @@ import {
   listUsers,
   listEngineers,
   getUser,
+  updateUser,
   revokeProductAccess,
   changePassword,
 } from "@/api/users";
 import { queryKeys } from "./query-keys";
-import type { ChangePasswordInput } from "@/types/users";
+import type { ChangePasswordInput, UpdateUserInput } from "@/types/users";
 
 export function useUsers() {
   return useQuery({
@@ -37,6 +38,17 @@ export function useRevokeProductAccess(userId: string | undefined) {
     mutationFn: (productId: string) => revokeProductAccess(userId!, productId),
     onSuccess: () =>
       qc.invalidateQueries({ queryKey: queryKeys.users.detail(userId) }),
+  });
+}
+
+export function useUpdateUser(userId: string | undefined) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: UpdateUserInput) => updateUser(userId!, input),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.users.detail(userId) });
+      qc.invalidateQueries({ queryKey: queryKeys.users.all() });
+    },
   });
 }
 

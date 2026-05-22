@@ -52,6 +52,7 @@ const router = Router();
  *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.post("/register", authRateLimiter, AuthController.register);
+router.post("/request-access", authRateLimiter, AuthController.requestAccess);
 
 /**
  * @openapi

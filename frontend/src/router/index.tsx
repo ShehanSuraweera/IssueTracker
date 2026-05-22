@@ -6,7 +6,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 // ─── Lazy page imports ────────────────────────────────────────────────────────
 
-const LoginPage         = lazy(() => import("@/pages/LoginPage"));
+const LoginPage           = lazy(() => import("@/pages/LoginPage"));
+const RequestAccessPage   = lazy(() => import("@/pages/RequestAccessPage"));
 const HomePage          = lazy(() => import("@/pages/HomePage"));
 const IssueListPage     = lazy(() => import("@/pages/issues/IssueListPage"));
 const IssueDetailPage   = lazy(() => import("@/pages/issues/IssueDetailPage"));
@@ -40,7 +41,8 @@ export const router = createBrowserRouter([
   {
     element: <RedirectIfAuth />,
     children: [
-      { path: "/login", element: wrap(<LoginPage />) },
+      { path: "/login",    element: wrap(<LoginPage />) },
+      { path: "/register", element: wrap(<RequestAccessPage />) },
     ],
   },
 
