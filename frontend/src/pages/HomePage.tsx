@@ -284,23 +284,21 @@ export default function HomePage() {
         </div>
 
         <div className="rounded-lg border overflow-hidden">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b bg-muted/30">
-                {["Ticket", "Title", "Priority", "State", "Product", "Actual time left", "Has breached", "Created", "Updated"].map((h) => (
-                  <th
-                    key={h}
-                    className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground whitespace-nowrap"
-                  >
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-          </table>
           {/* scrollable body — ~10 rows visible (each row ~41px) */}
           <div className="overflow-y-auto" style={{ maxHeight: "410px" }}>
             <table className="w-full text-sm">
+              <thead className="sticky top-0 z-10">
+                <tr className="border-b bg-muted/60 backdrop-blur-sm">
+                  {["Ticket", "Title", "Priority", "State", "Product", "Actual time left", "Has breached", "Created", "Updated"].map((h) => (
+                    <th
+                      key={h}
+                      className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground whitespace-nowrap"
+                    >
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
               <tbody>
                 {!myWork ? (
                   Array.from({ length: 5 }).map((_, i) => (
