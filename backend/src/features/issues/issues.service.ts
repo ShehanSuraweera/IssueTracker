@@ -138,9 +138,20 @@ export async function listIssues(query: ListIssuesQuery, user: AuthUser) {
   };
 
   const orderBy: Prisma.IssueOrderByWithRelationInput =
-    query.sort === "createdAt_asc"  ? { createdAt: "asc" } :
-    query.sort === "updatedAt_desc" ? { updatedAt: "desc" } :
-                                      { createdAt: "desc" };
+    query.sort === "createdAt_asc"     ? { createdAt:    "asc"  } :
+    query.sort === "updatedAt_desc"    ? { updatedAt:    "desc" } :
+    query.sort === "updatedAt_asc"     ? { updatedAt:    "asc"  } :
+    query.sort === "ticketNumber_asc"  ? { ticketNumber: "asc"  } :
+    query.sort === "ticketNumber_desc" ? { ticketNumber: "desc" } :
+    query.sort === "title_asc"         ? { title:        "asc"  } :
+    query.sort === "title_desc"        ? { title:        "desc" } :
+    query.sort === "status_asc"        ? { status:       "asc"  } :
+    query.sort === "status_desc"       ? { status:       "desc" } :
+    query.sort === "priority_asc"      ? { priority:     "asc"  } :
+    query.sort === "priority_desc"     ? { priority:     "desc" } :
+    query.sort === "assignee_asc"      ? { assignee:     { fullName: "asc"  } } :
+    query.sort === "assignee_desc"     ? { assignee:     { fullName: "desc" } } :
+                                         { updatedAt:    "desc" };
 
   const skip = (query.page - 1) * query.limit;
 

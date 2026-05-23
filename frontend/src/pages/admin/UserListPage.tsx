@@ -6,15 +6,68 @@ import { useUsers, useCreateUser } from "@/hooks/use-users";
 import { useCompanies } from "@/hooks/use-companies";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RoleBadge } from "@/components/ui/role-badge";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
+import { DataTable } from "@/components/ui/data-table";
+import type { ColumnDef } from "@/components/ui/data-table";
 import { cn } from "@/lib/utils";
-import type { CreateUserInput, UserRole, Office } from "@/types/users";
+import type { CreateUserInput, UserRole, Office, User } from "@/types/users";
+
+function initials(name: string) {
+  return name.split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase();
+}
+
+const userColumns: ColumnDef<User>[] = [
+  {
+    key: "fullName",
+    header: "User",
+    render: (row) => (
+      <div className="flex items-center gap-2.5">
+        <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary text-[10px] font-semibold">
+          {initials(row.fullName)}
+        </div>
+        <Link
+          to={`/admin/users/${row.id}`}
+          className="text-sm font-medium hover:text-primary transition-colors"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {row.fullName}
+        </Link>
+      </div>
+    ),
+  },
+  {
+    key: "email",
+    header: "Email",
+    render: (row) => <span className="text-xs text-muted-foreground">{row.email}</span>,
+  },
+  {
+    key: "role",
+    header: "Role",
+    render: (row) => <RoleBadge role={row.role} />,
+  },
+  {
+    key: "company",
+    header: "Company",
+    render: (row) => <span className="text-xs text-muted-foreground">{row.company?.name ?? <span className="opacity-40">—</span>}</span>,
+  },
+  {
+    key: "office",
+    header: "Office",
+    render: (row) => <span className="text-xs text-muted-foreground">{row.office ?? <span className="opacity-40">—</span>}</span>,
+  },
+  {
+    key: "isActive",
+    header: "Status",
+    render: (row) => row.isActive
+      ? <Badge variant="secondary" className="text-xs">Active</Badge>
+      : <Badge variant="outline" className="text-xs text-orange-600 border-orange-300 bg-orange-50">Pending</Badge>,
+  },
+];
 
 type Filter = "all" | "pending";
 
@@ -29,10 +82,6 @@ const OFFICES: { value: Office; label: string }[] = [
   { value: "LK", label: "Sri Lanka (LK)" },
   { value: "IN", label: "India (IN)"     },
 ];
-
-function initials(name: string) {
-  return name.split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase();
-}
 
 function NewUserDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const mutation                 = useCreateUser();
@@ -213,78 +262,13 @@ export default function UserListPage() {
 
       {/* ── Table ────────────────────────────────────────────────────── */}
       <div className="flex-1 overflow-auto">
-        {isLoading ? (
-          <div className="p-4 space-y-1.5">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <Skeleton key={i} className="h-11 w-full" />
-            ))}
-          </div>
-        ) : (
-          <table className="w-full border-collapse">
-            <thead className="sticky top-0 z-10 bg-muted/50 backdrop-blur-sm">
-              <tr className="border-b">
-                {["User", "Email", "Role", "Company", "Office", "Status"].map((h) => (
-                  <th
-                    key={h}
-                    className="px-4 py-2.5 text-left text-xs font-semibold text-muted-foreground whitespace-nowrap"
-                  >
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {visible?.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="py-16 text-center text-sm text-muted-foreground">
-                    {filter === "pending" ? "No pending approval requests." : "No users found."}
-                  </td>
-                </tr>
-              )}
-              {visible?.map((user) => (
-                <tr
-                  key={user.id}
-                  className="border-b hover:bg-muted/40 transition-colors group"
-                >
-                  <td className="px-4 py-2.5">
-                    <div className="flex items-center gap-2.5">
-                      <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary text-[10px] font-semibold">
-                        {initials(user.fullName)}
-                      </div>
-                      <Link
-                        to={`/admin/users/${user.id}`}
-                        className="text-sm font-medium group-hover:text-primary transition-colors"
-                      >
-                        {user.fullName}
-                      </Link>
-                    </div>
-                  </td>
-                  <td className="px-4 py-2.5 text-xs text-muted-foreground">
-                    {user.email}
-                  </td>
-                  <td className="px-4 py-2.5">
-                    <RoleBadge role={user.role} />
-                  </td>
-                  <td className="px-4 py-2.5 text-xs text-muted-foreground">
-                    {user.company?.name ?? <span className="opacity-40">—</span>}
-                  </td>
-                  <td className="px-4 py-2.5 text-xs text-muted-foreground">
-                    {user.office ?? <span className="opacity-40">—</span>}
-                  </td>
-                  <td className="px-4 py-2.5">
-                    {user.isActive ? (
-                      <Badge variant="secondary" className="text-xs">Active</Badge>
-                    ) : (
-                      <Badge variant="outline" className="text-xs text-orange-600 border-orange-300 bg-orange-50">
-                        Pending
-                      </Badge>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+        <DataTable
+          variant="page"
+          columns={userColumns}
+          data={visible}
+          isLoading={isLoading}
+          emptyMessage={filter === "pending" ? "No pending approval requests." : "No users found."}
+        />
       </div>
 
       <NewUserDialog open={dialogOpen} onClose={() => setDialogOpen(false)} />

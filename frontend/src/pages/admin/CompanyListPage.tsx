@@ -5,13 +5,55 @@ import { useForm } from "react-hook-form";
 import { useCompanies, useCreateCompany } from "@/hooks/use-companies";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
-import type { CreateCompanyInput, Region } from "@/types/companies";
+import { DataTable } from "@/components/ui/data-table";
+import type { ColumnDef } from "@/components/ui/data-table";
+import type { CreateCompanyInput, Region, Company } from "@/types/companies";
+
+const companyColumns: ColumnDef<Company>[] = [
+  {
+    key: "name",
+    header: "Company",
+    render: (row) => (
+      <div className="flex items-center gap-2.5">
+        <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-primary/10">
+          <Building2 className="size-3.5 text-primary" />
+        </div>
+        <Link
+          to={`/admin/companies/${row.id}`}
+          className="text-sm font-medium hover:text-primary transition-colors"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {row.name}
+        </Link>
+      </div>
+    ),
+  },
+  {
+    key: "contactEmail",
+    header: "Contact",
+    render: (row) => <span className="text-xs text-muted-foreground">{row.contactEmail}</span>,
+  },
+  {
+    key: "region",
+    header: "Region",
+    render: (row) => <Badge variant="secondary" className="text-xs">{row.region}</Badge>,
+  },
+  {
+    key: "products",
+    header: "Products",
+    render: (row) => <span className="text-xs text-muted-foreground tabular-nums">{row._count?.products ?? 0}</span>,
+  },
+  {
+    key: "users",
+    header: "Users",
+    render: (row) => <span className="text-xs text-muted-foreground tabular-nums">{row._count?.users ?? 0}</span>,
+  },
+];
 
 const REGIONS: { value: Region; label: string }[] = [
   { value: "KR",     label: "Korea (KR)"     },
@@ -125,71 +167,13 @@ export default function CompanyListPage() {
 
       {/* ── Table ────────────────────────────────────────────────────── */}
       <div className="flex-1 overflow-auto">
-        {isLoading ? (
-          <div className="p-4 space-y-1.5">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <Skeleton key={i} className="h-11 w-full" />
-            ))}
-          </div>
-        ) : (
-          <table className="w-full border-collapse">
-            <thead className="sticky top-0 z-10 bg-muted/50 backdrop-blur-sm">
-              <tr className="border-b">
-                {["Company", "Contact", "Region", "Products", "Users"].map((h) => (
-                  <th
-                    key={h}
-                    className="px-4 py-2.5 text-left text-xs font-semibold text-muted-foreground whitespace-nowrap"
-                  >
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {companies?.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="py-16 text-center text-sm text-muted-foreground">
-                    No companies found.
-                  </td>
-                </tr>
-              )}
-              {companies?.map((company) => (
-                <tr
-                  key={company.id}
-                  className="border-b cursor-pointer hover:bg-muted/40 transition-colors group"
-                >
-                  <td className="px-4 py-2.5">
-                    <div className="flex items-center gap-2.5">
-                      <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-primary/10">
-                        <Building2 className="size-3.5 text-primary" />
-                      </div>
-                      <Link
-                        to={`/admin/companies/${company.id}`}
-                        className="text-sm font-medium group-hover:text-primary transition-colors"
-                      >
-                        {company.name}
-                      </Link>
-                    </div>
-                  </td>
-                  <td className="px-4 py-2.5 text-xs text-muted-foreground">
-                    {company.contactEmail}
-                  </td>
-                  <td className="px-4 py-2.5">
-                    <Badge variant="secondary" className="text-xs">
-                      {company.region}
-                    </Badge>
-                  </td>
-                  <td className="px-4 py-2.5 text-xs text-muted-foreground tabular-nums">
-                    {company._count?.products ?? 0}
-                  </td>
-                  <td className="px-4 py-2.5 text-xs text-muted-foreground tabular-nums">
-                    {company._count?.users ?? 0}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+        <DataTable
+          variant="page"
+          columns={companyColumns}
+          data={companies}
+          isLoading={isLoading}
+          emptyMessage="No companies found."
+        />
       </div>
 
       <NewCompanyDialog open={dialogOpen} onClose={() => setDialogOpen(false)} />

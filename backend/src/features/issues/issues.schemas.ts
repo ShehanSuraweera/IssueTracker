@@ -64,8 +64,16 @@ export const ListIssuesQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
   sort: z
-    .enum(["createdAt_desc", "createdAt_asc", "updatedAt_desc"])
-    .default("createdAt_desc"),
+    .enum([
+      "createdAt_desc", "createdAt_asc",
+      "updatedAt_desc", "updatedAt_asc",
+      "ticketNumber_asc", "ticketNumber_desc",
+      "title_asc",        "title_desc",
+      "status_asc",       "status_desc",
+      "priority_asc",     "priority_desc",
+      "assignee_asc",     "assignee_desc",
+    ])
+    .default("updatedAt_desc"),
 });
 
 export const AssignIssueSchema = z.object({

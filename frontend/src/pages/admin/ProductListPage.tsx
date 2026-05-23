@@ -5,13 +5,49 @@ import { useProducts, useCreateProduct } from "@/hooks/use-products";
 import { useCompanies } from "@/hooks/use-companies";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
-import type { CreateProductInput, Office } from "@/types/products";
+import { DataTable } from "@/components/ui/data-table";
+import type { ColumnDef } from "@/components/ui/data-table";
+import type { CreateProductInput, Office, Product } from "@/types/products";
+
+const productColumns: ColumnDef<Product>[] = [
+  {
+    key: "name",
+    header: "Product",
+    render: (row) => (
+      <div className="flex items-center gap-2.5">
+        <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-primary/10">
+          <Package className="size-3.5 text-primary" />
+        </div>
+        <span className="text-sm font-medium">{row.name}</span>
+      </div>
+    ),
+  },
+  {
+    key: "code",
+    header: "Code",
+    render: (row) => <span className="font-mono text-xs text-muted-foreground">{row.code}</span>,
+  },
+  {
+    key: "company",
+    header: "Company",
+    render: (row) => <span className="text-xs text-muted-foreground">{row.company.name}</span>,
+  },
+  {
+    key: "owningOffice",
+    header: "Office",
+    render: (row) => <Badge variant="outline" className="text-xs">{row.owningOffice}</Badge>,
+  },
+  {
+    key: "issues",
+    header: "Issues",
+    render: (row) => <span className="text-xs text-muted-foreground tabular-nums">{row._count?.issues ?? 0}</span>,
+  },
+];
 
 const OFFICES: { value: Office; label: string }[] = [
   { value: "KR", label: "Korea (KR)"     },
@@ -155,66 +191,13 @@ export default function ProductListPage() {
 
       {/* ── Table ────────────────────────────────────────────────────── */}
       <div className="flex-1 overflow-auto">
-        {isLoading ? (
-          <div className="p-4 space-y-1.5">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <Skeleton key={i} className="h-11 w-full" />
-            ))}
-          </div>
-        ) : (
-          <table className="w-full border-collapse">
-            <thead className="sticky top-0 z-10 bg-muted/50 backdrop-blur-sm">
-              <tr className="border-b">
-                {["Product", "Code", "Company", "Office", "Issues"].map((h) => (
-                  <th
-                    key={h}
-                    className="px-4 py-2.5 text-left text-xs font-semibold text-muted-foreground whitespace-nowrap"
-                  >
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {products?.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="py-16 text-center text-sm text-muted-foreground">
-                    No products found.
-                  </td>
-                </tr>
-              )}
-              {products?.map((product) => (
-                <tr
-                  key={product.id}
-                  className="border-b hover:bg-muted/40 transition-colors group"
-                >
-                  <td className="px-4 py-2.5">
-                    <div className="flex items-center gap-2.5">
-                      <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-primary/10">
-                        <Package className="size-3.5 text-primary" />
-                      </div>
-                      <span className="text-sm font-medium group-hover:text-primary transition-colors">
-                        {product.name}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-2.5">
-                    <span className="font-mono text-xs text-muted-foreground">{product.code}</span>
-                  </td>
-                  <td className="px-4 py-2.5 text-xs text-muted-foreground">
-                    {product.company.name}
-                  </td>
-                  <td className="px-4 py-2.5">
-                    <Badge variant="outline" className="text-xs">{product.owningOffice}</Badge>
-                  </td>
-                  <td className="px-4 py-2.5 text-xs text-muted-foreground tabular-nums">
-                    {product._count?.issues ?? 0}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+        <DataTable
+          variant="page"
+          columns={productColumns}
+          data={products}
+          isLoading={isLoading}
+          emptyMessage="No products found."
+        />
       </div>
 
       <NewProductDialog open={dialogOpen} onClose={() => setDialogOpen(false)} />

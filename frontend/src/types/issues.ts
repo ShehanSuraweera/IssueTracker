@@ -163,5 +163,11 @@ export interface ListIssuesQuery {
   unassigned?: boolean;
   page?: number;
   limit?: number;
-  sort?: "createdAt_desc" | "createdAt_asc" | "updatedAt_desc";
+  sort?: "createdAt_desc"   | "createdAt_asc"
+       | "updatedAt_desc"    | "updatedAt_asc"
+       | "ticketNumber_asc"  | "ticketNumber_desc"
+       | "title_asc"         | "title_desc"
+       | "status_asc"        | "status_desc"
+       | "priority_asc"      | "priority_desc"
+       | "assignee_asc"      | "assignee_desc";
 }

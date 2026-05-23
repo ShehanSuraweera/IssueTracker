@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { RefreshCw, Plus, ArrowRight, X } from "lucide-react";
-import { useIssues, useIssueStats } from "@/hooks/use-issues";
+import { useInfiniteIssues, useIssueStats } from "@/hooks/use-issues";
 import { useAuth } from "@/hooks/use-auth";
 import { useDebounce } from "@/hooks/use-debounce";
 import { useTabsStore } from "@/store/tabs.store";
@@ -13,6 +13,8 @@ import { relativeTime } from "@/lib/utils";
 import { NewnopLogo } from "@/components/ui/newnop-logo";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { PriorityBadge } from "@/components/ui/priority-badge";
+import { DataTable } from "@/components/ui/data-table";
+import type { ColumnDef } from "@/components/ui/data-table";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -24,6 +26,79 @@ function slaInfo(deadline: string | null): { label: string; breached: boolean } 
   const h = Math.floor((rem % 86_400_000) / 3_600_000);
   return { label: d > 0 ? `${d}d ${h}h` : `${h}h`, breached: false };
 }
+
+const homeColumns: ColumnDef<IssueSummary>[] = [
+  {
+    key: "ticketNumber",
+    header: "Ticket",
+    className: "whitespace-nowrap",
+    render: (row) => <span className="font-mono text-xs text-muted-foreground">{row.ticketNumber}</span>,
+  },
+  {
+    key: "title",
+    header: "Title",
+    className: "max-w-55",
+    render: (row) => <span className="font-medium truncate block">{row.title}</span>,
+  },
+  {
+    key: "priority",
+    header: "Priority",
+    className: "whitespace-nowrap",
+    render: (row) => <PriorityBadge priority={row.priority} />,
+  },
+  {
+    key: "status",
+    header: "State",
+    className: "whitespace-nowrap",
+    render: (row) => <StatusBadge status={row.status} />,
+  },
+  {
+    key: "product",
+    header: "Product",
+    className: "whitespace-nowrap",
+    render: (row) => <span className="text-xs text-muted-foreground">{row.product.name}</span>,
+  },
+  {
+    key: "slaTimeLeft",
+    header: "Actual time left",
+    className: "whitespace-nowrap",
+    render: (row) => {
+      const sla = slaInfo(row.slaDeadline);
+      return <span className={sla.breached ? "text-xs text-red-600 font-medium" : "text-xs text-muted-foreground"}>{sla.label}</span>;
+    },
+  },
+  {
+    key: "slaBreached",
+    header: "Has breached",
+    className: "whitespace-nowrap",
+    render: (row) => {
+      const sla = slaInfo(row.slaDeadline);
+      return sla.breached
+        ? <span className="text-xs text-red-600 font-medium">Yes</span>
+        : <span className="text-xs text-muted-foreground">No</span>;
+    },
+  },
+  {
+    key: "createdAt",
+    header: "Created",
+    className: "whitespace-nowrap",
+    render: (row) => (
+      <span className="text-xs text-muted-foreground">
+        {new Date(row.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+      </span>
+    ),
+  },
+  {
+    key: "updatedAt",
+    header: "Updated",
+    className: "whitespace-nowrap",
+    render: (row) => (
+      <span className="text-xs text-muted-foreground">
+        {new Date(row.updatedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+      </span>
+    ),
+  },
+];
 
 // ─── KPI Tile ─────────────────────────────────────────────────────────────────
 
@@ -116,18 +191,29 @@ export default function HomePage() {
 
   const { data: stats, refetch: refetchStats } = useIssueStats({ refetchInterval: 60_000 });
 
+
   const baseQuery = hasRole("engineer") && user
     ? { assigned_to: user.id, sort: "updatedAt_desc" as const }
     : { sort: "updatedAt_desc" as const };
 
   const workQuery = {
     ...baseQuery,
-    limit: 50,
     ...(statusFilter   ? { status:   statusFilter   } : {}),
     ...(priorityFilter ? { priority: priorityFilter } : {}),
   };
 
-  const { data: myWork, dataUpdatedAt, isFetching, refetch: refetchWork } = useIssues(workQuery, debouncedSearch, { refetchInterval: 60_000 });
+  const {
+    data,
+    dataUpdatedAt,
+    isFetching,
+    isFetchingNextPage,
+    hasNextPage,
+    fetchNextPage,
+    refetch: refetchWork,
+  } = useInfiniteIssues(workQuery, debouncedSearch, { refetchInterval: 60_000 });
+
+  const allItems   = useMemo(() => data?.pages.flatMap(p => p.data) ?? [], [data]);
+  const totalCount = data?.pages[0]?.pagination.total ?? 0;
 
   const openIssue = (issue: IssueSummary) => {
     openTab({
@@ -180,7 +266,7 @@ export default function HomePage() {
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
             <KpiTile
               label={hasRole("admin") ? "All Unassigned" : "Open"}
-              value={hasRole("admin") ? stats?.adminView?.unassignedOpen : myWork?.pagination.total}
+              value={hasRole("admin") ? stats?.adminView?.unassignedOpen : totalCount || undefined}
               onClick={() => navigate("/issues", { state: { viewId: "unassigned" } })}
             />
             <KpiTile
@@ -214,9 +300,9 @@ export default function HomePage() {
             <h2 className="text-sm font-semibold">
               {user?.role === "client_user" ? "My Issues" : user?.role === "admin" ? "All Work" : "My Work"}
             </h2>
-            {myWork && (
+            {totalCount > 0 && (
               <span className="inline-flex items-center justify-center h-5 min-w-5 px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-bold">
-                {myWork.pagination.total > 99 ? "99+" : myWork.pagination.total}
+                {totalCount > 99 ? "99+" : totalCount}
               </span>
             )}
           </div>
@@ -283,89 +369,16 @@ export default function HomePage() {
           )}
         </div>
 
-        <div className="rounded-lg border overflow-hidden">
-          {/* scrollable body — ~10 rows visible (each row ~41px) */}
-          <div className="overflow-y-auto" style={{ maxHeight: "410px" }}>
-            <table className="w-full text-sm">
-              <thead className="sticky top-0 z-10">
-                <tr className="border-b bg-muted/60 backdrop-blur-sm">
-                  {["Ticket", "Title", "Priority", "State", "Product", "Actual time left", "Has breached", "Created", "Updated"].map((h) => (
-                    <th
-                      key={h}
-                      className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground whitespace-nowrap"
-                    >
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {!myWork ? (
-                  Array.from({ length: 5 }).map((_, i) => (
-                    <tr key={i} className="border-b">
-                      {Array.from({ length: 9 }).map((_, j) => (
-                        <td key={j} className="px-3 py-2.5">
-                          <Skeleton className="h-4 w-full" />
-                        </td>
-                      ))}
-                    </tr>
-                  ))
-                ) : myWork.data.length === 0 ? (
-                  <tr>
-                    <td colSpan={9} className="px-3 py-10 text-center text-sm text-muted-foreground">
-                      {hasFilters ? "No issues match your filters." : "No active work items."}
-                    </td>
-                  </tr>
-                ) : (
-                  myWork.data.map((issue) => {
-                    const sla = slaInfo(issue.slaDeadline);
-                    return (
-                      <tr
-                        key={issue.id}
-                        onClick={() => openIssue(issue)}
-                        className="border-b last:border-0 cursor-pointer hover:bg-muted/30 transition-colors"
-                      >
-                        <td className="px-3 py-2.5 whitespace-nowrap">
-                          <span className="font-mono text-xs text-muted-foreground">{issue.ticketNumber}</span>
-                        </td>
-                        <td className="px-3 py-2.5 max-w-55">
-                          <span className="font-medium truncate block">{issue.title}</span>
-                        </td>
-                        <td className="px-3 py-2.5 whitespace-nowrap">
-                          <PriorityBadge priority={issue.priority} />
-                        </td>
-                        <td className="px-3 py-2.5 whitespace-nowrap">
-                          <StatusBadge status={issue.status} />
-                        </td>
-                        <td className="px-3 py-2.5 text-xs text-muted-foreground whitespace-nowrap">
-                          {issue.product.name}
-                        </td>
-                        <td className="px-3 py-2.5 text-xs whitespace-nowrap">
-                          <span className={sla.breached ? "text-red-600 font-medium" : "text-muted-foreground"}>
-                            {sla.label}
-                          </span>
-                        </td>
-                        <td className="px-3 py-2.5 text-xs whitespace-nowrap">
-                          {sla.breached ? (
-                            <span className="text-red-600 font-medium">Yes</span>
-                          ) : (
-                            <span className="text-muted-foreground">No</span>
-                          )}
-                        </td>
-                        <td className="px-3 py-2.5 text-xs text-muted-foreground whitespace-nowrap">
-                          {new Date(issue.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                        </td>
-                        <td className="px-3 py-2.5 text-xs text-muted-foreground whitespace-nowrap">
-                          {new Date(issue.updatedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <DataTable
+          columns={homeColumns}
+          data={allItems}
+          isLoading={!data}
+          onRowClick={openIssue}
+          emptyMessage={hasFilters ? "No issues match your filters." : "No active work items."}
+          onLoadMore={fetchNextPage}
+          hasMore={hasNextPage}
+          isFetchingMore={isFetchingNextPage}
+        />
 
         {/* view all link */}
         <div className="flex justify-end mt-2">

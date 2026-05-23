@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
   Plus, Filter, RefreshCw, Download,
-  ChevronDown, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, Layers,
+  ChevronDown, ChevronRight, ArrowUpDown, Layers,
   PanelLeftClose, PanelLeftOpen, Loader2, Pin,
 } from "lucide-react";
 import { useInfiniteIssues } from "@/hooks/use-issues";
@@ -11,9 +11,10 @@ import { relativeTime } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
 import { useTabsStore } from "@/store/tabs.store";
 import { useDebounce } from "@/hooks/use-debounce";
-import type { IssueSummary, ListIssuesQuery, PriorityLevel } from "@/types/issues";
+import type { IssueSummary, ListIssuesQuery } from "@/types/issues";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
+import { DataTable } from "@/components/ui/data-table";
+import type { ColumnDef } from "@/components/ui/data-table";
 import { cn } from "@/lib/utils";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
@@ -30,16 +31,71 @@ type SortDir   = "asc" | "desc";
 interface NavItem { id: string; label: string; query: Partial<ListIssuesQuery> }
 interface NavGroup { label: string; items: NavItem[] }
 
-const COLS: Array<{ key: SortField | null; label: string; cls?: string }> = [
-  { key: "ticketNumber", label: "Number",            cls: "w-32" },
-  { key: "title",        label: "Short description", cls: "min-w-[220px]" },
-  { key: null,           label: "Type",              cls: "w-28" },
-  { key: null,           label: "Product",           cls: "w-32" },
-  { key: "status",       label: "State",             cls: "w-28" },
-  { key: "priority",     label: "Priority",          cls: "w-24" },
-  { key: null,           label: "Impact",            cls: "w-24" },
-  { key: "assignee",     label: "Assigned to",       cls: "w-36" },
-  { key: "updatedAt",    label: "Updated",           cls: "w-32" },
+const ISSUE_COLS: ColumnDef<IssueSummary>[] = [
+  {
+    key: "ticketNumber",
+    header: "Number",
+    className: "w-32",
+    sortKey: "ticketNumber",
+    render: (row) => <span className="font-mono text-xs text-muted-foreground whitespace-nowrap">{row.ticketNumber}</span>,
+  },
+  {
+    key: "title",
+    header: "Short description",
+    className: "min-w-[220px]",
+    sortKey: "title",
+    render: (row) => <span className="text-sm font-medium line-clamp-1 hover:text-primary transition-colors">{row.title}</span>,
+  },
+  {
+    key: "type",
+    header: "Type",
+    className: "w-28",
+    render: (row) => <span className="text-xs text-muted-foreground capitalize whitespace-nowrap">{row.type.replace(/_/g, " ")}</span>,
+  },
+  {
+    key: "product",
+    header: "Product",
+    className: "w-32",
+    render: (row) => <span className="text-xs text-muted-foreground whitespace-nowrap">{row.product.name}</span>,
+  },
+  {
+    key: "status",
+    header: "State",
+    className: "w-28",
+    sortKey: "status",
+    render: (row) => <StatusBadge status={row.status} />,
+  },
+  {
+    key: "priority",
+    header: "Priority",
+    className: "w-24",
+    sortKey: "priority",
+    render: (row) => <PriorityBadge priority={row.priority} />,
+  },
+  {
+    key: "impact",
+    header: "Impact",
+    className: "w-24",
+    render: (row) => <ImpactBadge impact={row.impact} />,
+  },
+  {
+    key: "assignee",
+    header: "Assigned to",
+    className: "w-36",
+    sortKey: "assignee",
+    render: (row) => (
+      <span className="text-xs text-muted-foreground whitespace-nowrap">
+        {row.assignee?.fullName ?? <em className="not-italic opacity-40">Unassigned</em>}
+      </span>
+    ),
+  },
+  {
+    key: "updatedAt",
+    header: "Updated",
+    className: "w-32",
+    sortKey: "updatedAt",
+    render: (row) => <span className="text-xs text-muted-foreground whitespace-nowrap">{new Date(row.updatedAt).toLocaleDateString()}</span>,
+  },
 ];
 
 export default function IssueListPage() {
@@ -101,7 +157,9 @@ export default function IssueListPage() {
 
   const sentinelRef = useRef<HTMLDivElement>(null);
 
-  const [sidebarOpen,     setSidebarOpen]     = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(
+    () => localStorage.getItem("issues-sidebar-open") !== "false",
+  );
   const [activeViewId,    setActiveViewId]    = useState("all");
   const [activeViewQuery, setActiveViewQuery] = useState<Partial<ListIssuesQuery>>({});
   const [activeViewLabel, setActiveViewLabel] = useState("All Issues");
@@ -146,7 +204,11 @@ export default function IssueListPage() {
     hasNextPage,
     fetchNextPage,
     refetch,
-  } = useInfiniteIssues(activeViewQuery, debouncedSearch, { refetchInterval: 60_000 });
+  } = useInfiniteIssues(
+    { ...activeViewQuery, sort: `${sortField}_${sortDir}` as NonNullable<typeof activeViewQuery.sort> },
+    debouncedSearch,
+    { refetchInterval: 60_000 },
+  );
 
   // Infinite scroll sentinel
   useEffect(() => {
@@ -167,24 +229,10 @@ export default function IssueListPage() {
 
   const totalCount = data?.pages[0]?.pagination.total ?? 0;
 
-  const sortedData = useMemo(() => {
-    const PRIO: Record<PriorityLevel, number> = { critical: 0, high: 1, moderate: 2, low: 3 };
-    return [...allItems].sort((a, b) => {
-      let cmp = 0;
-      if      (sortField === "ticketNumber") cmp = a.ticketNumber.localeCompare(b.ticketNumber);
-      else if (sortField === "title")        cmp = a.title.localeCompare(b.title);
-      else if (sortField === "status")       cmp = a.status.localeCompare(b.status);
-      else if (sortField === "priority")     cmp = PRIO[a.priority] - PRIO[b.priority];
-      else if (sortField === "assignee")     cmp = (a.assignee?.fullName ?? "zzz").localeCompare(b.assignee?.fullName ?? "zzz");
-      else                                   cmp = a.updatedAt.localeCompare(b.updatedAt);
-      return sortDir === "asc" ? cmp : -cmp;
-    });
-  }, [allItems, sortField, sortDir]);
-
   const grouped = useMemo(() => {
     if (!groupBy) return null;
     const g: Record<string, IssueSummary[]> = {};
-    for (const issue of sortedData) {
+    for (const issue of allItems) {
       const k =
         groupBy === "status"   ? issue.status :
         groupBy === "priority" ? issue.priority :
@@ -193,7 +241,7 @@ export default function IssueListPage() {
       (g[k] ??= []).push(issue);
     }
     return g;
-  }, [sortedData, groupBy]);
+  }, [allItems, groupBy]);
 
   const openIssue = (issue: IssueSummary) => {
     openTab({
@@ -241,51 +289,8 @@ export default function IssueListPage() {
     else { setSortField(field); setSortDir("asc"); }
   };
 
-  const SortIcon = ({ field }: { field: SortField }) => {
-    if (sortField !== field) return <ArrowUpDown className="size-3 opacity-20 ml-1 shrink-0" />;
-    return sortDir === "asc"
-      ? <ArrowUp   className="size-3 text-primary ml-1 shrink-0" />
-      : <ArrowDown className="size-3 text-primary ml-1 shrink-0" />;
-  };
-
   const filterCount = [search, activeViewQuery.status, activeViewQuery.priority, activeViewQuery.assigned_to]
     .filter(Boolean).length;
-
-  const renderRow = (issue: IssueSummary) => (
-    <tr
-      key={issue.id}
-      onClick={() => openIssue(issue)}
-      className="border-b cursor-pointer hover:bg-muted/40 transition-colors group"
-    >
-      <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground whitespace-nowrap">
-        {issue.ticketNumber}
-      </td>
-      <td className="px-4 py-2.5 text-sm font-medium max-w-xs">
-        <span className="line-clamp-1 group-hover:text-primary transition-colors">{issue.title}</span>
-      </td>
-      <td className="px-4 py-2.5 text-xs text-muted-foreground capitalize whitespace-nowrap">
-        {issue.type.replace(/_/g, " ")}
-      </td>
-      <td className="px-4 py-2.5 text-xs text-muted-foreground whitespace-nowrap">
-        {issue.product.name}
-      </td>
-      <td className="px-4 py-2.5">
-        <StatusBadge status={issue.status} />
-      </td>
-      <td className="px-4 py-2.5">
-        <PriorityBadge priority={issue.priority} />
-      </td>
-      <td className="px-4 py-2.5">
-        <ImpactBadge impact={issue.impact} />
-      </td>
-      <td className="px-4 py-2.5 text-xs text-muted-foreground whitespace-nowrap">
-        {issue.assignee?.fullName ?? <em className="not-italic text-muted-foreground/40">Unassigned</em>}
-      </td>
-      <td className="px-4 py-2.5 text-xs text-muted-foreground whitespace-nowrap">
-        {new Date(issue.updatedAt).toLocaleDateString()}
-      </td>
-    </tr>
-  );
 
   return (
     <div className="h-full flex overflow-hidden">
@@ -304,7 +309,7 @@ export default function IssueListPage() {
             My lists
           </button>
           <button
-            onClick={() => setSidebarOpen(false)}
+            onClick={() => { setSidebarOpen(false); localStorage.setItem("issues-sidebar-open", "false"); }}
             className="px-2.5 text-muted-foreground hover:text-foreground transition-colors"
             title="Collapse sidebar"
           >
@@ -372,7 +377,7 @@ export default function IssueListPage() {
           <div className="flex items-center gap-2.5 min-w-0">
             {!sidebarOpen && (
               <button
-                onClick={() => setSidebarOpen(true)}
+                onClick={() => { setSidebarOpen(true); localStorage.setItem("issues-sidebar-open", "true"); }}
                 className="text-muted-foreground hover:text-foreground transition-colors shrink-0"
                 title="Expand sidebar"
               >
@@ -506,61 +511,21 @@ export default function IssueListPage() {
 
         {/* Table */}
         <div className="flex-1 overflow-auto">
-          {isLoading ? (
-            <div className="p-4 space-y-1.5">
-              {Array.from({ length: 8 }).map((_, i) => (
-                <Skeleton key={i} className="h-11 w-full" />
-              ))}
-            </div>
-          ) : (
-            <table className="w-full border-collapse min-w-190">
-              <thead className="sticky top-0 z-10 bg-muted/50 backdrop-blur-sm">
-                <tr className="border-b">
-                  {COLS.map(col => (
-                    <th
-                      key={col.label}
-                      className={cn(
-                        "px-4 py-2.5 text-left text-xs font-semibold text-muted-foreground whitespace-nowrap",
-                        col.cls,
-                        col.key && "cursor-pointer select-none hover:text-foreground",
-                      )}
-                      onClick={() => col.key && cycleSort(col.key)}
-                    >
-                      <span className="inline-flex items-center">
-                        {col.label}
-                        {col.key && <SortIcon field={col.key} />}
-                      </span>
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {grouped
-                  ? Object.entries(grouped).flatMap(([gk, issues]) => [
-                      <tr key={`g-${gk}`} className="border-b bg-muted/30">
-                        <td colSpan={COLS.length} className="px-4 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                          {gk}
-                          <span className="ml-1.5 font-normal normal-case opacity-70">({issues.length})</span>
-                        </td>
-                      </tr>,
-                      ...issues.map(renderRow),
-                    ])
-                  : sortedData.map(renderRow)
-                }
-                {sortedData.length === 0 && (
-                  <tr>
-                    <td colSpan={COLS.length} className="py-16 text-center text-sm text-muted-foreground">
-                      No issues found.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          )}
-        </div>
-
-        {/* Infinite scroll sentinel + loading indicator */}
-        <div className="shrink-0">
+          <DataTable
+            variant="page"
+            columns={ISSUE_COLS}
+            data={grouped ? undefined : allItems}
+            groupedData={grouped}
+            isLoading={isLoading}
+            onRowClick={openIssue}
+            emptyMessage="No issues found."
+            tableClassName="min-w-190"
+            sortField={sortField}
+            sortDir={sortDir}
+            onSort={(key) => cycleSort(key as SortField)}
+          />
+          {/* Sentinel must live inside the scroll container so it's only
+              visible when the user actually scrolls to the bottom */}
           {isFetchingNextPage && (
             <div className="flex items-center justify-center py-3 border-t">
               <Loader2 className="size-4 animate-spin text-muted-foreground" />
