@@ -1,4 +1,4 @@
-import { LogOut, User, Home, X, Pin } from "lucide-react";
+import { LogOut, User, Home, X, Pin, Menu } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/use-auth";
 import { useTabsStore, type AppTab } from "@/store/tabs.store";
@@ -29,7 +29,7 @@ function initials(name: string): string {
     .toUpperCase();
 }
 
-export function Header() {
+export function Header({ onMenuClick }: { onMenuClick?: () => void }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const { tabs, activeId, closeTab, setActive, pinnedId, pinTab } = useTabsStore();
@@ -161,8 +161,19 @@ export function Header() {
 
   return (
     <header className="flex h-14 border-b bg-linear-to-b from-background to-muted/50 shrink-0">
+      {/* ── Mobile hamburger ───────────────────────────────────────── */}
+      <div className="flex sm:hidden flex-1 items-center px-3">
+        <button
+          onClick={onMenuClick}
+          aria-label="Open menu"
+          className="flex items-center justify-center size-8 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+        >
+          <Menu className="size-5" />
+        </button>
+      </div>
+
       {/* ── Tabs ───────────────────────────────────────────────────── */}
-      <div className="flex flex-1 items-end overflow-x-auto min-w-0 px-2 gap-0.5 scrollbar-none [&::-webkit-scrollbar]:hidden">
+      <div className="hidden sm:flex flex-1 items-end overflow-x-auto min-w-0 px-2 gap-0.5 scrollbar-none [&::-webkit-scrollbar]:hidden">
         {renderTab(homeTab)}
 
         {pinnedTab && (
@@ -178,7 +189,7 @@ export function Header() {
       </div>
 
       {/* ── User menu ──────────────────────────────────────────────── */}
-      <div className="flex items-center shrink-0 px-4 border-l border-border/60">
+      <div className="flex items-center shrink-0 px-2 sm:px-4 border-l border-border/60">
         {user && (
           <DropdownMenu>
             <DropdownMenuTrigger className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent outline-none">
@@ -187,8 +198,8 @@ export function Header() {
                   {initials(user.fullName)}
                 </AvatarFallback>
               </Avatar>
-              <span className="font-medium">{user.fullName}</span>
-              <Badge variant="outline" className="text-xs border-brand-green/40 bg-brand-green/10 text-brand-green">
+              <span className="hidden sm:block font-medium">{user.fullName}</span>
+              <Badge variant="outline" className="hidden sm:inline-flex text-xs border-brand-green/40 bg-brand-green/10 text-brand-green">
                 {ROLE_LABEL[user.role]}
               </Badge>
             </DropdownMenuTrigger>

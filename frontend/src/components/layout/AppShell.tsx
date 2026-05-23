@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import { Sidebar } from "./Sidebar";
 import { Header } from "./Header";
@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 export function AppShell() {
   const location = useLocation();
   const { tabs, openTab, setActive } = useTabsStore();
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
     const path = location.pathname;
@@ -32,9 +33,9 @@ export function AppShell() {
 
   return (
     <div className="flex h-screen overflow-hidden">
-      <Sidebar />
+      <Sidebar mobileOpen={mobileOpen} onClose={() => setMobileOpen(false)} />
       <div className="flex flex-1 flex-col overflow-hidden">
-        <Header />
+        <Header onMenuClick={() => setMobileOpen(true)} />
         <main className={cn(
           "flex-1 bg-background",
           location.pathname === "/issues"
