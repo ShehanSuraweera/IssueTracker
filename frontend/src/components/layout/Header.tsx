@@ -11,6 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Badge } from "@/components/ui/badge";
 import {
   Tooltip,
@@ -214,13 +215,22 @@ export function Header({ onMenuClick }: { onMenuClick?: () => void }) {
                 Profile
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={logout}
-                className="text-destructive focus:text-destructive"
-              >
-                <LogOut className="mr-2 size-4" />
-                Sign out
-              </DropdownMenuItem>
+              <ConfirmDialog
+                trigger={
+                  <DropdownMenuItem
+                    onSelect={e => e.preventDefault()}
+                    className="text-destructive focus:text-destructive"
+                  >
+                    <LogOut className="mr-2 size-4" />
+                    Sign out
+                  </DropdownMenuItem>
+                }
+                title="Sign out?"
+                description="You'll be signed out of your account. Any unsaved changes will be lost."
+                confirmLabel="Sign out"
+                variant="destructive"
+                onConfirm={logout}
+              />
             </DropdownMenuContent>
           </DropdownMenu>
         )}
