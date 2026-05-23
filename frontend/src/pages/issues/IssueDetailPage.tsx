@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { useBack } from "@/hooks/use-back";
 import type { ReactNode } from "react";
 import {
   ArrowLeft, Loader2, Send, User, Clock, Paperclip,
@@ -522,36 +523,38 @@ function ActivityPanel({
               {actSort === "desc" ? "Newest" : "Oldest"}
             </button>
 
-            {/* Group dropdown */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  className={cn(
-                    "inline-flex items-center gap-1 rounded px-2 py-1 text-xs border transition-colors",
-                    actGroup !== "day"
-                      ? "bg-primary/10 border-primary/30 text-primary"
-                      : "border-border text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  <Layers className="size-3" />
-                  {GROUP_LABELS[actGroup]}
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-36">
-                <DropdownMenuLabel className="text-xs py-1.5">Group by</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                {(["day", "type", "user", "none"] as ActGroup[]).map(g => (
-                  <DropdownMenuItem
-                    key={g}
-                    onClick={() => setGroup(g)}
-                    className="justify-between text-xs"
+            {/* Group dropdown — desktop only */}
+            <div className="hidden sm:block">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    className={cn(
+                      "inline-flex items-center gap-1 rounded px-2 py-1 text-xs border transition-colors",
+                      actGroup !== "day"
+                        ? "bg-primary/10 border-primary/30 text-primary"
+                        : "border-border text-muted-foreground hover:text-foreground",
+                    )}
                   >
-                    {GROUP_LABELS[g]}
-                    {actGroup === g && <span className="text-primary">✓</span>}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
+                    <Layers className="size-3" />
+                    {GROUP_LABELS[actGroup]}
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-36">
+                  <DropdownMenuLabel className="text-xs py-1.5">Group by</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {(["day", "type", "user", "none"] as ActGroup[]).map(g => (
+                    <DropdownMenuItem
+                      key={g}
+                      onClick={() => setGroup(g)}
+                      className="justify-between text-xs"
+                    >
+                      {GROUP_LABELS[g]}
+                      {actGroup === g && <span className="text-primary">✓</span>}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
         </div>
 
@@ -870,8 +873,8 @@ function AssignmentCard({
 function RecordPanel({ issue }: { issue: IssueDetail }) {
   return (
     <div className="space-y-4">
-      {/* Record information */}
-      <Card>
+      {/* Record information — redundant on mobile (shown in title bar badges) */}
+      <Card className="hidden lg:block">
         <CardHeader className="pb-2 pt-4 px-4">
           <CardTitle className="text-sm">Record Information</CardTitle>
         </CardHeader>
@@ -897,8 +900,8 @@ function RecordPanel({ issue }: { issue: IssueDetail }) {
         </CardContent>
       </Card>
 
-      {/* Contact */}
-      <Card>
+      {/* Contact — redundant on mobile (shown in Details tab MetaPanel) */}
+      <Card className="hidden lg:block">
         <CardHeader className="pb-2 pt-4 px-4">
           <CardTitle className="text-sm">Contact</CardTitle>
         </CardHeader>
@@ -1197,7 +1200,7 @@ function DetailSkeleton() {
       <Skeleton className="h-6 w-96" />
       <Skeleton className="h-4 w-64" />
       <Separator />
-      <div className="grid grid-cols-[260px_1fr_260px] gap-6 items-start pt-1">
+      <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr_260px] gap-6 items-start pt-1">
         <div className="space-y-3">
           {Array.from({ length: 7 }).map((_, i) => <Skeleton key={i} className="h-7 w-full" />)}
         </div>
@@ -1206,7 +1209,7 @@ function DetailSkeleton() {
           <Skeleton className="h-24 w-full" />
           {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-16 w-full" />)}
         </div>
-        <div className="space-y-3">
+        <div className="space-y-3 hidden lg:block">
           <Skeleton className="h-32 w-full" />
           <Skeleton className="h-28 w-full" />
           <Skeleton className="h-36 w-full" />
@@ -1222,12 +1225,14 @@ export default function IssueDetailPage() {
   const { id }      = useParams<{ id: string }>();
   const navigate    = useNavigate();
   const { hasRole, user } = useAuth();
+  const back = useBack("/issues");
 
   const { data: issue, isLoading } = useIssue(id);
   const resolveMutation    = useResolveIssue(id);
   const updateMutation     = useUpdateIssue(id);
   const assignSelfMutation = useAssignIssue(id);
   const { updateLabel, updateMeta } = useTabsStore();
+  const [activeTab, setActiveTab] = useState<"details" | "activity" | "info">("details");
 
   useEffect(() => {
     if (!issue || !id) return;
@@ -1257,7 +1262,7 @@ export default function IssueDetailPage() {
     <div className="space-y-4">
       {/* Top bar */}
       <div className="flex items-center justify-between gap-4 flex-wrap">
-        <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="-ml-2">
+        <Button variant="ghost" size="sm" onClick={back} className="-ml-2">
           <ArrowLeft className="mr-1.5 size-4" />
           Back
         </Button>
@@ -1362,14 +1367,38 @@ export default function IssueDetailPage() {
       <Separator />
 
       <>
-        {/* Timeline */}
-        <IssueTimeline issue={issue} />
+        {/* Mobile tab bar */}
+        <div className="lg:hidden flex border-b">
+          {(["details", "activity", "info"] as const).map(tab => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={cn(
+                "flex-1 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors",
+                activeTab === tab
+                  ? "border-primary text-primary"
+                  : "border-transparent text-muted-foreground",
+              )}
+            >
+              {tab === "details" ? "Details" : tab === "activity" ? "Activity" : "Info"}
+            </button>
+          ))}
+        </div>
+
+        {/* Timeline — desktop only (too dense for mobile) */}
+        <div className="hidden lg:block">
+          <IssueTimeline issue={issue} />
+        </div>
 
         {/* 3-column layout */}
-        <div className="grid grid-cols-[260px_1fr_260px] gap-6 items-start">
-          <MetaPanel issue={issue} />
-          <ActivityPanel issueId={issue.id} canComment={canComment} canInternal={isStaff} currentUserId={user?.id} />
-          <div className="space-y-4">
+        <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr_260px] gap-6 items-start">
+          <div className={cn(activeTab !== "details" && "hidden lg:block")}>
+            <MetaPanel issue={issue} />
+          </div>
+          <div className={cn(activeTab !== "activity" && "hidden lg:block")}>
+            <ActivityPanel issueId={issue.id} canComment={canComment} canInternal={isStaff} currentUserId={user?.id} />
+          </div>
+          <div className={cn("space-y-4", activeTab !== "info" && "hidden lg:block")}>
             <AssignmentCard
               issue={issue}
               isAdmin={hasRole("admin")}

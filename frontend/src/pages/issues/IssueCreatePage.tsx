@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { useCreateIssue } from "@/hooks/use-issues";
 import { useProducts } from "@/hooks/use-products";
+import { useBack } from "@/hooks/use-back";
 import { Button } from "@/components/ui/button";
 import { IssueForm } from "@/components/issue/IssueForm";
 import { IssueContextPanel } from "@/components/issue/IssueContextPanel";
@@ -17,6 +18,7 @@ const TIPS = [
 
 export default function IssueCreatePage() {
   const navigate           = useNavigate();
+  const back               = useBack("/issues");
   const { data: products } = useProducts();
   const mutation           = useCreateIssue();
 
@@ -27,7 +29,7 @@ export default function IssueCreatePage() {
 
   return (
     <div className="space-y-5">
-      <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="-ml-2">
+      <Button variant="ghost" size="sm" onClick={back} className="-ml-2">
         <ArrowLeft className="mr-1.5 size-4" />
         Back
       </Button>
