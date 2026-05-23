@@ -1,114 +1,200 @@
+import { Info, RefreshCw } from "lucide-react";
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid,
+  Tooltip, ResponsiveContainer,
+} from "recharts";
 import { useIssueStats } from "@/hooks/use-issues";
-import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/utils";
+import { Tooltip as UITooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import { DashboardCharts } from "@/components/ui/dashboard-charts";
 import { relativeTime } from "@/lib/utils";
-import { STATUS_CONFIG } from "@/lib/theme";
-import type { IssueStatus } from "@/types/issues";
 
-function numClass(accent?: "red" | "orange") {
-  if (accent === "red")    return "text-red-600";
-  if (accent === "orange") return "text-orange-500";
-  return "text-foreground";
-}
+const REGION_COLOR = "#6366f1"; // indigo-500
 
-interface TileProps {
-  title:     string;
-  value:     number | undefined;
-  updatedAt: number;
-  accent?:   "red" | "orange";
-}
+// ─── KPI tile ─────────────────────────────────────────────────────────────────
 
-function KpiTile({ title, value, updatedAt, accent }: TileProps) {
-  return (
-    <Card>
-      <CardContent className="p-5 flex flex-col gap-4">
-        <p className="text-sm font-medium text-foreground/80 leading-snug">{title}</p>
-        {value === undefined ? (
-          <Skeleton className="h-14 w-16" />
-        ) : (
-          <p className={cn("text-6xl font-light tracking-tight", numClass(accent))}>
-            {value}
-          </p>
-        )}
-        <p className="text-xs text-muted-foreground">
-          {updatedAt > 0 ? `Updated ${relativeTime(updatedAt)}` : "Loading…"}
-        </p>
-      </CardContent>
-    </Card>
-  );
-}
-
-function Section({
-  title,
-  tiles,
-  isLoading,
-  skeletonCount = 4,
+function KpiCard({
+  label,
+  value,
+  accent,
+  tooltip,
 }: {
-  title:         string;
-  tiles:         TileProps[];
-  isLoading:     boolean;
-  skeletonCount?: number;
+  label:    string;
+  value?:   number;
+  accent?:  "red" | "orange";
+  tooltip:  string;
 }) {
+  const numCls =
+    accent === "red"    ? "text-red-600"    :
+    accent === "orange" ? "text-orange-500" :
+    "text-foreground";
+
   return (
-    <div>
-      <h2 className="text-sm font-semibold mb-3">{title}</h2>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {isLoading
-          ? Array.from({ length: skeletonCount }).map((_, i) => (
-              <Card key={i}>
-                <CardContent className="p-5 flex flex-col gap-4">
-                  <Skeleton className="h-4 w-40" />
-                  <Skeleton className="h-14 w-16" />
-                  <Skeleton className="h-3 w-28" />
-                </CardContent>
-              </Card>
-            ))
-          : tiles.map((tile) => <KpiTile key={tile.title} {...tile} />)
-        }
+    <div className="rounded-xl border bg-card p-4">
+      <div className="flex items-center gap-1 mb-3">
+        <p className="text-xs font-medium text-muted-foreground leading-none">{label}</p>
+        <UITooltip>
+          <TooltipTrigger asChild>
+            <Info className="size-3 text-muted-foreground/60 cursor-default shrink-0" />
+          </TooltipTrigger>
+          <TooltipContent className="max-w-52 text-xs leading-relaxed px-3 py-2">
+            {tooltip}
+          </TooltipContent>
+        </UITooltip>
       </div>
+      {value === undefined
+        ? <Skeleton className="h-9 w-14" />
+        : <p className={`text-4xl font-light tracking-tight ${numCls}`}>{value}</p>
+      }
     </div>
   );
 }
 
-export default function DashboardPage() {
-  const { data: stats, dataUpdatedAt } = useIssueStats({ refetchInterval: 60_000 });
+// ─── Region chart ─────────────────────────────────────────────────────────────
 
-  const ts         = dataUpdatedAt ?? 0;
-  const isLoading  = !stats;
+function RegionChart({ byRegion }: { byRegion: Record<string, number> }) {
+  const data = Object.entries(byRegion)
+    .map(([name, value]) => ({ name, value, fill: REGION_COLOR }))
+    .sort((a, b) => b.value - a.value);
 
-  const overviewTiles: TileProps[] = [
-    { title: "Open Issues",        value: stats?.summary.totalOpen,        updatedAt: ts              },
-    { title: "Critical",           value: stats?.summary.critical,          updatedAt: ts, accent: "red"    },
-    { title: "SLA at Risk",        value: stats?.summary.atSlaRisk,         updatedAt: ts, accent: "orange" },
-    { title: "Resolved This Week", value: stats?.summary.resolvedThisWeek, updatedAt: ts              },
-  ];
-
-  const priorityTiles: TileProps[] = [
-    { title: "Critical", value: stats?.byPriority?.["critical"] as number | undefined, updatedAt: ts, accent: "red"    },
-    { title: "High",     value: stats?.byPriority?.["high"]     as number | undefined, updatedAt: ts, accent: "orange" },
-    { title: "Moderate", value: stats?.byPriority?.["moderate"] as number | undefined, updatedAt: ts              },
-    { title: "Low",      value: stats?.byPriority?.["low"]      as number | undefined, updatedAt: ts              },
-  ];
-
-  const statusTiles: TileProps[] = Object.entries(stats?.byStatus ?? {}).map(([status, count]) => ({
-    title:     STATUS_CONFIG[status as IssueStatus]?.label ?? status.replace("_", " "),
-    value:     count as number,
-    updatedAt: ts,
-  }));
-
-  const regionTiles: TileProps[] = Object.entries(stats?.byRegion ?? {}).map(([region, count]) => ({
-    title:     region,
-    value:     count as number,
-    updatedAt: ts,
-  }));
+  if (data.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-32 text-sm text-muted-foreground">
+        No region data
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-8 p-5">
-      <Section title="Overview"    tiles={overviewTiles}  isLoading={isLoading} skeletonCount={4} />
-      <Section title="By Priority" tiles={priorityTiles}  isLoading={isLoading} skeletonCount={4} />
-      <Section title="By Status"   tiles={statusTiles}    isLoading={isLoading} skeletonCount={6} />
-      <Section title="By Region"   tiles={regionTiles}    isLoading={isLoading} skeletonCount={3} />
+    <ResponsiveContainer width="100%" height={Math.max(120, data.length * 36)}>
+      <BarChart
+        data={data}
+        layout="vertical"
+        margin={{ top: 0, right: 32, bottom: 0, left: 8 }}
+        barSize={14}
+      >
+        <CartesianGrid horizontal={false} strokeDasharray="3 3" stroke="var(--border)" />
+        <XAxis
+          type="number"
+          tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
+          axisLine={false}
+          tickLine={false}
+          allowDecimals={false}
+        />
+        <YAxis
+          type="category"
+          dataKey="name"
+          width={72}
+          tick={{ fontSize: 11, fill: "var(--muted-foreground)" }}
+          axisLine={false}
+          tickLine={false}
+        />
+        <Tooltip
+          content={({ active, payload }) => {
+            if (!active || !payload?.length) return null;
+            const { name, value } = payload[0].payload;
+            return (
+              <div style={{
+                background: "var(--background)",
+                border: "1px solid var(--border)",
+                borderRadius: 8,
+                padding: "6px 10px",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.12)",
+                fontSize: 12,
+              }}>
+                <div className="flex items-center gap-2">
+                  <span className="size-2 rounded-full shrink-0" style={{ background: REGION_COLOR }} />
+                  <span className="font-medium">{name}</span>
+                  <span className="tabular-nums ml-1" style={{ color: "var(--muted-foreground)" }}>{value}</span>
+                </div>
+              </div>
+            );
+          }}
+          cursor={{ fill: "var(--muted)", opacity: 0.4 }}
+        />
+        <Bar dataKey="value" radius={[0, 3, 3, 0]} />
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
+export default function DashboardPage() {
+  const { data: stats, dataUpdatedAt, refetch, isFetching } = useIssueStats({ refetchInterval: 60_000 });
+
+  const ts        = dataUpdatedAt ?? 0;
+  const isLoading = !stats;
+
+  return (
+    <div className="space-y-6 p-5">
+
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-lg font-semibold">Dashboard</h1>
+          <p className="text-xs text-muted-foreground mt-0.5">Workspace-wide issue health</p>
+        </div>
+        {ts > 0 && (
+          <button
+            onClick={() => refetch()}
+            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <RefreshCw className={`size-3.5 ${isFetching ? "animate-spin" : ""}`} />
+            Updated {relativeTime(ts)}
+          </button>
+        )}
+      </div>
+
+      {/* KPIs */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <KpiCard
+          label="Open Issues"
+          value={stats?.summary.totalOpen}
+          tooltip="All issues currently open across the workspace (New, In Progress, On Hold)."
+        />
+        <KpiCard
+          label="Critical"
+          value={stats?.summary.critical}
+          accent="red"
+          tooltip="Open issues with Critical priority — require immediate attention."
+        />
+        <KpiCard
+          label="SLA at Risk"
+          value={stats?.summary.atSlaRisk}
+          accent="orange"
+          tooltip="Open issues whose SLA deadline expires within the next 24 hours."
+        />
+        <KpiCard
+          label="Resolved This Week"
+          value={stats?.summary.resolvedThisWeek}
+          tooltip="Issues marked resolved in the last 7 days across the workspace."
+        />
+      </div>
+
+      {/* Status + Priority + Activity charts */}
+      <DashboardCharts stats={stats} />
+
+      {/* By Region */}
+      <div className="rounded-xl border bg-card p-5">
+        <div className="flex items-center gap-1.5 mb-0.5">
+          <p className="text-sm font-semibold">Issues by Region</p>
+          <UITooltip>
+            <TooltipTrigger asChild>
+              <Info className="size-3.5 text-muted-foreground cursor-default shrink-0" />
+            </TooltipTrigger>
+            <TooltipContent className="max-w-56 text-xs leading-relaxed px-3 py-2">
+              Total issues per client region across the workspace, sorted by volume.
+            </TooltipContent>
+          </UITooltip>
+        </div>
+        <p className="text-xs text-muted-foreground mb-4">All issues grouped by client company region</p>
+        {isLoading
+          ? <Skeleton className="h-40 w-full" />
+          : <RegionChart byRegion={stats.byRegion ?? {}} />
+        }
+      </div>
+
     </div>
   );
 }
