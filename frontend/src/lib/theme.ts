@@ -1,20 +1,20 @@
 import type { IssueStatus, PriorityLevel } from "@/types/issues";
 import type { UserRole } from "@/types/users";
 
-export const STATUS_CONFIG: Record<IssueStatus, { label: string; cls: string }> = {
-  new:         { label: "New",         cls: "bg-purple-100 text-purple-700 border-purple-200" },
-  in_progress: { label: "In Progress", cls: "bg-blue-100 text-blue-700 border-blue-200"       },
-  on_hold:     { label: "On Hold",     cls: "bg-amber-100 text-amber-700 border-amber-200"     },
-  resolved:    { label: "Resolved",    cls: "bg-green-100 text-green-700 border-green-200"     },
-  closed:      { label: "Closed",      cls: "bg-gray-100 text-gray-600 border-gray-200"        },
-  cancelled:   { label: "Cancelled",   cls: "bg-red-100 text-red-600 border-red-200"           },
+export const STATUS_CONFIG: Record<IssueStatus, { label: string; cls: string; hex: string }> = {
+  new:         { label: "New",         cls: "bg-purple-100 text-purple-700 border-purple-200", hex: "#7e22ce" },
+  in_progress: { label: "In Progress", cls: "bg-blue-100 text-blue-700 border-blue-200",       hex: "#1d4ed8" },
+  on_hold:     { label: "On Hold",     cls: "bg-amber-100 text-amber-700 border-amber-200",     hex: "#b45309" },
+  resolved:    { label: "Resolved",    cls: "bg-green-100 text-green-700 border-green-200",     hex: "#15803d" },
+  closed:      { label: "Closed",      cls: "bg-gray-100 text-gray-600 border-gray-200",        hex: "#4b5563" },
+  cancelled:   { label: "Cancelled",   cls: "bg-red-100 text-red-600 border-red-200",           hex: "#dc2626" },
 };
 
-export const PRIORITY_CONFIG: Record<PriorityLevel, { label: string; cls: string }> = {
-  critical: { label: "Critical", cls: "bg-red-100 text-red-700 border-red-200"         },
-  high:     { label: "High",     cls: "bg-orange-100 text-orange-700 border-orange-200" },
-  moderate: { label: "Moderate", cls: "bg-yellow-100 text-yellow-700 border-yellow-200" },
-  low:      { label: "Low",      cls: "bg-sky-100 text-sky-700 border-sky-200"          },
+export const PRIORITY_CONFIG: Record<PriorityLevel, { label: string; cls: string; hex: string }> = {
+  critical: { label: "Critical", cls: "bg-red-100 text-red-700 border-red-200",         hex: "#b91c1c" },
+  high:     { label: "High",     cls: "bg-orange-100 text-orange-700 border-orange-200", hex: "#c2410c" },
+  moderate: { label: "Moderate", cls: "bg-yellow-100 text-yellow-700 border-yellow-200", hex: "#a16207" },
+  low:      { label: "Low",      cls: "bg-sky-100 text-sky-700 border-sky-200",          hex: "#0369a1" },
 };
 
 export const IMPACT_BADGE: Record<string, string> = {

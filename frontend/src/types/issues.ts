@@ -86,6 +86,7 @@ export interface IssueStats {
   };
   byStatus: Record<string, number>;
   byPriority: Record<string, number>;
+  resolvedTrend: { date: string; resolved: number; created: number }[];
   byRegion?: Record<string, number>;
   adminView?: { unassignedOpen: number };
   engineerView?: {

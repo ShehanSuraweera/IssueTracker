@@ -11,6 +11,7 @@ import { SearchInput } from "@/components/ui/search-input";
 import type { IssueSummary, IssueStatus, PriorityLevel } from "@/types/issues";
 import { relativeTime } from "@/lib/utils";
 import { NewnopLogo } from "@/components/ui/newnop-logo";
+import { DashboardCharts } from "@/components/ui/dashboard-charts";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { PriorityBadge } from "@/components/ui/priority-badge";
 import { DataTable } from "@/components/ui/data-table";
@@ -291,6 +292,9 @@ export default function HomePage() {
           </div>
         )}
       </div>
+
+      {/* ── Charts ────────────────────────────────────────────────────── */}
+      <DashboardCharts stats={stats} />
 
       {/* ── My Work ───────────────────────────────────────────────────── */}
       <div>

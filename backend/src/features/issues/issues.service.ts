@@ -631,19 +631,47 @@ export async function getStats(user: AuthUser) {
 
   const scope = buildTenantWhere(user);
 
-  const [byStatus, byPriority, totalOpen, critical, atSlaRisk, resolvedThisWeek] =
-    await prisma.$transaction([
-      prisma.issue.groupBy({ by: ["status"],   where: scope, _count: { id: true } }),
-      prisma.issue.groupBy({ by: ["priority"], where: scope, _count: { id: true } }),
-      prisma.issue.count({ where: { ...scope, status: { in: openStatuses } } }),
-      prisma.issue.count({ where: { ...scope, priority: "critical", status: { in: openStatuses } } }),
-      prisma.issue.count({
-        where: { ...scope, status: { in: openStatuses }, slaDeadline: { not: null, lte: slaWarningCutoff } },
-      }),
-      prisma.issue.count({
+  const [[byStatus, byPriority, totalOpen, critical, atSlaRisk, resolvedThisWeek], resolvedRows, createdRows] =
+    await Promise.all([
+      prisma.$transaction([
+        prisma.issue.groupBy({ by: ["status"],   where: scope, _count: { id: true } }),
+        prisma.issue.groupBy({ by: ["priority"], where: scope, _count: { id: true } }),
+        prisma.issue.count({ where: { ...scope, status: { in: openStatuses } } }),
+        prisma.issue.count({ where: { ...scope, priority: "critical", status: { in: openStatuses } } }),
+        prisma.issue.count({
+          where: { ...scope, status: { in: openStatuses }, slaDeadline: { not: null, lte: slaWarningCutoff } },
+        }),
+        prisma.issue.count({
+          where: { ...scope, status: "resolved", resolvedAt: { gte: weekAgo } },
+        }),
+      ]),
+      prisma.issue.findMany({
         where: { ...scope, status: "resolved", resolvedAt: { gte: weekAgo } },
+        select: { resolvedAt: true },
+      }),
+      prisma.issue.findMany({
+        where: { ...scope, createdAt: { gte: weekAgo } },
+        select: { createdAt: true },
       }),
     ]);
+
+  // Group both sets by UTC date, then fill all 7 days (zeros for missing days)
+  const resolvedMap = new Map<string, number>();
+  for (const row of resolvedRows) {
+    if (!row.resolvedAt) continue;
+    const day = row.resolvedAt.toISOString().split("T")[0];
+    resolvedMap.set(day, (resolvedMap.get(day) ?? 0) + 1);
+  }
+  const createdMap = new Map<string, number>();
+  for (const row of createdRows) {
+    const day = row.createdAt.toISOString().split("T")[0];
+    createdMap.set(day, (createdMap.get(day) ?? 0) + 1);
+  }
+  const resolvedTrend = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(weekAgo.getTime() + (i + 1) * 24 * 60 * 60 * 1000);
+    const date = d.toISOString().split("T")[0];
+    return { date, resolved: resolvedMap.get(date) ?? 0, created: createdMap.get(date) ?? 0 };
+  });
 
   const base = {
     summary: { totalOpen, critical, atSlaRisk, resolvedThisWeek },
@@ -653,6 +681,7 @@ export async function getStats(user: AuthUser) {
     byPriority: byPriority.reduce<Record<string, number>>(
       (acc, p) => ({ ...acc, [p.priority]: p._count.id }), {}
     ),
+    resolvedTrend,
   };
 
   if (user.role === "engineer") {
