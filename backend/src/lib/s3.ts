@@ -14,21 +14,28 @@ function requireS3(): { client: S3Client; bucket: string } {
       "File attachments are not enabled on this server"
     );
   }
-  const client = new S3Client({ region: env.AWS_REGION });
+  const client = new S3Client({
+    region: env.AWS_REGION,
+    // Disable automatic checksum injection — presigned PUT URLs get a zero-value
+    // CRC32 placeholder that S3 rejects when the actual file is uploaded.
+    requestChecksumCalculation: "WHEN_REQUIRED",
+    responseChecksumValidation: "WHEN_REQUIRED",
+  });
   return { client, bucket: env.AWS_BUCKET_ATTACHMENTS };
 }
 
 export async function createPresignedUploadUrl(
   s3Key: string,
   mimeType: string,
-  sizeBytes: number
+  _sizeBytes: number
 ): Promise<string> {
   const { client, bucket } = requireS3();
   const command = new PutObjectCommand({
     Bucket: bucket,
     Key: s3Key,
     ContentType: mimeType,
-    ContentLength: sizeBytes,
+    // ContentLength omitted — including it adds it to SignedHeaders, which can
+    // cause mismatches with certain fetch implementations.
   });
   return getSignedUrl(client, command, { expiresIn: UPLOAD_EXPIRES_IN });
 }
