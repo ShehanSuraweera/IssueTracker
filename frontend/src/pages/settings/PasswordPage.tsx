@@ -4,7 +4,7 @@ import {
   changePasswordSchema,
   type ChangePasswordFormValues,
 } from "@/lib/schemas";
-import { CheckCircle, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useChangePassword } from "@/hooks/use-users";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -102,24 +102,6 @@ export default function PasswordPage() {
                 </p>
               )}
             </div>
-
-            {mutation.isError && (
-              <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                {(
-                  mutation.error as {
-                    response?: { data?: { error?: { message?: string } } };
-                  }
-                )?.response?.data?.error?.message ??
-                  "Failed to update password"}
-              </p>
-            )}
-
-            {mutation.isSuccess && (
-              <p className="flex items-center gap-1.5 rounded-md bg-green-50 px-3 py-2 text-sm text-green-700">
-                <CheckCircle className="size-4" />
-                Password updated successfully
-              </p>
-            )}
 
             <Button type="submit" disabled={mutation.isPending}>
               {mutation.isPending && (

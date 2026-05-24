@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import {
   listUsers,
   listEngineers,
@@ -9,6 +10,7 @@ import {
   changePassword,
 } from "@/api/users";
 import { queryKeys } from "./query-keys";
+import { getApiError } from "@/lib/utils";
 import type {
   ChangePasswordInput,
   CreateUserInput,
@@ -41,8 +43,11 @@ export function useRevokeProductAccess(userId: string | undefined) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (productId: string) => revokeProductAccess(userId!, productId),
-    onSuccess: () =>
-      qc.invalidateQueries({ queryKey: queryKeys.users.detail(userId) }),
+    onSuccess: () => {
+      toast.success("Access revoked");
+      qc.invalidateQueries({ queryKey: queryKeys.users.detail(userId) });
+    },
+    onError: (err) => toast.error(getApiError(err, "Failed to revoke access")),
   });
 }
 
@@ -51,9 +56,11 @@ export function useUpdateUser(userId: string | undefined) {
   return useMutation({
     mutationFn: (input: UpdateUserInput) => updateUser(userId!, input),
     onSuccess: () => {
+      toast.success("Changes saved");
       qc.invalidateQueries({ queryKey: queryKeys.users.detail(userId) });
       qc.invalidateQueries({ queryKey: queryKeys.users.all() });
     },
+    onError: (err) => toast.error(getApiError(err, "Failed to save changes")),
   });
 }
 
@@ -61,12 +68,18 @@ export function useCreateUser() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (input: CreateUserInput) => createUser(input),
-    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.users.all() }),
+    onSuccess: () => {
+      toast.success("User created");
+      qc.invalidateQueries({ queryKey: queryKeys.users.all() });
+    },
+    onError: (err) => toast.error(getApiError(err, "Failed to create user")),
   });
 }
 
 export function useChangePassword() {
   return useMutation({
     mutationFn: (input: ChangePasswordInput) => changePassword(input),
+    onSuccess: () => toast.success("Password updated"),
+    onError: (err) => toast.error(getApiError(err, "Failed to update password")),
   });
 }

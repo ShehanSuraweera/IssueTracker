@@ -8,7 +8,7 @@ import {
 } from "@prisma/client";
 import { prisma } from "../../lib/prisma";
 import { AppError } from "../../middleware/errorHandler";
-import { createPresignedUploadUrl, createPresignedDownloadUrl, UPLOAD_EXPIRES_IN } from "../../lib/s3";
+import { createPresignedUploadUrl, createPresignedDownloadUrl, deleteS3Objects, UPLOAD_EXPIRES_IN } from "../../lib/s3";
 import { v4 as uuidv4 } from "uuid";
 import type {
   CreateIssueInput,
@@ -413,31 +413,28 @@ export async function updateIssue(
   };
 }
 
-// ─── Delete Issue (soft) ──────────────────────────────────────────────────────
+// ─── Delete Issue (hard) ──────────────────────────────────────────────────────
 
-export async function deleteIssue(issueId: bigint, user: AuthUser) {
-  const existing = await prisma.issue.findUnique({ where: { id: issueId } });
+export async function deleteIssue(issueId: bigint, _user: AuthUser) {
+  const existing = await prisma.issue.findUnique({
+    where: { id: issueId },
+    include: { attachments: { select: { s3Key: true } } },
+  });
   if (!existing) throw new AppError(404, "ISSUE_NOT_FOUND", "Issue not found");
 
-  if (existing.status === "closed" || existing.status === "cancelled") {
-    throw new AppError(409, "ISSUE_ALREADY_TERMINAL", "Issue is already closed or cancelled");
-  }
+  const s3Keys = existing.attachments.map((a) => a.s3Key);
 
-  await prisma.$transaction(async (tx) => {
-    await tx.issue.update({
-      where: { id: issueId },
-      data: { status: "cancelled", closedAt: new Date() },
-    });
-    await tx.issueActivity.create({
-      data: {
-        issueId,
-        userId:    user.id,
-        fieldName: "status",
-        oldValue:  existing.status,
-        newValue:  "cancelled",
-      },
-    });
-  });
+  await prisma.$transaction([
+    prisma.issueActivity.deleteMany({ where: { issueId } }),
+    prisma.issueComment.deleteMany({ where: { issueId } }),
+    prisma.issueAttachment.deleteMany({ where: { issueId } }),
+    prisma.issue.delete({ where: { id: issueId } }),
+  ]);
+
+  // Best-effort S3 cleanup — DB is already clean if this fails
+  if (s3Keys.length > 0) {
+    await deleteS3Objects(s3Keys).catch(() => {});
+  }
 }
 
 // ─── Assign Issue ─────────────────────────────────────────────────────────────

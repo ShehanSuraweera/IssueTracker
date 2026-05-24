@@ -4,6 +4,7 @@ import {
   useQueryClient,
   useInfiniteQuery,
 } from "@tanstack/react-query";
+import { toast } from "sonner";
 import {
   listIssues,
   getIssue,
@@ -23,6 +24,7 @@ import {
   confirmAttachment,
 } from "@/api/issues";
 import { queryKeys } from "./query-keys";
+import { getApiError } from "@/lib/utils";
 import type {
   ListIssuesQuery,
   UpdateIssueInput,
@@ -95,7 +97,11 @@ export function useCreateIssue() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: createIssue,
-    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.issues.all() }),
+    onSuccess: () => {
+      toast.success("Issue created");
+      qc.invalidateQueries({ queryKey: queryKeys.issues.all() });
+    },
+    onError: (err) => toast.error(getApiError(err, "Failed to create issue")),
   });
 }
 
@@ -104,9 +110,11 @@ export function useUpdateIssue(issueId: string | undefined) {
   return useMutation({
     mutationFn: (input: UpdateIssueInput) => updateIssue(issueId!, input),
     onSuccess: () => {
+      toast.success("Issue updated");
       qc.invalidateQueries({ queryKey: queryKeys.issues.detail(issueId) });
       qc.invalidateQueries({ queryKey: queryKeys.issues.all() });
     },
+    onError: (err) => toast.error(getApiError(err, "Failed to update issue")),
   });
 }
 
@@ -116,10 +124,12 @@ export function useAddComment(issueId: string | undefined) {
     mutationFn: ({ body, isInternal }: { body: string; isInternal: boolean }) =>
       addComment(issueId!, body, isInternal),
     onSuccess: () => {
+      toast.success("Comment posted");
       qc.invalidateQueries({ queryKey: queryKeys.issues.detail(issueId) });
       qc.resetQueries({ queryKey: queryKeys.issues.feed(issueId, "all") });
       qc.resetQueries({ queryKey: queryKeys.issues.feed(issueId, "comments") });
     },
+    onError: (err) => toast.error(getApiError(err, "Failed to post comment")),
   });
 }
 
@@ -127,8 +137,11 @@ export function useResolveIssue(issueId: string | undefined) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: () => resolveIssue(issueId!),
-    onSuccess: () =>
-      qc.invalidateQueries({ queryKey: queryKeys.issues.detail(issueId) }),
+    onSuccess: () => {
+      toast.success("Issue resolved");
+      qc.invalidateQueries({ queryKey: queryKeys.issues.detail(issueId) });
+    },
+    onError: (err) => toast.error(getApiError(err, "Failed to resolve issue")),
   });
 }
 
@@ -136,7 +149,11 @@ export function useDeleteIssue() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => deleteIssue(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.issues.all() }),
+    onSuccess: () => {
+      toast.success("Issue deleted");
+      qc.invalidateQueries({ queryKey: queryKeys.issues.all() });
+    },
+    onError: (err) => toast.error(getApiError(err, "Failed to delete issue")),
   });
 }
 
@@ -145,9 +162,11 @@ export function useAssignIssue(issueId: string | undefined) {
   return useMutation({
     mutationFn: (assigneeId: string) => assignIssue(issueId!, assigneeId),
     onSuccess: () => {
+      toast.success("Issue assigned");
       qc.invalidateQueries({ queryKey: queryKeys.issues.detail(issueId) });
       qc.invalidateQueries({ queryKey: queryKeys.issues.stats() });
     },
+    onError: (err) => toast.error(getApiError(err, "Failed to assign issue")),
   });
 }
 
@@ -168,8 +187,11 @@ export function useCreateSavedView() {
       name: string;
       query: Omit<ListIssuesQuery, "page" | "limit">;
     }) => createSavedView(name, query),
-    onSuccess: () =>
-      qc.invalidateQueries({ queryKey: queryKeys.savedViews.all() }),
+    onSuccess: () => {
+      toast.success("View saved");
+      qc.invalidateQueries({ queryKey: queryKeys.savedViews.all() });
+    },
+    onError: (err) => toast.error(getApiError(err, "Failed to save view")),
   });
 }
 
@@ -178,8 +200,11 @@ export function useRenameSavedView() {
   return useMutation({
     mutationFn: ({ id, name }: { id: string; name: string }) =>
       renameSavedView(id, name),
-    onSuccess: () =>
-      qc.invalidateQueries({ queryKey: queryKeys.savedViews.all() }),
+    onSuccess: () => {
+      toast.success("View renamed");
+      qc.invalidateQueries({ queryKey: queryKeys.savedViews.all() });
+    },
+    onError: (err) => toast.error(getApiError(err, "Failed to rename view")),
   });
 }
 
@@ -187,8 +212,11 @@ export function useDeleteSavedView() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => deleteSavedView(id),
-    onSuccess: () =>
-      qc.invalidateQueries({ queryKey: queryKeys.savedViews.all() }),
+    onSuccess: () => {
+      toast.success("View deleted");
+      qc.invalidateQueries({ queryKey: queryKeys.savedViews.all() });
+    },
+    onError: (err) => toast.error(getApiError(err, "Failed to delete view")),
   });
 }
 
@@ -218,10 +246,12 @@ export function useUploadAttachments(issueId: string | undefined) {
       }
     },
     onSuccess: () => {
+      toast.success("Attachments uploaded");
       qc.invalidateQueries({ queryKey: queryKeys.issues.detail(issueId) });
       qc.resetQueries({ queryKey: queryKeys.issues.feed(issueId, "all") });
       qc.resetQueries({ queryKey: queryKeys.issues.feed(issueId, "comments") });
       qc.resetQueries({ queryKey: queryKeys.issues.feed(issueId, "changes") });
     },
+    onError: (err) => toast.error(getApiError(err, "Failed to upload attachments")),
   });
 }

@@ -1,7 +1,7 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { profileSchema, type ProfileFormValues } from "@/lib/schemas";
-import { CheckCircle, Loader2, Building2, Globe, Calendar } from "lucide-react";
+import { Loader2, Building2, Globe, Calendar } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useUpdateUser } from "@/hooks/use-users";
 import { useAuthStore } from "@/store/auth.store";
@@ -137,23 +137,6 @@ export default function ProfilePage() {
                 </p>
               )}
             </div>
-
-            {mutation.isError && (
-              <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                {(
-                  mutation.error as {
-                    response?: { data?: { error?: { message?: string } } };
-                  }
-                )?.response?.data?.error?.message ?? "Failed to update profile"}
-              </p>
-            )}
-
-            {mutation.isSuccess && (
-              <p className="flex items-center gap-1.5 rounded-md bg-green-50 px-3 py-2 text-sm text-green-700">
-                <CheckCircle className="size-4" />
-                Profile updated successfully
-              </p>
-            )}
 
             <Button type="submit" disabled={mutation.isPending || !isDirty}>
               {mutation.isPending && (

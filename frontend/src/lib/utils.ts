@@ -5,6 +5,13 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+export function getApiError(err: unknown, fallback = "Something went wrong"): string {
+  return (
+    (err as { response?: { data?: { error?: { message?: string } } } })
+      ?.response?.data?.error?.message ?? fallback
+  );
+}
+
 export function relativeTime(ts: number): string {
   const mins = Math.floor((Date.now() - ts) / 60_000);
   if (mins < 1) return "just now";

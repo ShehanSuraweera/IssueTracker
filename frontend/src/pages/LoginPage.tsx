@@ -9,6 +9,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { toast } from "sonner";
 
 const G = "#8cff2e";
 
@@ -33,6 +34,7 @@ export default function LoginPage() {
     setError(null);
     try {
       await login(values.email, values.password);
+      toast.success("Signed in successfully");
       navigate(from, { replace: true });
     } catch (err: unknown) {
       const msg =
