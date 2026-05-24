@@ -342,7 +342,7 @@ export default function HomePage() {
           <select
             value={statusFilter}
             onChange={e => setStatus(e.target.value as IssueStatus | "")}
-            className="h-7 rounded-md border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+            className="h-7 rounded-md border border-input bg-background px-2 text-base sm:text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
           >
             <option value="">All statuses</option>
             <option value="new">New</option>
@@ -356,7 +356,7 @@ export default function HomePage() {
           <select
             value={priorityFilter}
             onChange={e => setPriority(e.target.value as PriorityLevel | "")}
-            className="h-7 rounded-md border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+            className="h-7 rounded-md border border-input bg-background px-2 text-base sm:text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
           >
             <option value="">All priorities</option>
             <option value="critical">Critical</option>

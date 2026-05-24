@@ -132,7 +132,7 @@ export function IssueForm({
           <Label htmlFor="productId">Product</Label>
           <select
             id="productId"
-            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-base sm:text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             {...register("productId")}
           >
             <option value="">Select a product…</option>
@@ -162,7 +162,7 @@ export function IssueForm({
           id="description"
           rows={mode === "create" ? 6 : 5}
           placeholder="Describe the issue in detail — steps to reproduce, expected vs actual behaviour…"
-          className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none"
+          className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-base sm:text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none"
           {...register("description")}
         />
         {errors.description && (
@@ -243,7 +243,7 @@ export function IssueForm({
         <div className="space-y-1.5">
           <Label>Status</Label>
           <select
-            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-base sm:text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             {...register("status")}
           >
             <option value={currentStatus}>{STATUS_CONFIG[currentStatus]?.label ?? currentStatus}</option>

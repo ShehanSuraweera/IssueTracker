@@ -152,7 +152,7 @@ function NewUserDialog({ open, onClose }: { open: boolean; onClose: () => void }
             <select
               id="role"
               {...register("role", { required: true })}
-              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-base sm:text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               {ROLES.map((r) => (
                 <option key={r.value} value={r.value}>{r.label}</option>
@@ -166,7 +166,7 @@ function NewUserDialog({ open, onClose }: { open: boolean; onClose: () => void }
               <select
                 id="companyId"
                 {...register("companyId")}
-                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-base sm:text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <option value="">Select a company…</option>
                 {companies.map((c) => (
@@ -182,7 +182,7 @@ function NewUserDialog({ open, onClose }: { open: boolean; onClose: () => void }
               <select
                 id="office"
                 {...register("office")}
-                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-base sm:text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <option value="">Select an office…</option>
                 {OFFICES.map((o) => (

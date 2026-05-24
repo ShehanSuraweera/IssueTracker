@@ -85,7 +85,7 @@ function NewProductDialog({ open, onClose }: { open: boolean; onClose: () => voi
             <select
               id="companyId"
               {...register("companyId", { required: "Company is required" })}
-              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-base sm:text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <option value="">Select a company…</option>
               {companies.map((c) => (
@@ -127,7 +127,7 @@ function NewProductDialog({ open, onClose }: { open: boolean; onClose: () => voi
             <select
               id="owningOffice"
               {...register("owningOffice", { required: true })}
-              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-base sm:text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               {OFFICES.map((o) => (
                 <option key={o.value} value={o.value}>{o.label}</option>
@@ -145,7 +145,7 @@ function NewProductDialog({ open, onClose }: { open: boolean; onClose: () => voi
               rows={3}
               placeholder="Brief description of this product…"
               {...register("description")}
-              className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none"
+              className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-base sm:text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none"
             />
           </div>
 

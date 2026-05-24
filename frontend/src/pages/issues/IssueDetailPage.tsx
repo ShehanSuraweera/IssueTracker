@@ -473,7 +473,7 @@ function ActivityPanel({
               : "Everyone can see this comment"}
           </p>
           <textarea
-            className="w-full bg-transparent text-sm placeholder:text-muted-foreground focus-visible:outline-none resize-none min-h-16"
+            className="w-full bg-transparent text-base sm:text-sm placeholder:text-muted-foreground focus-visible:outline-none resize-none min-h-16"
             placeholder="Write a comment…"
             value={commentBody}
             onChange={e => setBody(e.target.value)}

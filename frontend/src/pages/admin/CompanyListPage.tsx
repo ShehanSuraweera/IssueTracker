@@ -117,7 +117,7 @@ function NewCompanyDialog({ open, onClose }: { open: boolean; onClose: () => voi
             <select
               id="region"
               {...register("region", { required: true })}
-              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-base sm:text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               {REGIONS.map((r) => (
                 <option key={r.value} value={r.value}>{r.label}</option>
