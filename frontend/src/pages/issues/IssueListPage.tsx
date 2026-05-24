@@ -158,7 +158,8 @@ export default function IssueListPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [NAV_GROUPS]);
 
-  const sentinelRef = useRef<HTMLDivElement>(null);
+  const sentinelRef  = useRef<HTMLDivElement>(null);
+  const scrollRef    = useRef<HTMLDivElement>(null);
 
   const [sidebarOpen,       setSidebarOpen]       = useState(
     () => localStorage.getItem("issues-sidebar-open") !== "false",
@@ -292,6 +293,10 @@ export default function IssueListPage() {
     if (sortField === field) setSortDir(d => d === "asc" ? "desc" : "asc");
     else { setSortField(field); setSortDir("asc"); }
   };
+
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: 0 });
+  }, [sortField, sortDir, groupBy, activeViewId]);
 
   const filterCount = [search, activeViewQuery.status, activeViewQuery.priority, activeViewQuery.assigned_to]
     .filter(Boolean).length;
@@ -540,7 +545,7 @@ export default function IssueListPage() {
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-auto">
+        <div ref={scrollRef} className="flex-1 overflow-auto">
           <DataTable
             variant="page"
             columns={ISSUE_COLS}
