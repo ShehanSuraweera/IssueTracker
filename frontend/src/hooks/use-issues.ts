@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from "@tanstack/react-query";
-import { listIssues, getIssue, getStats, createIssue, updateIssue, addComment, resolveIssue, getFeed, assignIssue, listSavedViews, createSavedView, renameSavedView, deleteSavedView } from "@/api/issues";
+import { listIssues, getIssue, getStats, createIssue, updateIssue, addComment, resolveIssue, getFeed, assignIssue, listSavedViews, createSavedView, renameSavedView, deleteSavedView, presignUpload, confirmAttachment } from "@/api/issues";
 import { queryKeys } from "./query-keys";
 import type { ListIssuesQuery, UpdateIssueInput, FeedFilter } from "@/types/issues";
 
@@ -140,5 +140,25 @@ export function useDeleteSavedView() {
   return useMutation({
     mutationFn: (id: string) => deleteSavedView(id),
     onSuccess:  () => qc.invalidateQueries({ queryKey: queryKeys.savedViews.all() }),
+  });
+}
+
+export function useUploadAttachments(issueId: string | undefined) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (files: File[]) => {
+      for (const file of files) {
+        const mime = file.type || "application/octet-stream";
+        const { uploadUrl, s3Key } = await presignUpload(issueId!, file.name, mime, file.size);
+        await fetch(uploadUrl, { method: "PUT", body: file, headers: { "Content-Type": mime } });
+        await confirmAttachment(issueId!, { s3Key, filename: file.name, mimeType: mime, sizeBytes: file.size });
+      }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.issues.detail(issueId) });
+      qc.resetQueries({ queryKey: queryKeys.issues.feed(issueId, "all") });
+      qc.resetQueries({ queryKey: queryKeys.issues.feed(issueId, "comments") });
+      qc.resetQueries({ queryKey: queryKeys.issues.feed(issueId, "changes") });
+    },
   });
 }
