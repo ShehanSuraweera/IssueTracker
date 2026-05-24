@@ -12,40 +12,47 @@ import type { IssueSummary, IssueStatus, PriorityLevel } from "@/types/issues";
 import type { User } from "@/types/users";
 
 interface MyWorkSectionProps {
-  user:       User | null;
+  user: User | null;
   isEngineer: boolean;
-  role:       string;
-  onRefresh:  () => void;
+  role: string;
+  onRefresh: () => void;
 }
 
 const WORK_TITLE: Record<string, string> = {
   client_user: "My Issues",
-  admin:       "All Work",
+  admin: "All Work",
 };
 
 const WORK_DESC: Record<string, string> = {
-  client_user: "Track the issues you've submitted and follow up on their progress.",
-  admin:       "Overview of all active issues across the workspace.",
+  client_user:
+    "Track the issues you've submitted and follow up on their progress.",
+  admin: "Overview of all active issues across the workspace.",
 };
 
-export function MyWorkSection({ user, isEngineer, role, onRefresh }: MyWorkSectionProps) {
+export function MyWorkSection({
+  user,
+  isEngineer,
+  role,
+  onRefresh,
+}: MyWorkSectionProps) {
   const navigate = useNavigate();
   const { openTab } = useTabsStore();
 
-  const [searchRaw,      setSearch]   = useState("");
-  const [statusFilter,   setStatus]   = useState<IssueStatus | "">("");
+  const [searchRaw, setSearch] = useState("");
+  const [statusFilter, setStatus] = useState<IssueStatus | "">("");
   const [priorityFilter, setPriority] = useState<PriorityLevel | "">("");
 
   const debouncedSearch = useDebounce(searchRaw, 300);
   const hasFilters = !!debouncedSearch || !!statusFilter || !!priorityFilter;
 
-  const baseQuery = isEngineer && user
-    ? { assigned_to: user.id, sort: "updatedAt_desc" as const }
-    : { sort: "updatedAt_desc" as const };
+  const baseQuery =
+    isEngineer && user
+      ? { assigned_to: user.id, sort: "updatedAt_desc" as const }
+      : { sort: "updatedAt_desc" as const };
 
   const workQuery = {
     ...baseQuery,
-    ...(statusFilter   ? { status:   statusFilter   } : {}),
+    ...(statusFilter ? { status: statusFilter } : {}),
     ...(priorityFilter ? { priority: priorityFilter } : {}),
   };
 
@@ -57,22 +64,34 @@ export function MyWorkSection({ user, isEngineer, role, onRefresh }: MyWorkSecti
     hasNextPage,
     fetchNextPage,
     refetch,
-  } = useInfiniteIssues(workQuery, debouncedSearch, { refetchInterval: 60_000 });
+  } = useInfiniteIssues(workQuery, debouncedSearch, {
+    refetchInterval: 60_000,
+  });
 
-  const allItems   = useMemo(() => data?.pages.flatMap(p => p.data) ?? [], [data]);
+  const allItems = useMemo(
+    () => data?.pages.flatMap((p) => p.data) ?? [],
+    [data],
+  );
   const totalCount = data?.pages[0]?.pagination.total ?? 0;
 
   const openIssue = (issue: IssueSummary) => {
     openTab({
-      id:    `issue:${issue.id}`,
+      id: `issue:${issue.id}`,
       label: issue.ticketNumber,
-      path:  `/issues/${issue.id}`,
-      meta:  { title: issue.title, status: issue.status, priority: issue.priority },
+      path: `/issues/${issue.id}`,
+      meta: {
+        title: issue.title,
+        status: issue.status,
+        priority: issue.priority,
+      },
     });
     navigate(`/issues/${issue.id}`);
   };
 
-  const handleRefresh = () => { refetch(); onRefresh(); };
+  const handleRefresh = () => {
+    refetch();
+    onRefresh();
+  };
 
   return (
     <div>
@@ -92,14 +111,17 @@ export function MyWorkSection({ user, isEngineer, role, onRefresh }: MyWorkSecti
             onClick={handleRefresh}
             className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
           >
-            <RefreshCw className={`size-3 ${isFetching ? "animate-spin" : ""}`} />
+            <RefreshCw
+              className={`size-3 ${isFetching ? "animate-spin" : ""}`}
+            />
             Last refreshed {relativeTime(dataUpdatedAt)}
           </button>
         )}
       </div>
 
       <p className="text-xs text-muted-foreground mb-3">
-        {WORK_DESC[role] ?? "Track your active tasks and stay on top of your queue."}
+        {WORK_DESC[role] ??
+          "Track your active tasks and stay on top of your queue."}
       </p>
 
       <div className="flex items-center gap-2 mb-3 flex-wrap">
@@ -111,7 +133,7 @@ export function MyWorkSection({ user, isEngineer, role, onRefresh }: MyWorkSecti
 
         <select
           value={statusFilter}
-          onChange={e => setStatus(e.target.value as IssueStatus | "")}
+          onChange={(e) => setStatus(e.target.value as IssueStatus | "")}
           className="h-7 rounded-md border border-input bg-background px-2 text-base sm:text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
         >
           <option value="">All statuses</option>
@@ -125,7 +147,7 @@ export function MyWorkSection({ user, isEngineer, role, onRefresh }: MyWorkSecti
 
         <select
           value={priorityFilter}
-          onChange={e => setPriority(e.target.value as PriorityLevel | "")}
+          onChange={(e) => setPriority(e.target.value as PriorityLevel | "")}
           className="h-7 rounded-md border border-input bg-background px-2 text-base sm:text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
         >
           <option value="">All priorities</option>
@@ -137,7 +159,11 @@ export function MyWorkSection({ user, isEngineer, role, onRefresh }: MyWorkSecti
 
         {hasFilters && (
           <button
-            onClick={() => { setSearch(""); setStatus(""); setPriority(""); }}
+            onClick={() => {
+              setSearch("");
+              setStatus("");
+              setPriority("");
+            }}
             className="flex items-center gap-1 h-7 px-2 rounded-md text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
           >
             <X className="size-3" />
@@ -151,7 +177,9 @@ export function MyWorkSection({ user, isEngineer, role, onRefresh }: MyWorkSecti
         data={allItems}
         isLoading={!data}
         onRowClick={openIssue}
-        emptyMessage={hasFilters ? "No issues match your filters." : "No active work items."}
+        emptyMessage={
+          hasFilters ? "No issues match your filters." : "No active work items."
+        }
         onLoadMore={fetchNextPage}
         hasMore={hasNextPage}
         isFetchingMore={isFetchingNextPage}

@@ -11,7 +11,9 @@ export default function HomePage() {
   const navigate = useNavigate();
   const { user, hasRole } = useAuth();
 
-  const { data: stats, refetch: refetchStats } = useIssueStats({ refetchInterval: 60_000 });
+  const { data: stats, refetch: refetchStats } = useIssueStats({
+    refetchInterval: 60_000,
+  });
 
   const firstName = user?.fullName?.split(" ")[0] ?? "there";
 

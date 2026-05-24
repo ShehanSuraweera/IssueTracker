@@ -10,7 +10,6 @@ export interface ColumnDef<T> {
   sortKey?: string;
   render?: (row: T) => React.ReactNode;
   mobile?: {
-    /** Rendered full-width at the top of the card — use for the title/name column */
     primary?: boolean;
     hidden?: boolean;
   };
@@ -22,7 +21,6 @@ interface DataTableProps<T> {
   onRowClick?: (row: T) => void;
   isLoading?: boolean;
   emptyMessage?: string;
-  /** "card": self-scrolling with border. "page": fills the parent scroll container. */
   variant?: "card" | "page";
   maxHeight?: number;
   tableClassName?: string;
@@ -34,7 +32,6 @@ interface DataTableProps<T> {
   isFetchingMore?: boolean;
   hasMore?: boolean;
   mobileRender?: (row: T) => React.ReactNode;
-  /** Falls back to array index when omitted — pass a stable id to avoid key collisions on reorder */
   rowKey?: (row: T) => string | number;
 }
 
@@ -57,10 +54,10 @@ export function DataTable<T>({
   mobileRender,
   rowKey,
 }: DataTableProps<T>) {
-  const getKey = (row: T, i: number) => rowKey ? rowKey(row) : i;
-  const clickClass       = onRowClick ? "cursor-pointer hover:bg-muted/40" : "";
+  const getKey = (row: T, i: number) => (rowKey ? rowKey(row) : i);
+  const clickClass = onRowClick ? "cursor-pointer hover:bg-muted/40" : "";
   const desktopScrollRef = useRef<HTMLDivElement>(null);
-  const mobileScrollRef  = useRef<HTMLDivElement>(null);
+  const mobileScrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!onLoadMore || !hasMore) return;
@@ -76,8 +73,11 @@ export function DataTable<T>({
     }
 
     const cleanupDesktop = attachListener(desktopScrollRef.current);
-    const cleanupMobile  = attachListener(mobileScrollRef.current);
-    return () => { cleanupDesktop(); cleanupMobile(); };
+    const cleanupMobile = attachListener(mobileScrollRef.current);
+    return () => {
+      cleanupDesktop();
+      cleanupMobile();
+    };
   }, [onLoadMore, hasMore]);
 
   const infiniteFooter = onLoadMore ? (
@@ -123,9 +123,15 @@ export function DataTable<T>({
               {col.sortKey && onSort ? (
                 <span className="inline-flex items-center">
                   {col.header}
-                  <SortIcon sortKey={col.sortKey} sortField={sortField} sortDir={sortDir} />
+                  <SortIcon
+                    sortKey={col.sortKey}
+                    sortField={sortField}
+                    sortDir={sortDir}
+                  />
                 </span>
-              ) : col.header}
+              ) : (
+                col.header
+              )}
             </th>
           ))}
         </tr>
@@ -144,16 +150,24 @@ export function DataTable<T>({
         ) : groupedData && Object.keys(groupedData).length > 0 ? (
           Object.entries(groupedData).flatMap(([gk, rows]) => [
             <tr key={`g-${gk}`} className="border-b bg-muted/30">
-              <td colSpan={columns.length} className="px-4 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              <td
+                colSpan={columns.length}
+                className="px-4 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground"
+              >
                 {gk}
-                <span className="ml-1.5 font-normal normal-case opacity-70">({rows.length})</span>
+                <span className="ml-1.5 font-normal normal-case opacity-70">
+                  ({rows.length})
+                </span>
               </td>
             </tr>,
             ...renderRows(rows),
           ])
         ) : !data || data.length === 0 ? (
           <tr>
-            <td colSpan={columns.length} className="py-16 text-center text-sm text-muted-foreground">
+            <td
+              colSpan={columns.length}
+              className="py-16 text-center text-sm text-muted-foreground"
+            >
               {emptyMessage}
             </td>
           </tr>
@@ -166,21 +180,29 @@ export function DataTable<T>({
 
   function renderCards(rows: T[]) {
     if (mobileRender) {
-      return rows.map((row, i) => <div key={getKey(row, i)}>{mobileRender(row)}</div>);
+      return rows.map((row, i) => (
+        <div key={getKey(row, i)}>{mobileRender(row)}</div>
+      ));
     }
-    const primaryCols   = columns.filter(c => c.mobile?.primary && !c.mobile?.hidden);
-    const secondaryCols = columns.filter(c => !c.mobile?.primary && !c.mobile?.hidden);
+    const primaryCols = columns.filter(
+      (c) => c.mobile?.primary && !c.mobile?.hidden,
+    );
+    const secondaryCols = columns.filter(
+      (c) => !c.mobile?.primary && !c.mobile?.hidden,
+    );
     return rows.map((row, i) => (
       <div
         key={getKey(row, i)}
         onClick={() => onRowClick?.(row)}
         className={`px-4 py-3.5 border-b transition-colors ${clickClass}`}
       >
-        {primaryCols.map(col => (
-          <div key={col.key} className="mb-2">{cellValue(row, col)}</div>
+        {primaryCols.map((col) => (
+          <div key={col.key} className="mb-2">
+            {cellValue(row, col)}
+          </div>
         ))}
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
-          {secondaryCols.map(col => (
+          {secondaryCols.map((col) => (
             <span key={col.key}>{cellValue(row, col)}</span>
           ))}
         </div>
@@ -205,7 +227,10 @@ export function DataTable<T>({
         Object.entries(groupedData).flatMap(([gk, rows]) => [
           <div key={`g-${gk}`} className="px-4 py-2 bg-muted/30 border-b">
             <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-              {gk} <span className="font-normal normal-case opacity-70">({rows.length})</span>
+              {gk}{" "}
+              <span className="font-normal normal-case opacity-70">
+                ({rows.length})
+              </span>
             </span>
           </div>,
           ...renderCards(rows),
@@ -223,19 +248,35 @@ export function DataTable<T>({
   if (variant === "page") {
     return (
       <>
-        <div className="hidden md:block">{tableContent}{infiniteFooter}</div>
-        <div className="md:hidden">{mobileContent}{infiniteFooter}</div>
+        <div className="hidden md:block">
+          {tableContent}
+          {infiniteFooter}
+        </div>
+        <div className="md:hidden">
+          {mobileContent}
+          {infiniteFooter}
+        </div>
       </>
     );
   }
 
   return (
     <div className="rounded-lg border overflow-hidden">
-      <div ref={desktopScrollRef} className="hidden md:block overflow-y-auto" style={{ maxHeight }}>
-        {tableContent}{infiniteFooter}
+      <div
+        ref={desktopScrollRef}
+        className="hidden md:block overflow-y-auto"
+        style={{ maxHeight }}
+      >
+        {tableContent}
+        {infiniteFooter}
       </div>
-      <div ref={mobileScrollRef} className="md:hidden overflow-y-auto" style={{ maxHeight }}>
-        {mobileContent}{infiniteFooter}
+      <div
+        ref={mobileScrollRef}
+        className="md:hidden overflow-y-auto"
+        style={{ maxHeight }}
+      >
+        {mobileContent}
+        {infiniteFooter}
       </div>
     </div>
   );

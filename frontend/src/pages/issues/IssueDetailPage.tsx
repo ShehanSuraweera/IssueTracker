@@ -2,9 +2,19 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useBack } from "@/hooks/use-back";
 import {
-  ArrowLeft, CheckCircle2, UserPlus, Pencil, Trash2,
+  ArrowLeft,
+  CheckCircle2,
+  UserPlus,
+  Pencil,
+  Trash2,
 } from "lucide-react";
-import { useIssue, useResolveIssue, useUpdateIssue, useAssignIssue, useDeleteIssue } from "@/hooks/use-issues";
+import {
+  useIssue,
+  useResolveIssue,
+  useUpdateIssue,
+  useAssignIssue,
+  useDeleteIssue,
+} from "@/hooks/use-issues";
 import { useAuth } from "@/hooks/use-auth";
 import { useIssuePermissions } from "@/hooks/use-issue-permissions";
 import { useTabsStore } from "@/store/tabs.store";
@@ -12,7 +22,11 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { InlineConfirm } from "@/components/ui/inline-confirm";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { PriorityBadge } from "@/components/ui/priority-badge";
 import { cn } from "@/lib/utils";
@@ -32,12 +46,16 @@ function DetailSkeleton() {
       <Separator />
       <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr_260px] gap-6 items-start pt-1">
         <div className="space-y-3">
-          {Array.from({ length: 7 }).map((_, i) => <Skeleton key={i} className="h-7 w-full" />)}
+          {Array.from({ length: 7 }).map((_, i) => (
+            <Skeleton key={i} className="h-7 w-full" />
+          ))}
         </div>
         <div className="space-y-4">
           <Skeleton className="h-10 w-64" />
           <Skeleton className="h-24 w-full" />
-          {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-16 w-full" />)}
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton key={i} className="h-16 w-full" />
+          ))}
         </div>
         <div className="space-y-3 hidden lg:block">
           <Skeleton className="h-32 w-full" />
@@ -50,35 +68,42 @@ function DetailSkeleton() {
 }
 
 export default function IssueDetailPage() {
-  const { id }    = useParams<{ id: string }>();
-  const navigate  = useNavigate();
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const { hasRole, user } = useAuth();
   const back = useBack("/issues");
 
   const { data: issue, isLoading } = useIssue(id);
-  const resolveMutation    = useResolveIssue(id);
-  const updateMutation     = useUpdateIssue(id);
+  const resolveMutation = useResolveIssue(id);
+  const updateMutation = useUpdateIssue(id);
   const assignSelfMutation = useAssignIssue(id);
-  const deleteMutation     = useDeleteIssue();
+  const deleteMutation = useDeleteIssue();
   const { updateLabel, updateMeta } = useTabsStore();
-  const [activeTab, setActiveTab] = useState<"details" | "activity" | "info">("details");
+  const [activeTab, setActiveTab] = useState<"details" | "activity" | "info">(
+    "details",
+  );
 
   useEffect(() => {
     if (!issue || !id) return;
     updateLabel(`issue:${id}`, issue.ticketNumber);
     updateMeta(`issue:${id}`, {
-      title:    issue.title,
-      status:   issue.status,
+      title: issue.title,
+      status: issue.status,
       priority: issue.priority,
     });
   }, [issue?.ticketNumber, issue?.status, issue?.priority, id]);
 
   if (isLoading) return <DetailSkeleton />;
-  if (!issue)    return null;
+  if (!issue) return null;
 
   const {
     isStaff,
-    canEdit, canResolve, canAssignSelf, canClose, canComment, isLocked,
+    canEdit,
+    canResolve,
+    canAssignSelf,
+    canClose,
+    canComment,
+    isLocked,
   } = useIssuePermissions(issue, user ?? null, hasRole);
 
   return (
@@ -91,8 +116,9 @@ export default function IssueDetailPage() {
         </Button>
 
         <div className="flex items-center gap-2 flex-wrap">
-          {issue.status !== "closed" && issue.status !== "cancelled" && (
-            isLocked ? (
+          {issue.status !== "closed" &&
+            issue.status !== "cancelled" &&
+            (isLocked ? (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <span tabIndex={0}>
@@ -102,19 +128,36 @@ export default function IssueDetailPage() {
                     </Button>
                   </span>
                 </TooltipTrigger>
-                <TooltipContent side="bottom" align="end" className="p-3 max-w-64">
-                  <p className="font-mono text-[10px] text-muted-foreground mb-1">Edit locked</p>
-                  <p className="text-sm font-medium leading-snug mb-2">An engineer has picked this up</p>
-                  <p className="text-xs text-muted-foreground">Contact support to request changes.</p>
+                <TooltipContent
+                  side="bottom"
+                  align="end"
+                  className="p-3 max-w-64"
+                >
+                  <p className="font-mono text-[10px] text-muted-foreground mb-1">
+                    Edit locked
+                  </p>
+                  <p className="text-sm font-medium leading-snug mb-2">
+                    An engineer has picked this up
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Contact support to request changes.
+                  </p>
                 </TooltipContent>
               </Tooltip>
             ) : canEdit ? (
-              <Button variant="outline" size="sm" onClick={() => navigate(`/issues/${id}/edit`, { state: { back: `/issues/${id}` } })}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  navigate(`/issues/${id}/edit`, {
+                    state: { back: `/issues/${id}` },
+                  })
+                }
+              >
                 <Pencil className="mr-1.5 size-3.5" />
                 Edit
               </Button>
-            ) : null
-          )}
+            ) : null)}
 
           {canAssignSelf && (
             <InlineConfirm
@@ -165,7 +208,11 @@ export default function IssueDetailPage() {
           {hasRole("admin") && (
             <InlineConfirm
               trigger={
-                <Button variant="outline" size="sm" className="text-destructive hover:text-destructive border-destructive/30 hover:border-destructive/60">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-destructive hover:text-destructive border-destructive/30 hover:border-destructive/60"
+                >
                   <Trash2 className="mr-1.5 size-3.5" />
                   Delete
                 </Button>
@@ -173,7 +220,11 @@ export default function IssueDetailPage() {
               message="Permanently delete this issue? This cannot be undone."
               confirmLabel="Delete"
               isPending={deleteMutation.isPending}
-              onConfirm={() => deleteMutation.mutate(id!, { onSuccess: () => navigate("/issues") })}
+              onConfirm={() =>
+                deleteMutation.mutate(id!, {
+                  onSuccess: () => navigate("/issues"),
+                })
+              }
             />
           )}
         </div>
@@ -190,7 +241,8 @@ export default function IssueDetailPage() {
         </div>
         <h1 className="text-xl font-semibold leading-snug">{issue.title}</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          {issue.product.name} · opened by {issue.creator.fullName} · {fmtDate(issue.createdAt)}
+          {issue.product.name} · opened by {issue.creator.fullName} ·{" "}
+          {fmtDate(issue.createdAt)}
         </p>
       </div>
 
@@ -198,7 +250,7 @@ export default function IssueDetailPage() {
 
       {/* Mobile tab bar */}
       <div className="lg:hidden flex border-b">
-        {(["details", "activity", "info"] as const).map(tab => (
+        {(["details", "activity", "info"] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -209,7 +261,11 @@ export default function IssueDetailPage() {
                 : "border-transparent text-muted-foreground",
             )}
           >
-            {tab === "details" ? "Details" : tab === "activity" ? "Activity" : "Info"}
+            {tab === "details"
+              ? "Details"
+              : tab === "activity"
+                ? "Activity"
+                : "Info"}
           </button>
         ))}
       </div>
@@ -225,9 +281,16 @@ export default function IssueDetailPage() {
           <MetaPanel issue={issue} />
         </div>
         <div className={cn(activeTab !== "activity" && "hidden lg:block")}>
-          <ActivityPanel issueId={issue.id} canComment={canComment} canInternal={isStaff} currentUserId={user?.id} />
+          <ActivityPanel
+            issueId={issue.id}
+            canComment={canComment}
+            canInternal={isStaff}
+            currentUserId={user?.id}
+          />
         </div>
-        <div className={cn("space-y-4", activeTab !== "info" && "hidden lg:block")}>
+        <div
+          className={cn("space-y-4", activeTab !== "info" && "hidden lg:block")}
+        >
           <AssignmentCard
             issue={issue}
             isAdmin={hasRole("admin")}

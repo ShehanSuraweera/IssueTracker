@@ -1,7 +1,33 @@
-import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from "@tanstack/react-query";
-import { listIssues, getIssue, getStats, createIssue, updateIssue, deleteIssue, addComment, resolveIssue, getFeed, assignIssue, listSavedViews, createSavedView, renameSavedView, deleteSavedView, presignUpload, confirmAttachment } from "@/api/issues";
+import {
+  useQuery,
+  useMutation,
+  useQueryClient,
+  useInfiniteQuery,
+} from "@tanstack/react-query";
+import {
+  listIssues,
+  getIssue,
+  getStats,
+  createIssue,
+  updateIssue,
+  deleteIssue,
+  addComment,
+  resolveIssue,
+  getFeed,
+  assignIssue,
+  listSavedViews,
+  createSavedView,
+  renameSavedView,
+  deleteSavedView,
+  presignUpload,
+  confirmAttachment,
+} from "@/api/issues";
 import { queryKeys } from "./query-keys";
-import type { ListIssuesQuery, UpdateIssueInput, FeedFilter } from "@/types/issues";
+import type {
+  ListIssuesQuery,
+  UpdateIssueInput,
+  FeedFilter,
+} from "@/types/issues";
 
 export function useIssues(
   query: ListIssuesQuery,
@@ -9,8 +35,8 @@ export function useIssues(
   options?: { refetchInterval?: number },
 ) {
   return useQuery({
-    queryKey:        queryKeys.issues.list(query, search),
-    queryFn:         () => listIssues({ ...query, search: search || undefined }),
+    queryKey: queryKeys.issues.list(query, search),
+    queryFn: () => listIssues({ ...query, search: search || undefined }),
     refetchInterval: options?.refetchInterval,
   });
 }
@@ -21,41 +47,46 @@ export function useInfiniteIssues(
   options?: { refetchInterval?: number },
 ) {
   return useInfiniteQuery({
-    queryKey:         queryKeys.issues.infinite(query, search),
-    queryFn:          ({ pageParam }) =>
-      listIssues({ ...query, page: pageParam as number, limit: 15, search: search || undefined }),
+    queryKey: queryKeys.issues.infinite(query, search),
+    queryFn: ({ pageParam }) =>
+      listIssues({
+        ...query,
+        page: pageParam as number,
+        limit: 15,
+        search: search || undefined,
+      }),
     getNextPageParam: (last) =>
       last.pagination.page < last.pagination.totalPages
         ? last.pagination.page + 1
         : undefined,
     initialPageParam: 1,
-    refetchInterval:  options?.refetchInterval,
+    refetchInterval: options?.refetchInterval,
   });
 }
 
 export function useFeed(issueId: string | undefined, filter: FeedFilter) {
   return useInfiniteQuery({
-    queryKey:         queryKeys.issues.feed(issueId, filter),
-    queryFn:          ({ pageParam }) =>
+    queryKey: queryKeys.issues.feed(issueId, filter),
+    queryFn: ({ pageParam }) =>
       getFeed(issueId!, pageParam as string | null, filter),
     getNextPageParam: (last) => last.nextCursor ?? undefined,
     initialPageParam: null as string | null,
-    enabled:          !!issueId,
+    enabled: !!issueId,
   });
 }
 
 export function useIssue(id: string | undefined) {
   return useQuery({
     queryKey: queryKeys.issues.detail(id),
-    queryFn:  () => getIssue(id!),
-    enabled:  !!id,
+    queryFn: () => getIssue(id!),
+    enabled: !!id,
   });
 }
 
 export function useIssueStats(options?: { refetchInterval?: number }) {
   return useQuery({
-    queryKey:        queryKeys.issues.stats(),
-    queryFn:         getStats,
+    queryKey: queryKeys.issues.stats(),
+    queryFn: getStats,
     refetchInterval: options?.refetchInterval,
   });
 }
@@ -64,7 +95,7 @@ export function useCreateIssue() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: createIssue,
-    onSuccess:  () => qc.invalidateQueries({ queryKey: queryKeys.issues.all() }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.issues.all() }),
   });
 }
 
@@ -96,7 +127,8 @@ export function useResolveIssue(issueId: string | undefined) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: () => resolveIssue(issueId!),
-    onSuccess:  () => qc.invalidateQueries({ queryKey: queryKeys.issues.detail(issueId) }),
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: queryKeys.issues.detail(issueId) }),
   });
 }
 
@@ -112,7 +144,7 @@ export function useAssignIssue(issueId: string | undefined) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (assigneeId: string) => assignIssue(issueId!, assigneeId),
-    onSuccess:  () => {
+    onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.issues.detail(issueId) });
       qc.invalidateQueries({ queryKey: queryKeys.issues.stats() });
     },
@@ -122,24 +154,32 @@ export function useAssignIssue(issueId: string | undefined) {
 export function useSavedViews() {
   return useQuery({
     queryKey: queryKeys.savedViews.all(),
-    queryFn:  listSavedViews,
+    queryFn: listSavedViews,
   });
 }
 
 export function useCreateSavedView() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ name, query }: { name: string; query: Omit<ListIssuesQuery, "page" | "limit"> }) =>
-      createSavedView(name, query),
-    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.savedViews.all() }),
+    mutationFn: ({
+      name,
+      query,
+    }: {
+      name: string;
+      query: Omit<ListIssuesQuery, "page" | "limit">;
+    }) => createSavedView(name, query),
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: queryKeys.savedViews.all() }),
   });
 }
 
 export function useRenameSavedView() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, name }: { id: string; name: string }) => renameSavedView(id, name),
-    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.savedViews.all() }),
+    mutationFn: ({ id, name }: { id: string; name: string }) =>
+      renameSavedView(id, name),
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: queryKeys.savedViews.all() }),
   });
 }
 
@@ -147,7 +187,8 @@ export function useDeleteSavedView() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => deleteSavedView(id),
-    onSuccess:  () => qc.invalidateQueries({ queryKey: queryKeys.savedViews.all() }),
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: queryKeys.savedViews.all() }),
   });
 }
 
@@ -157,9 +198,23 @@ export function useUploadAttachments(issueId: string | undefined) {
     mutationFn: async (files: File[]) => {
       for (const file of files) {
         const mime = file.type || "application/octet-stream";
-        const { uploadUrl, s3Key } = await presignUpload(issueId!, file.name, mime, file.size);
-        await fetch(uploadUrl, { method: "PUT", body: file, headers: { "Content-Type": mime } });
-        await confirmAttachment(issueId!, { s3Key, filename: file.name, mimeType: mime, sizeBytes: file.size });
+        const { uploadUrl, s3Key } = await presignUpload(
+          issueId!,
+          file.name,
+          mime,
+          file.size,
+        );
+        await fetch(uploadUrl, {
+          method: "PUT",
+          body: file,
+          headers: { "Content-Type": mime },
+        });
+        await confirmAttachment(issueId!, {
+          s3Key,
+          filename: file.name,
+          mimeType: mime,
+          sizeBytes: file.size,
+        });
       }
     },
     onSuccess: () => {

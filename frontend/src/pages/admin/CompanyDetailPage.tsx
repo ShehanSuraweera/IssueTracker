@@ -26,7 +26,12 @@ export default function CompanyDetailPage() {
 
   return (
     <div className="max-w-2xl space-y-6">
-      <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="-ml-2">
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => navigate(-1)}
+        className="-ml-2"
+      >
         <ArrowLeft className="mr-1.5 size-4" />
         Companies
       </Button>
@@ -34,7 +39,9 @@ export default function CompanyDetailPage() {
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-xl font-semibold">{company.name}</h1>
-          <p className="text-sm text-muted-foreground">{company.contactEmail}</p>
+          <p className="text-sm text-muted-foreground">
+            {company.contactEmail}
+          </p>
         </div>
         <Badge variant="secondary">{company.region}</Badge>
       </div>
@@ -53,12 +60,19 @@ export default function CompanyDetailPage() {
             <p className="text-sm text-muted-foreground">No products yet.</p>
           ) : (
             company.products.map((p) => (
-              <div key={p.id} className="flex items-center justify-between py-2 border-b last:border-0">
+              <div
+                key={p.id}
+                className="flex items-center justify-between py-2 border-b last:border-0"
+              >
                 <div>
                   <p className="font-medium text-sm">{p.name}</p>
-                  <p className="text-xs text-muted-foreground font-mono">{p.code} · {p.owningOffice}</p>
+                  <p className="text-xs text-muted-foreground font-mono">
+                    {p.code} · {p.owningOffice}
+                  </p>
                 </div>
-                <span className="text-xs text-muted-foreground">{p._count.issues} issues</span>
+                <span className="text-xs text-muted-foreground">
+                  {p._count.issues} issues
+                </span>
               </div>
             ))
           )}

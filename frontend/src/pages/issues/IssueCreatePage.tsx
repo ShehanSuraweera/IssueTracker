@@ -10,19 +10,22 @@ import { IssueContextPanel } from "@/components/issue/IssueContextPanel";
 import type { ImpactLevel, UrgencyLevel } from "@/types/issues";
 
 const TIPS = [
-  "Use a specific title — avoid vague terms like \"it broke\"",
+  'Use a specific title — avoid vague terms like "it broke"',
   "Include exact steps to reproduce for bugs",
   "Note which environment you saw this in (prod, staging…)",
   "Attach screenshots or logs if available",
 ];
 
 export default function IssueCreatePage() {
-  const navigate           = useNavigate();
-  const back               = useBack("/issues");
+  const navigate = useNavigate();
+  const back = useBack("/issues");
   const { data: products } = useProducts();
-  const mutation           = useCreateIssue();
+  const mutation = useCreateIssue();
 
-  const [liveValues, setLiveValues] = useState<{ impact: ImpactLevel; urgency: UrgencyLevel }>({
+  const [liveValues, setLiveValues] = useState<{
+    impact: ImpactLevel;
+    urgency: UrgencyLevel;
+  }>({
     impact: "medium",
     urgency: "medium",
   });
@@ -35,7 +38,6 @@ export default function IssueCreatePage() {
       </Button>
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_288px] gap-6 lg:gap-8 items-start">
-
         {/* ── Left: form ─────────────────────────────────────── */}
         <div>
           <div className="mb-5">
@@ -68,7 +70,6 @@ export default function IssueCreatePage() {
           tips={TIPS}
           tipsTitle="Tips for a good report"
         />
-
       </div>
     </div>
   );

@@ -9,7 +9,7 @@ const OfficeEnum   = z.enum(["KR", "LK", "IN"]);
 const UserRoleEnum = z.enum(["client_user", "engineer", "admin"]);
 
 export const CreateUserSchema = z.object({
-  email:     z.string().email().max(255),
+  email:     z.email().max(255),
   password:  z.string().min(8).max(128),
   fullName:  z.string().min(1).max(120),
   role:      UserRoleEnum,
@@ -19,7 +19,7 @@ export const CreateUserSchema = z.object({
 
 export const UpdateUserSchema = z
   .object({
-    email:     z.string().email().max(255).optional(),
+    email:     z.email().max(255).optional(),
     fullName:  z.string().min(1).max(120).optional(),
     role:      UserRoleEnum.optional(),
     companyId: bigIntParam.nullable().optional(),

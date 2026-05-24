@@ -33,7 +33,8 @@ function initials(name: string): string {
 export function Header({ onMenuClick }: { onMenuClick?: () => void }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-  const { tabs, activeId, closeTab, setActive, pinnedId, pinTab } = useTabsStore();
+  const { tabs, activeId, closeTab, setActive, pinnedId, pinTab } =
+    useTabsStore();
 
   const handleTabClick = (tab: AppTab) => {
     setActive(tab.id);
@@ -53,7 +54,9 @@ export function Header({ onMenuClick }: { onMenuClick?: () => void }) {
   };
 
   const homeTab = tabs.find((t) => t.id === "home")!;
-  const pinnedTab = pinnedId ? (tabs.find((t) => t.id === pinnedId) ?? null) : null;
+  const pinnedTab = pinnedId
+    ? (tabs.find((t) => t.id === pinnedId) ?? null)
+    : null;
   const restTabs = tabs.filter((t) => t.id !== "home" && t.id !== pinnedId);
 
   const renderTab = (tab: AppTab) => {
@@ -65,7 +68,11 @@ export function Header({ onMenuClick }: { onMenuClick?: () => void }) {
       <button
         key={tab.id}
         onClick={() => handleTabClick(tab)}
-        style={isActive ? { borderTopColor: "var(--brand-green)", borderTopWidth: "2px" } : undefined}
+        style={
+          isActive
+            ? { borderTopColor: "var(--brand-green)", borderTopWidth: "2px" }
+            : undefined
+        }
         className={cn(
           "group relative flex items-center gap-2 px-4 text-[13px] font-medium",
           "rounded-t-lg transition-all whitespace-nowrap shrink-0 select-none",
@@ -87,12 +94,14 @@ export function Header({ onMenuClick }: { onMenuClick?: () => void }) {
         {tab.id === "home" && <Home className="size-3.5 shrink-0" />}
         <span className="max-w-35 truncate">{tab.label}</span>
 
-        {/* Pin button — always visible (green) when pinned, fades in on hover otherwise */}
         {tab.id !== "home" && (
           <span
             role="button"
             aria-label={isPinned ? "Unpin tab" : "Pin tab"}
-            onClick={(e) => { e.stopPropagation(); pinTab(tab.id); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              pinTab(tab.id);
+            }}
             style={isPinned ? { color: "var(--brand-green)" } : undefined}
             className={cn(
               "shrink-0 flex items-center justify-center size-4 rounded transition-all",
@@ -141,7 +150,8 @@ export function Header({ onMenuClick }: { onMenuClick?: () => void }) {
             <span
               className={cn(
                 "inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium capitalize",
-                STATUS_CONFIG[tab.meta.status]?.cls ?? "bg-muted text-muted-foreground",
+                STATUS_CONFIG[tab.meta.status]?.cls ??
+                  "bg-muted text-muted-foreground",
               )}
             >
               {tab.meta.status.replace("_", " ")}
@@ -149,7 +159,8 @@ export function Header({ onMenuClick }: { onMenuClick?: () => void }) {
             <span
               className={cn(
                 "inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium capitalize",
-                PRIORITY_CONFIG[tab.meta.priority]?.cls ?? "bg-muted text-muted-foreground",
+                PRIORITY_CONFIG[tab.meta.priority]?.cls ??
+                  "bg-muted text-muted-foreground",
               )}
             >
               {tab.meta.priority}
@@ -162,7 +173,6 @@ export function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 
   return (
     <header className="flex h-14 border-b bg-linear-to-b from-background to-muted/50 shrink-0">
-      {/* ── Mobile hamburger ───────────────────────────────────────── */}
       <div className="flex sm:hidden flex-1 items-center px-3">
         <button
           onClick={onMenuClick}
@@ -173,7 +183,6 @@ export function Header({ onMenuClick }: { onMenuClick?: () => void }) {
         </button>
       </div>
 
-      {/* ── Tabs ───────────────────────────────────────────────────── */}
       <div className="hidden sm:flex flex-1 items-end overflow-x-auto min-w-0 px-2 gap-0.5 scrollbar-none [&::-webkit-scrollbar]:hidden">
         {renderTab(homeTab)}
 
@@ -189,7 +198,6 @@ export function Header({ onMenuClick }: { onMenuClick?: () => void }) {
         {restTabs.map((tab) => renderTab(tab))}
       </div>
 
-      {/* ── User menu ──────────────────────────────────────────────── */}
       <div className="flex items-center shrink-0 px-2 sm:px-4 border-l border-border/60">
         {user && (
           <DropdownMenu>
@@ -199,8 +207,13 @@ export function Header({ onMenuClick }: { onMenuClick?: () => void }) {
                   {initials(user.fullName)}
                 </AvatarFallback>
               </Avatar>
-              <span className="hidden sm:block font-medium">{user.fullName}</span>
-              <Badge variant="outline" className="hidden sm:inline-flex text-xs border-brand-green/40 bg-brand-green/10 text-brand-green">
+              <span className="hidden sm:block font-medium">
+                {user.fullName}
+              </span>
+              <Badge
+                variant="outline"
+                className="hidden sm:inline-flex text-xs border-brand-green/40 bg-brand-green/10 text-brand-green"
+              >
                 {ROLE_LABEL[user.role]}
               </Badge>
             </DropdownMenuTrigger>
@@ -218,7 +231,7 @@ export function Header({ onMenuClick }: { onMenuClick?: () => void }) {
               <ConfirmDialog
                 trigger={
                   <DropdownMenuItem
-                    onSelect={e => e.preventDefault()}
+                    onSelect={(e) => e.preventDefault()}
                     className="text-destructive focus:text-destructive"
                   >
                     <LogOut className="mr-2 size-4" />

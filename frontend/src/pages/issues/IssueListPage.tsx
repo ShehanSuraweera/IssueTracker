@@ -15,7 +15,6 @@ export default function IssueListPage() {
 
   return (
     <div className="h-full flex overflow-hidden">
-
       <IssueSidebar
         sidebarOpen={s.sidebarOpen}
         mobileSidebarOpen={s.mobileSidebarOpen}
@@ -46,7 +45,6 @@ export default function IssueListPage() {
       />
 
       <div className="flex flex-1 flex-col overflow-hidden min-w-0">
-
         <IssueHeader
           sidebarOpen={s.sidebarOpen}
           openSidebarOpen={s.openSidebarOpen}
@@ -95,7 +93,11 @@ export default function IssueListPage() {
             columns={ISSUE_COLS}
             data={s.allItems}
             groupedData={s.grouped}
-            isLoading={s.isLoading || s.search !== s.debouncedSearch || s.dataParamKeyRef.current !== s.currentParamKey}
+            isLoading={
+              s.isLoading ||
+              s.search !== s.debouncedSearch ||
+              s.dataParamKeyRef.current !== s.currentParamKey
+            }
             onRowClick={s.openIssue}
             emptyMessage="No issues found."
             tableClassName="min-w-190"
@@ -111,7 +113,6 @@ export default function IssueListPage() {
           )}
           <div ref={s.sentinelRef} className="h-1" />
         </div>
-
       </div>
     </div>
   );

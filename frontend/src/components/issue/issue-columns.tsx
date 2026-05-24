@@ -10,7 +10,11 @@ export const ISSUE_COLS: ColumnDef<IssueSummary>[] = [
     header: "Number",
     className: "w-32",
     sortKey: "ticketNumber",
-    render: (row) => <span className="font-mono text-xs text-muted-foreground whitespace-nowrap">{row.ticketNumber}</span>,
+    render: (row) => (
+      <span className="font-mono text-xs text-muted-foreground whitespace-nowrap">
+        {row.ticketNumber}
+      </span>
+    ),
   },
   {
     key: "title",
@@ -18,20 +22,30 @@ export const ISSUE_COLS: ColumnDef<IssueSummary>[] = [
     className: "min-w-[220px]",
     sortKey: "title",
     mobile: { primary: true },
-    render: (row) => <span className="text-sm font-medium line-clamp-2">{row.title}</span>,
+    render: (row) => (
+      <span className="text-sm font-medium line-clamp-2">{row.title}</span>
+    ),
   },
   {
     key: "type",
     header: "Type",
     className: "w-28",
     mobile: { hidden: true },
-    render: (row) => <span className="text-xs text-muted-foreground capitalize whitespace-nowrap">{row.type.replace(/_/g, " ")}</span>,
+    render: (row) => (
+      <span className="text-xs text-muted-foreground capitalize whitespace-nowrap">
+        {row.type.replace(/_/g, " ")}
+      </span>
+    ),
   },
   {
     key: "product",
     header: "Product",
     className: "w-32",
-    render: (row) => <span className="text-xs text-muted-foreground whitespace-nowrap">{row.product.name}</span>,
+    render: (row) => (
+      <span className="text-xs text-muted-foreground whitespace-nowrap">
+        {row.product.name}
+      </span>
+    ),
   },
   {
     key: "status",
@@ -61,7 +75,9 @@ export const ISSUE_COLS: ColumnDef<IssueSummary>[] = [
     sortKey: "assignee",
     render: (row) => (
       <span className="text-xs text-muted-foreground whitespace-nowrap">
-        {row.assignee?.fullName ?? <em className="not-italic opacity-40">Unassigned</em>}
+        {row.assignee?.fullName ?? (
+          <em className="not-italic opacity-40">Unassigned</em>
+        )}
       </span>
     ),
   },
@@ -70,6 +86,10 @@ export const ISSUE_COLS: ColumnDef<IssueSummary>[] = [
     header: "Updated",
     className: "w-32",
     sortKey: "updatedAt",
-    render: (row) => <span className="text-xs text-muted-foreground whitespace-nowrap">{new Date(row.updatedAt).toLocaleDateString()}</span>,
+    render: (row) => (
+      <span className="text-xs text-muted-foreground whitespace-nowrap">
+        {new Date(row.updatedAt).toLocaleDateString()}
+      </span>
+    ),
   },
 ];

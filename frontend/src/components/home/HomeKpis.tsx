@@ -6,8 +6,8 @@ import type { useIssueStats } from "@/hooks/use-issues";
 type Stats = ReturnType<typeof useIssueStats>["data"];
 
 interface HomeKpisProps {
-  stats:      Stats;
-  isAdmin:    boolean;
+  stats: Stats;
+  isAdmin: boolean;
   isEngineer: boolean;
 }
 
@@ -27,14 +27,22 @@ export function HomeKpis({ stats, isAdmin, isEngineer }: HomeKpisProps) {
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
           <KpiCard
             label={isAdmin ? "All Unassigned" : "Open"}
-            value={isAdmin ? stats?.adminView?.unassignedOpen : stats?.summary.totalOpen}
-            onClick={() => navigate("/issues", { state: { viewId: "unassigned" } })}
+            value={
+              isAdmin
+                ? stats?.adminView?.unassignedOpen
+                : stats?.summary.totalOpen
+            }
+            onClick={() =>
+              navigate("/issues", { state: { viewId: "unassigned" } })
+            }
           />
           <KpiCard
             label="Critical"
             value={stats?.summary.critical}
             accent="red"
-            onClick={() => navigate("/issues", { state: { viewId: "p_critical" } })}
+            onClick={() =>
+              navigate("/issues", { state: { viewId: "p_critical" } })
+            }
           />
           <KpiCard
             label="SLA At Risk"
@@ -45,10 +53,7 @@ export function HomeKpis({ stats, isAdmin, isEngineer }: HomeKpisProps) {
             label="Resolved This Week"
             value={stats?.summary.resolvedThisWeek}
           />
-          <KpiCard
-            label="Total Open"
-            value={stats?.summary.totalOpen}
-          />
+          <KpiCard label="Total Open" value={stats?.summary.totalOpen} />
         </div>
       )}
     </div>

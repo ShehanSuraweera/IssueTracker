@@ -3,7 +3,10 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import type { ColumnDef } from "@/components/ui/data-table";
 import type { IssueSummary } from "@/types/issues";
 
-export function slaInfo(deadline: string | null): { label: string; breached: boolean } {
+export function slaInfo(deadline: string | null): {
+  label: string;
+  breached: boolean;
+} {
   if (!deadline) return { label: "—", breached: false };
   const rem = new Date(deadline).getTime() - Date.now();
   if (rem <= 0) return { label: "Breached", breached: true };
@@ -17,14 +20,20 @@ export const homeColumns: ColumnDef<IssueSummary>[] = [
     key: "ticketNumber",
     header: "Ticket",
     className: "whitespace-nowrap",
-    render: (row) => <span className="font-mono text-xs text-muted-foreground">{row.ticketNumber}</span>,
+    render: (row) => (
+      <span className="font-mono text-xs text-muted-foreground">
+        {row.ticketNumber}
+      </span>
+    ),
   },
   {
     key: "title",
     header: "Title",
     className: "max-w-55",
     mobile: { primary: true },
-    render: (row) => <span className="text-sm font-medium line-clamp-2">{row.title}</span>,
+    render: (row) => (
+      <span className="text-sm font-medium line-clamp-2">{row.title}</span>
+    ),
   },
   {
     key: "priority",
@@ -42,7 +51,9 @@ export const homeColumns: ColumnDef<IssueSummary>[] = [
     key: "product",
     header: "Product",
     className: "whitespace-nowrap",
-    render: (row) => <span className="text-xs text-muted-foreground">{row.product.name}</span>,
+    render: (row) => (
+      <span className="text-xs text-muted-foreground">{row.product.name}</span>
+    ),
   },
   {
     key: "slaTimeLeft",
@@ -51,7 +62,13 @@ export const homeColumns: ColumnDef<IssueSummary>[] = [
     render: (row) => {
       const sla = slaInfo(row.slaDeadline);
       return (
-        <span className={sla.breached ? "text-xs text-red-600 font-medium" : "text-xs text-muted-foreground"}>
+        <span
+          className={
+            sla.breached
+              ? "text-xs text-red-600 font-medium"
+              : "text-xs text-muted-foreground"
+          }
+        >
           {sla.label}
         </span>
       );
@@ -64,9 +81,11 @@ export const homeColumns: ColumnDef<IssueSummary>[] = [
     mobile: { hidden: true },
     render: (row) => {
       const sla = slaInfo(row.slaDeadline);
-      return sla.breached
-        ? <span className="text-xs text-red-600 font-medium">Yes</span>
-        : <span className="text-xs text-muted-foreground">No</span>;
+      return sla.breached ? (
+        <span className="text-xs text-red-600 font-medium">Yes</span>
+      ) : (
+        <span className="text-xs text-muted-foreground">No</span>
+      );
     },
   },
   {
@@ -76,7 +95,10 @@ export const homeColumns: ColumnDef<IssueSummary>[] = [
     mobile: { hidden: true },
     render: (row) => (
       <span className="text-xs text-muted-foreground">
-        {new Date(row.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+        {new Date(row.createdAt).toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+        })}
       </span>
     ),
   },
@@ -86,7 +108,10 @@ export const homeColumns: ColumnDef<IssueSummary>[] = [
     className: "whitespace-nowrap",
     render: (row) => (
       <span className="text-xs text-muted-foreground">
-        {new Date(row.updatedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+        {new Date(row.updatedAt).toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+        })}
       </span>
     ),
   },

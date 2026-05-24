@@ -4,7 +4,11 @@ interface NewnopLogoProps {
   height?: number;
 }
 
-export function NewnopLogo({ className, width = 28, height = 24 }: NewnopLogoProps) {
+export function NewnopLogo({
+  className,
+  width = 28,
+  height = 24,
+}: NewnopLogoProps) {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -21,11 +25,23 @@ export function NewnopLogo({ className, width = 28, height = 24 }: NewnopLogoPro
         fill="rgb(0,54,206)"
       />
       <defs>
-        <linearGradient id="newnop-grad-blue" x1="0.131" x2="0.869" y1="1" y2="0">
+        <linearGradient
+          id="newnop-grad-blue"
+          x1="0.131"
+          x2="0.869"
+          y1="1"
+          y2="0"
+        >
           <stop offset="0" stopColor="rgb(0,54,206)" />
           <stop offset="1" stopColor="rgb(9,16,53)" />
         </linearGradient>
-        <linearGradient id="newnop-grad-green" x1="0.858" x2="0.142" y1="0" y2="1">
+        <linearGradient
+          id="newnop-grad-green"
+          x1="0.858"
+          x2="0.142"
+          y1="0"
+          y2="1"
+        >
           <stop offset="0" stopColor="rgb(145,217,77)" />
           <stop offset="1" stopColor="rgb(27,150,9)" />
         </linearGradient>

@@ -5,17 +5,20 @@ import { PRIORITY_CONFIG } from "@/lib/theme";
 import type { ImpactLevel, UrgencyLevel } from "@/types/issues";
 
 const PRIORITY_MATRIX: Record<string, Record<string, string>> = {
-  high:   { low: "moderate", medium: "high",     high: "critical" },
-  medium: { low: "low",      medium: "moderate", high: "high"     },
-  low:    { low: "low",      medium: "low",      high: "moderate" },
+  high: { low: "moderate", medium: "high", high: "critical" },
+  medium: { low: "low", medium: "moderate", high: "high" },
+  low: { low: "low", medium: "low", high: "moderate" },
 };
 
 const LEVEL_HEADERS = ["Low", "Med", "High"];
-const IMPACT_ROWS   = ["high", "medium", "low"] as const;
-const URGENCY_COLS  = ["low", "medium", "high"] as const;
+const IMPACT_ROWS = ["high", "medium", "low"] as const;
+const URGENCY_COLS = ["low", "medium", "high"] as const;
 
 const SHORT: Record<string, string> = {
-  critical: "Crit", high: "High", moderate: "Mod", low: "Low",
+  critical: "Crit",
+  high: "High",
+  moderate: "Mod",
+  low: "Low",
 };
 
 interface Props {
@@ -25,41 +28,50 @@ interface Props {
   tipsTitle?: string;
 }
 
-export function IssueContextPanel({ impact, urgency, tips, tipsTitle = "Tips" }: Props) {
+export function IssueContextPanel({
+  impact,
+  urgency,
+  tips,
+  tipsTitle = "Tips",
+}: Props) {
   const [showPanel, setShowPanel] = useState(false);
   const derivedPriority = PRIORITY_MATRIX[impact]?.[urgency] ?? "low";
 
   return (
     <div className="lg:sticky lg:top-6">
-      {/* Mobile toggle — hidden on lg+ */}
       <button
         className="lg:hidden w-full flex items-center justify-between rounded-lg border px-4 py-2.5 text-sm font-medium mb-3"
-        onClick={() => setShowPanel(v => !v)}
+        onClick={() => setShowPanel((v) => !v)}
       >
         <span className="flex items-center gap-1.5">
           <Info className="size-3.5 text-muted-foreground" />
           Priority &amp; Tips
         </span>
-        <ChevronDown className={cn(
-          "size-4 text-muted-foreground transition-transform duration-200",
-          showPanel && "rotate-180",
-        )} />
+        <ChevronDown
+          className={cn(
+            "size-4 text-muted-foreground transition-transform duration-200",
+            showPanel && "rotate-180",
+          )}
+        />
       </button>
 
       <div className={cn("space-y-4", !showPanel && "hidden lg:block")}>
-
-        {/* Derived priority + matrix */}
         <div className="rounded-lg border p-4 space-y-3">
           <p className="text-sm font-medium">Derived Priority</p>
 
           <div className="flex items-center gap-2">
-            <span className={cn(
-              "inline-flex items-center rounded-full border px-3 py-1 text-sm font-semibold capitalize",
-              PRIORITY_CONFIG[derivedPriority as keyof typeof PRIORITY_CONFIG]?.cls,
-            )}>
+            <span
+              className={cn(
+                "inline-flex items-center rounded-full border px-3 py-1 text-sm font-semibold capitalize",
+                PRIORITY_CONFIG[derivedPriority as keyof typeof PRIORITY_CONFIG]
+                  ?.cls,
+              )}
+            >
               {derivedPriority}
             </span>
-            <span className="text-xs text-muted-foreground">impact × urgency</span>
+            <span className="text-xs text-muted-foreground">
+              impact × urgency
+            </span>
           </div>
 
           <div>
@@ -67,35 +79,43 @@ export function IssueContextPanel({ impact, urgency, tips, tipsTitle = "Tips" }:
               <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                 Priority matrix
               </p>
-              <span className="text-[10px] text-muted-foreground">← urgency →</span>
+              <span className="text-[10px] text-muted-foreground">
+                ← urgency →
+              </span>
             </div>
 
             <div className="grid grid-cols-4 gap-0.5 text-[10px]">
-              <div className="py-1 text-muted-foreground text-right pr-1.5 font-medium">Impact</div>
+              <div className="py-1 text-muted-foreground text-right pr-1.5 font-medium">
+                Impact
+              </div>
               {URGENCY_COLS.map((col, i) => (
                 <div
                   key={col}
                   className={cn(
                     "text-center py-1 font-medium rounded-t",
-                    urgency === col ? "text-foreground" : "text-muted-foreground",
+                    urgency === col
+                      ? "text-foreground"
+                      : "text-muted-foreground",
                   )}
                 >
                   {LEVEL_HEADERS[i]}
                 </div>
               ))}
 
-              {IMPACT_ROWS.flatMap(imp => [
+              {IMPACT_ROWS.flatMap((imp) => [
                 <div
                   key={`lbl-${imp}`}
                   className={cn(
                     "py-1 pr-1.5 font-medium capitalize text-right",
-                    impact === imp ? "text-foreground" : "text-muted-foreground",
+                    impact === imp
+                      ? "text-foreground"
+                      : "text-muted-foreground",
                   )}
                 >
                   {imp === "medium" ? "Med" : imp.slice(0, 4)}
                 </div>,
-                ...URGENCY_COLS.map(urg => {
-                  const p        = PRIORITY_MATRIX[imp][urg];
+                ...URGENCY_COLS.map((urg) => {
+                  const p = PRIORITY_MATRIX[imp][urg];
                   const isActive = impact === imp && urgency === urg;
                   return (
                     <div
@@ -103,7 +123,8 @@ export function IssueContextPanel({ impact, urgency, tips, tipsTitle = "Tips" }:
                       className={cn(
                         "text-center py-1 rounded font-medium transition-all",
                         PRIORITY_CONFIG[p as keyof typeof PRIORITY_CONFIG]?.cls,
-                        isActive && "ring-2 ring-offset-0 ring-foreground/25 scale-105",
+                        isActive &&
+                          "ring-2 ring-offset-0 ring-foreground/25 scale-105",
                       )}
                     >
                       {SHORT[p]}
@@ -115,7 +136,6 @@ export function IssueContextPanel({ impact, urgency, tips, tipsTitle = "Tips" }:
           </div>
         </div>
 
-        {/* Tips */}
         <div className="rounded-lg border p-4 space-y-3">
           <div className="flex items-center gap-1.5">
             <Info className="size-3.5 text-muted-foreground shrink-0" />
@@ -123,7 +143,10 @@ export function IssueContextPanel({ impact, urgency, tips, tipsTitle = "Tips" }:
           </div>
           <ol className="space-y-2">
             {tips.map((tip, i) => (
-              <li key={i} className="flex items-start gap-2 text-xs text-muted-foreground">
+              <li
+                key={i}
+                className="flex items-start gap-2 text-xs text-muted-foreground"
+              >
                 <span className="mt-0.5 size-4 rounded-full bg-muted flex items-center justify-center text-[9px] font-bold shrink-0">
                   {i + 1}
                 </span>
@@ -132,7 +155,6 @@ export function IssueContextPanel({ impact, urgency, tips, tipsTitle = "Tips" }:
             ))}
           </ol>
         </div>
-
       </div>
     </div>
   );

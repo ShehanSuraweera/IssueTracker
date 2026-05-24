@@ -6,7 +6,7 @@ import { fmtBytes } from "@/lib/format";
 import { useAddComment, useUploadAttachments } from "@/hooks/use-issues";
 
 const MAX_FILE_SIZE = 25 * 1024 * 1024;
-const MAX_FILES     = 5;
+const MAX_FILES = 5;
 
 interface CommentComposerProps {
   issueId: string;
@@ -14,42 +14,55 @@ interface CommentComposerProps {
   borderColor: string;
 }
 
-export function CommentComposer({ issueId, canInternal, borderColor }: CommentComposerProps) {
-  const [body,         setBody]        = useState("");
-  const [isInternal,   setInternal]    = useState(false);
-  const [pendingFiles, setFiles]       = useState<File[]>([]);
-  const [uploadError,  setUploadError] = useState<string | null>(null);
+export function CommentComposer({
+  issueId,
+  canInternal,
+  borderColor,
+}: CommentComposerProps) {
+  const [body, setBody] = useState("");
+  const [isInternal, setInternal] = useState(false);
+  const [pendingFiles, setFiles] = useState<File[]>([]);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const commentMutation = useAddComment(issueId);
-  const uploadMutation  = useUploadAttachments(issueId);
+  const uploadMutation = useUploadAttachments(issueId);
   const isPending = commentMutation.isPending || uploadMutation.isPending;
 
   const addFiles = (list: FileList | null) => {
     if (!list) return;
     setUploadError(null);
     const oversized: string[] = [];
-    const valid = Array.from(list).filter(f => {
-      if (f.size > MAX_FILE_SIZE) { oversized.push(f.name); return false; }
+    const valid = Array.from(list).filter((f) => {
+      if (f.size > MAX_FILE_SIZE) {
+        oversized.push(f.name);
+        return false;
+      }
       return true;
     });
-    if (oversized.length) setUploadError(`${oversized.map(n => `"${n}"`).join(", ")} exceeds the 25 MB limit.`);
-    setFiles(prev => [...prev, ...valid].slice(0, MAX_FILES));
+    if (oversized.length)
+      setUploadError(
+        `${oversized.map((n) => `"${n}"`).join(", ")} exceeds the 25 MB limit.`,
+      );
+    setFiles((prev) => [...prev, ...valid].slice(0, MAX_FILES));
   };
 
-  const removeFile = (idx: number) => setFiles(prev => prev.filter((_, i) => i !== idx));
+  const removeFile = (idx: number) =>
+    setFiles((prev) => prev.filter((_, i) => i !== idx));
 
   const submit = async () => {
     if (!body.trim() && pendingFiles.length === 0) return;
     setUploadError(null);
     try {
-      if (pendingFiles.length > 0) await uploadMutation.mutateAsync(pendingFiles);
+      if (pendingFiles.length > 0)
+        await uploadMutation.mutateAsync(pendingFiles);
       if (body.trim()) await commentMutation.mutateAsync({ body, isInternal });
       setBody("");
       setInternal(false);
       setFiles([]);
     } catch (err: unknown) {
-      const status = (err as { response?: { status?: number } })?.response?.status;
+      const status = (err as { response?: { status?: number } })?.response
+        ?.status;
       setUploadError(
         status === 503
           ? "File storage is not configured on this server."
@@ -73,18 +86,29 @@ export function CommentComposer({ issueId, canInternal, borderColor }: CommentCo
         className="w-full bg-transparent text-base sm:text-sm placeholder:text-muted-foreground focus-visible:outline-none resize-none min-h-16"
         placeholder="Write a comment…"
         value={body}
-        onChange={e => setBody(e.target.value)}
-        onKeyDown={e => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) void submit(); }}
+        onChange={(e) => setBody(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) void submit();
+        }}
       />
 
       {pendingFiles.length > 0 && (
         <div className="flex flex-wrap gap-1.5 pt-1 pb-2">
           {pendingFiles.map((f, i) => (
-            <span key={i} className="inline-flex items-center gap-1 rounded-md border bg-muted px-2 py-1 text-xs max-w-52">
+            <span
+              key={i}
+              className="inline-flex items-center gap-1 rounded-md border bg-muted px-2 py-1 text-xs max-w-52"
+            >
               <Paperclip className="size-3 shrink-0 text-muted-foreground" />
               <span className="truncate font-medium">{f.name}</span>
-              <span className="text-muted-foreground shrink-0 ml-0.5">{fmtBytes(f.size)}</span>
-              <button type="button" onClick={() => removeFile(i)} className="ml-0.5 text-muted-foreground hover:text-foreground shrink-0">
+              <span className="text-muted-foreground shrink-0 ml-0.5">
+                {fmtBytes(f.size)}
+              </span>
+              <button
+                type="button"
+                onClick={() => removeFile(i)}
+                className="ml-0.5 text-muted-foreground hover:text-foreground shrink-0"
+              >
                 <X className="size-3" />
               </button>
             </span>
@@ -92,15 +116,24 @@ export function CommentComposer({ issueId, canInternal, borderColor }: CommentCo
         </div>
       )}
 
-      {uploadError && <p className="text-xs text-destructive pb-1">{uploadError}</p>}
+      {uploadError && (
+        <p className="text-xs text-destructive pb-1">{uploadError}</p>
+      )}
 
       <div className="flex items-center justify-between pt-2 border-t mt-1">
         {canInternal ? (
           <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none">
-            <input type="checkbox" checked={isInternal} onChange={e => setInternal(e.target.checked)} className="rounded" />
+            <input
+              type="checkbox"
+              checked={isInternal}
+              onChange={(e) => setInternal(e.target.checked)}
+              className="rounded"
+            />
             <Lock className="size-3" /> Internal note
           </label>
-        ) : <span />}
+        ) : (
+          <span />
+        )}
 
         <div className="flex items-center gap-2">
           <input
@@ -108,13 +141,20 @@ export function CommentComposer({ issueId, canInternal, borderColor }: CommentCo
             type="file"
             multiple
             className="hidden"
-            onChange={e => { addFiles(e.target.files); e.currentTarget.value = ""; }}
+            onChange={(e) => {
+              addFiles(e.target.files);
+              e.currentTarget.value = "";
+            }}
           />
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
             disabled={isPending || pendingFiles.length >= MAX_FILES}
-            title={pendingFiles.length >= MAX_FILES ? `Max ${MAX_FILES} files` : "Attach files"}
+            title={
+              pendingFiles.length >= MAX_FILES
+                ? `Max ${MAX_FILES} files`
+                : "Attach files"
+            }
             className={cn(
               "p-1.5 rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed",
               pendingFiles.length > 0
@@ -129,7 +169,11 @@ export function CommentComposer({ issueId, canInternal, borderColor }: CommentCo
             disabled={(!body.trim() && pendingFiles.length === 0) || isPending}
             onClick={() => void submit()}
           >
-            {isPending ? <Loader2 className="size-4 animate-spin mr-1.5" /> : <Send className="size-4 mr-1.5" />}
+            {isPending ? (
+              <Loader2 className="size-4 animate-spin mr-1.5" />
+            ) : (
+              <Send className="size-4 mr-1.5" />
+            )}
             {uploadMutation.isPending ? "Uploading…" : "Post"}
           </Button>
         </div>

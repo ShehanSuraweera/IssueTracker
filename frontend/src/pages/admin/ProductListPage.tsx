@@ -8,7 +8,11 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import { DataTable } from "@/components/ui/data-table";
 import type { ColumnDef } from "@/components/ui/data-table";
@@ -31,45 +35,76 @@ const productColumns: ColumnDef<Product>[] = [
   {
     key: "code",
     header: "Code",
-    render: (row) => <span className="font-mono text-xs text-muted-foreground">{row.code}</span>,
+    render: (row) => (
+      <span className="font-mono text-xs text-muted-foreground">
+        {row.code}
+      </span>
+    ),
   },
   {
     key: "company",
     header: "Company",
-    render: (row) => <span className="text-xs text-muted-foreground">{row.company.name}</span>,
+    render: (row) => (
+      <span className="text-xs text-muted-foreground">{row.company.name}</span>
+    ),
   },
   {
     key: "owningOffice",
     header: "Office",
-    render: (row) => <Badge variant="outline" className="text-xs">{row.owningOffice}</Badge>,
+    render: (row) => (
+      <Badge variant="outline" className="text-xs">
+        {row.owningOffice}
+      </Badge>
+    ),
   },
   {
     key: "issues",
     header: "Issues",
-    render: (row) => <span className="text-xs text-muted-foreground tabular-nums">{row._count?.issues ?? 0}</span>,
+    render: (row) => (
+      <span className="text-xs text-muted-foreground tabular-nums">
+        {row._count?.issues ?? 0}
+      </span>
+    ),
   },
 ];
 
 const OFFICES: { value: Office; label: string }[] = [
-  { value: "KR", label: "Korea (KR)"     },
+  { value: "KR", label: "Korea (KR)" },
   { value: "LK", label: "Sri Lanka (LK)" },
-  { value: "IN", label: "India (IN)"     },
+  { value: "IN", label: "India (IN)" },
 ];
 
-function NewProductDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const mutation                  = useCreateProduct();
-  const { data: companies = [] }  = useCompanies();
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<CreateProductInput>({
+function NewProductDialog({
+  open,
+  onClose,
+}: {
+  open: boolean;
+  onClose: () => void;
+}) {
+  const mutation = useCreateProduct();
+  const { data: companies = [] } = useCompanies();
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors },
+  } = useForm<CreateProductInput>({
     defaultValues: { owningOffice: "LK" },
   });
 
   const onSubmit = (values: CreateProductInput) => {
     mutation.mutate(values, {
-      onSuccess: () => { reset(); onClose(); },
+      onSuccess: () => {
+        reset();
+        onClose();
+      },
     });
   };
 
-  const handleClose = () => { reset(); onClose(); };
+  const handleClose = () => {
+    reset();
+    onClose();
+  };
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && handleClose()}>
@@ -89,10 +124,16 @@ function NewProductDialog({ open, onClose }: { open: boolean; onClose: () => voi
             >
               <option value="">Select a company…</option>
               {companies.map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
               ))}
             </select>
-            {errors.companyId && <p className="text-xs text-destructive">{errors.companyId.message}</p>}
+            {errors.companyId && (
+              <p className="text-xs text-destructive">
+                {errors.companyId.message}
+              </p>
+            )}
           </div>
 
           {/* Name */}
@@ -101,9 +142,14 @@ function NewProductDialog({ open, onClose }: { open: boolean; onClose: () => voi
             <Input
               id="name"
               placeholder="e.g. Cloud Platform"
-              {...register("name", { required: "Name is required", minLength: { value: 2, message: "At least 2 characters" } })}
+              {...register("name", {
+                required: "Name is required",
+                minLength: { value: 2, message: "At least 2 characters" },
+              })}
             />
-            {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
+            {errors.name && (
+              <p className="text-xs text-destructive">{errors.name.message}</p>
+            )}
           </div>
 
           {/* Code */}
@@ -115,10 +161,15 @@ function NewProductDialog({ open, onClose }: { open: boolean; onClose: () => voi
               className="font-mono uppercase"
               {...register("code", {
                 required: "Code is required",
-                pattern: { value: /^[A-Z0-9_-]+$/i, message: "Letters, numbers, _ and - only" },
+                pattern: {
+                  value: /^[A-Z0-9_-]+$/i,
+                  message: "Letters, numbers, _ and - only",
+                },
               })}
             />
-            {errors.code && <p className="text-xs text-destructive">{errors.code.message}</p>}
+            {errors.code && (
+              <p className="text-xs text-destructive">{errors.code.message}</p>
+            )}
           </div>
 
           {/* Owning office */}
@@ -130,7 +181,9 @@ function NewProductDialog({ open, onClose }: { open: boolean; onClose: () => voi
               className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-base sm:text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               {OFFICES.map((o) => (
-                <option key={o.value} value={o.value}>{o.label}</option>
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
               ))}
             </select>
           </div>
@@ -138,7 +191,10 @@ function NewProductDialog({ open, onClose }: { open: boolean; onClose: () => voi
           {/* Description (optional) */}
           <div className="space-y-1.5">
             <Label htmlFor="description">
-              Description <span className="text-muted-foreground font-normal">(optional)</span>
+              Description{" "}
+              <span className="text-muted-foreground font-normal">
+                (optional)
+              </span>
             </Label>
             <textarea
               id="description"
@@ -150,11 +206,19 @@ function NewProductDialog({ open, onClose }: { open: boolean; onClose: () => voi
           </div>
 
           {mutation.isError && (
-            <p className="text-xs text-destructive">Something went wrong. Please try again.</p>
+            <p className="text-xs text-destructive">
+              Something went wrong. Please try again.
+            </p>
           )}
 
           <DialogFooter>
-            <Button type="button" variant="outline" size="sm" onClick={handleClose} disabled={mutation.isPending}>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleClose}
+              disabled={mutation.isPending}
+            >
               Cancel
             </Button>
             <Button type="submit" size="sm" disabled={mutation.isPending}>
@@ -169,11 +233,10 @@ function NewProductDialog({ open, onClose }: { open: boolean; onClose: () => voi
 
 export default function ProductListPage() {
   const { data: products, isLoading } = useProducts();
-  const [dialogOpen, setDialogOpen]   = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   return (
     <div className="flex flex-col h-full">
-
       {/* ── Title bar ────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between px-5 py-2.5 border-b bg-background shrink-0">
         <div className="flex items-center gap-2.5">
@@ -184,7 +247,11 @@ export default function ProductListPage() {
             </span>
           )}
         </div>
-        <Button size="sm" className="h-8 text-xs" onClick={() => setDialogOpen(true)}>
+        <Button
+          size="sm"
+          className="h-8 text-xs"
+          onClick={() => setDialogOpen(true)}
+        >
           <Plus className="size-3.5 mr-1" />
           New product
         </Button>
@@ -207,17 +274,28 @@ export default function ProductListPage() {
                 <span className="text-sm font-medium">{product.name}</span>
               </div>
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="font-mono text-xs text-muted-foreground">{product.code}</span>
-                <span className="text-xs text-muted-foreground">{product.company.name}</span>
-                <Badge variant="outline" className="text-xs">{product.owningOffice}</Badge>
-                <span className="text-xs text-muted-foreground">{product._count?.issues ?? 0} issues</span>
+                <span className="font-mono text-xs text-muted-foreground">
+                  {product.code}
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {product.company.name}
+                </span>
+                <Badge variant="outline" className="text-xs">
+                  {product.owningOffice}
+                </Badge>
+                <span className="text-xs text-muted-foreground">
+                  {product._count?.issues ?? 0} issues
+                </span>
               </div>
             </div>
           )}
         />
       </div>
 
-      <NewProductDialog open={dialogOpen} onClose={() => setDialogOpen(false)} />
+      <NewProductDialog
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+      />
     </div>
   );
 }

@@ -1,5 +1,10 @@
 import { Paperclip, Download } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
 function previewKind(mimeType: string): "image" | "download" {
@@ -17,17 +22,24 @@ interface AttachmentPreviewModalProps {
 }
 
 export function AttachmentPreviewModal({
-  open, onClose, filename, mimeType, sizeBytes, previewUrl,
+  open,
+  onClose,
+  filename,
+  mimeType,
+  sizeBytes,
+  previewUrl,
 }: AttachmentPreviewModalProps) {
-  const kind   = previewKind(mimeType);
+  const kind = previewKind(mimeType);
   const sizeKb = Math.round(Number(sizeBytes) / 1024);
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className={cn(
-        "flex flex-col gap-0 p-0 overflow-hidden",
-        kind === "image" ? "max-w-3xl" : "max-w-lg",
-      )}>
+      <DialogContent
+        className={cn(
+          "flex flex-col gap-0 p-0 overflow-hidden",
+          kind === "image" ? "max-w-3xl" : "max-w-lg",
+        )}
+      >
         <DialogHeader className="px-4 py-3 border-b shrink-0">
           <DialogTitle className="text-sm font-medium flex items-center gap-2">
             <Paperclip className="size-3.5 text-muted-foreground shrink-0" />
@@ -49,7 +61,9 @@ export function AttachmentPreviewModal({
           {kind === "download" && (
             <div className="flex flex-col items-center justify-center gap-4 py-16 text-muted-foreground">
               <Download className="size-10 opacity-30" />
-              <p className="text-sm">Preview not available for this file type.</p>
+              <p className="text-sm">
+                Preview not available for this file type.
+              </p>
               <a
                 href={previewUrl}
                 download={filename}

@@ -1,8 +1,17 @@
 import { useState, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
-  Home, TicketCheck, SquarePen, LayoutDashboard, Building2, Package, Users, Settings,
-  Pin, PinOff, X,
+  Home,
+  TicketCheck,
+  SquarePen,
+  LayoutDashboard,
+  Building2,
+  Package,
+  Users,
+  Settings,
+  Pin,
+  PinOff,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
@@ -20,13 +29,49 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { id: "home",            to: "/",                icon: Home,            label: "Home",      exact: true },
-  { id: "issues",          to: "/issues",          icon: TicketCheck,     label: "Issues",    exact: true },
-  { id: "new",             to: "/issues/new",      icon: SquarePen,       label: "New Issue", exact: true },
-  { id: "admin-dashboard", to: "/admin/dashboard", icon: LayoutDashboard, label: "Dashboard", adminOnly: true },
-  { id: "admin-companies", to: "/admin/companies", icon: Building2,       label: "Companies", adminOnly: true },
-  { id: "admin-products",  to: "/admin/products",  icon: Package,         label: "Products",  adminOnly: true },
-  { id: "admin-users",     to: "/admin/users",     icon: Users,           label: "Users",     adminOnly: true },
+  { id: "home", to: "/", icon: Home, label: "Home", exact: true },
+  {
+    id: "issues",
+    to: "/issues",
+    icon: TicketCheck,
+    label: "Issues",
+    exact: true,
+  },
+  {
+    id: "new",
+    to: "/issues/new",
+    icon: SquarePen,
+    label: "New Issue",
+    exact: true,
+  },
+  {
+    id: "admin-dashboard",
+    to: "/admin/dashboard",
+    icon: LayoutDashboard,
+    label: "Dashboard",
+    adminOnly: true,
+  },
+  {
+    id: "admin-companies",
+    to: "/admin/companies",
+    icon: Building2,
+    label: "Companies",
+    adminOnly: true,
+  },
+  {
+    id: "admin-products",
+    to: "/admin/products",
+    icon: Package,
+    label: "Products",
+    adminOnly: true,
+  },
+  {
+    id: "admin-users",
+    to: "/admin/users",
+    icon: Users,
+    label: "Users",
+    adminOnly: true,
+  },
 ];
 
 interface SidebarProps {
@@ -35,19 +80,21 @@ interface SidebarProps {
 }
 
 export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
-  const { hasRole }  = useAuth();
-  const navigate     = useNavigate();
-  const location     = useLocation();
-  const { openTab }  = useTabsStore();
+  const { hasRole } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { openTab } = useTabsStore();
 
   const [locked, setLocked] = useState(
-    () => localStorage.getItem("sidebar-locked") !== "false"
+    () => localStorage.getItem("sidebar-locked") !== "false",
   );
   const [hovered, setHovered] = useState(false);
-  const hoverTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const hoverTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
 
   const isExpanded = locked || hovered || mobileOpen;
-  const isPeeking  = !locked && hovered;
+  const isPeeking = !locked && hovered;
 
   const handleMouseEnter = () => {
     if (locked) return;
@@ -146,7 +193,11 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
                   title={locked ? "Unpin sidebar" : "Pin sidebar open"}
                   className="flex items-center justify-center size-7 rounded-md shrink-0 transition-colors text-muted-foreground hover:bg-primary/10 hover:text-primary"
                 >
-                  {locked ? <PinOff className="size-3.5" /> : <Pin className="size-3.5" />}
+                  {locked ? (
+                    <PinOff className="size-3.5" />
+                  ) : (
+                    <Pin className="size-3.5" />
+                  )}
                 </button>
               )}
             </>
@@ -157,17 +208,19 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
 
         {/* Navigation */}
         <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto p-2">
-          {NAV_ITEMS.filter((item) => !item.adminOnly || hasRole("admin")).map((item) => (
-            <button
-              key={item.id}
-              onClick={() => handleNav(item)}
-              title={!isExpanded ? item.label : undefined}
-              className={itemClass(isActive(item))}
-            >
-              <item.icon className="size-4 shrink-0" />
-              {isExpanded && <span className="truncate">{item.label}</span>}
-            </button>
-          ))}
+          {NAV_ITEMS.filter((item) => !item.adminOnly || hasRole("admin")).map(
+            (item) => (
+              <button
+                key={item.id}
+                onClick={() => handleNav(item)}
+                title={!isExpanded ? item.label : undefined}
+                className={itemClass(isActive(item))}
+              >
+                <item.icon className="size-4 shrink-0" />
+                {isExpanded && <span className="truncate">{item.label}</span>}
+              </button>
+            ),
+          )}
         </nav>
 
         {/* Settings */}

@@ -9,7 +9,11 @@ import {
   changePassword,
 } from "@/api/users";
 import { queryKeys } from "./query-keys";
-import type { ChangePasswordInput, CreateUserInput, UpdateUserInput } from "@/types/users";
+import type {
+  ChangePasswordInput,
+  CreateUserInput,
+  UpdateUserInput,
+} from "@/types/users";
 
 export function useUsers() {
   return useQuery({
@@ -21,7 +25,7 @@ export function useUsers() {
 export function useEngineers() {
   return useQuery({
     queryKey: queryKeys.users.engineers(),
-    queryFn:  listEngineers,
+    queryFn: listEngineers,
   });
 }
 
@@ -57,7 +61,7 @@ export function useCreateUser() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (input: CreateUserInput) => createUser(input),
-    onSuccess:  () => qc.invalidateQueries({ queryKey: queryKeys.users.all() }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.users.all() }),
   });
 }
 

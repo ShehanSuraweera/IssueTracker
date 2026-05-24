@@ -8,7 +8,11 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import { DataTable } from "@/components/ui/data-table";
 import type { ColumnDef } from "@/components/ui/data-table";
@@ -37,45 +41,76 @@ const companyColumns: ColumnDef<Company>[] = [
   {
     key: "contactEmail",
     header: "Contact",
-    render: (row) => <span className="text-xs text-muted-foreground">{row.contactEmail}</span>,
+    render: (row) => (
+      <span className="text-xs text-muted-foreground">{row.contactEmail}</span>
+    ),
   },
   {
     key: "region",
     header: "Region",
-    render: (row) => <Badge variant="secondary" className="text-xs">{row.region}</Badge>,
+    render: (row) => (
+      <Badge variant="secondary" className="text-xs">
+        {row.region}
+      </Badge>
+    ),
   },
   {
     key: "products",
     header: "Products",
-    render: (row) => <span className="text-xs text-muted-foreground tabular-nums">{row._count?.products ?? 0}</span>,
+    render: (row) => (
+      <span className="text-xs text-muted-foreground tabular-nums">
+        {row._count?.products ?? 0}
+      </span>
+    ),
   },
   {
     key: "users",
     header: "Users",
-    render: (row) => <span className="text-xs text-muted-foreground tabular-nums">{row._count?.users ?? 0}</span>,
+    render: (row) => (
+      <span className="text-xs text-muted-foreground tabular-nums">
+        {row._count?.users ?? 0}
+      </span>
+    ),
   },
 ];
 
 const REGIONS: { value: Region; label: string }[] = [
-  { value: "KR",     label: "Korea (KR)"     },
-  { value: "LK",     label: "Sri Lanka (LK)" },
-  { value: "IN",     label: "India (IN)"     },
-  { value: "GLOBAL", label: "Global"         },
+  { value: "KR", label: "Korea (KR)" },
+  { value: "LK", label: "Sri Lanka (LK)" },
+  { value: "IN", label: "India (IN)" },
+  { value: "GLOBAL", label: "Global" },
 ];
 
-function NewCompanyDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+function NewCompanyDialog({
+  open,
+  onClose,
+}: {
+  open: boolean;
+  onClose: () => void;
+}) {
   const mutation = useCreateCompany();
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<CreateCompanyInput>({
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors },
+  } = useForm<CreateCompanyInput>({
     defaultValues: { region: "GLOBAL" },
   });
 
   const onSubmit = (values: CreateCompanyInput) => {
     mutation.mutate(values, {
-      onSuccess: () => { reset(); onClose(); },
+      onSuccess: () => {
+        reset();
+        onClose();
+      },
     });
   };
 
-  const handleClose = () => { reset(); onClose(); };
+  const handleClose = () => {
+    reset();
+    onClose();
+  };
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && handleClose()}>
@@ -91,9 +126,14 @@ function NewCompanyDialog({ open, onClose }: { open: boolean; onClose: () => voi
             <Input
               id="name"
               placeholder="Acme Corp"
-              {...register("name", { required: "Name is required", minLength: { value: 2, message: "At least 2 characters" } })}
+              {...register("name", {
+                required: "Name is required",
+                minLength: { value: 2, message: "At least 2 characters" },
+              })}
             />
-            {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
+            {errors.name && (
+              <p className="text-xs text-destructive">{errors.name.message}</p>
+            )}
           </div>
 
           {/* Contact email */}
@@ -105,10 +145,17 @@ function NewCompanyDialog({ open, onClose }: { open: boolean; onClose: () => voi
               placeholder="contact@acme.com"
               {...register("contactEmail", {
                 required: "Email is required",
-                pattern: { value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, message: "Enter a valid email" },
+                pattern: {
+                  value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+                  message: "Enter a valid email",
+                },
               })}
             />
-            {errors.contactEmail && <p className="text-xs text-destructive">{errors.contactEmail.message}</p>}
+            {errors.contactEmail && (
+              <p className="text-xs text-destructive">
+                {errors.contactEmail.message}
+              </p>
+            )}
           </div>
 
           {/* Region */}
@@ -120,17 +167,27 @@ function NewCompanyDialog({ open, onClose }: { open: boolean; onClose: () => voi
               className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-base sm:text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               {REGIONS.map((r) => (
-                <option key={r.value} value={r.value}>{r.label}</option>
+                <option key={r.value} value={r.value}>
+                  {r.label}
+                </option>
               ))}
             </select>
           </div>
 
           {mutation.isError && (
-            <p className="text-xs text-destructive">Something went wrong. Please try again.</p>
+            <p className="text-xs text-destructive">
+              Something went wrong. Please try again.
+            </p>
           )}
 
           <DialogFooter>
-            <Button type="button" variant="outline" size="sm" onClick={handleClose} disabled={mutation.isPending}>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleClose}
+              disabled={mutation.isPending}
+            >
               Cancel
             </Button>
             <Button type="submit" size="sm" disabled={mutation.isPending}>
@@ -149,7 +206,6 @@ export default function CompanyListPage() {
 
   return (
     <div className="flex flex-col h-full">
-
       {/* ── Title bar ────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between px-5 py-2.5 border-b bg-background shrink-0">
         <div className="flex items-center gap-2.5">
@@ -160,7 +216,11 @@ export default function CompanyListPage() {
             </span>
           )}
         </div>
-        <Button size="sm" className="h-8 text-xs" onClick={() => setDialogOpen(true)}>
+        <Button
+          size="sm"
+          className="h-8 text-xs"
+          onClick={() => setDialogOpen(true)}
+        >
           <Plus className="size-3.5 mr-1" />
           New company
         </Button>
@@ -188,18 +248,29 @@ export default function CompanyListPage() {
                   {company.name}
                 </Link>
               </div>
-              <p className="text-xs text-muted-foreground truncate mb-2">{company.contactEmail}</p>
+              <p className="text-xs text-muted-foreground truncate mb-2">
+                {company.contactEmail}
+              </p>
               <div className="flex items-center gap-2">
-                <Badge variant="secondary" className="text-xs">{company.region}</Badge>
-                <span className="text-xs text-muted-foreground">{company._count?.products ?? 0} products</span>
-                <span className="text-xs text-muted-foreground">{company._count?.users ?? 0} users</span>
+                <Badge variant="secondary" className="text-xs">
+                  {company.region}
+                </Badge>
+                <span className="text-xs text-muted-foreground">
+                  {company._count?.products ?? 0} products
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {company._count?.users ?? 0} users
+                </span>
               </div>
             </div>
           )}
         />
       </div>
 
-      <NewCompanyDialog open={dialogOpen} onClose={() => setDialogOpen(false)} />
+      <NewCompanyDialog
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+      />
     </div>
   );
 }

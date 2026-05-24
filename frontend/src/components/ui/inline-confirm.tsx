@@ -11,12 +11,6 @@ interface InlineConfirmProps {
   onConfirm: () => void;
 }
 
-/**
- * Inline confirmation that replaces the trigger button in-place.
- * No overlay — keeps the surrounding context fully visible.
- * Use for workflow transitions (resolve, close, assign).
- * Use ConfirmDialog instead for irreversible destructive actions (delete).
- */
 export function InlineConfirm({
   trigger,
   message,

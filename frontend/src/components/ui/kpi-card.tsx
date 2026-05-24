@@ -1,29 +1,41 @@
 import { Info } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import type { ReactNode } from "react";
 
 type KpiAccent = "red" | "orange" | "green" | "blue";
 
 interface KpiCardProps {
-  label:        string;
-  value?:       number | string;
-  accent?:      KpiAccent;
-  tooltip?:     string;
-  icon?:        ReactNode;
+  label: string;
+  value?: number | string;
+  accent?: KpiAccent;
+  tooltip?: string;
+  icon?: ReactNode;
   description?: string;
-  onClick?:     () => void;
+  onClick?: () => void;
 }
 
 const ACCENT_CLS: Record<KpiAccent, string> = {
-  red:    "text-red-600",
+  red: "text-red-600",
   orange: "text-orange-500",
-  green:  "text-green-600",
-  blue:   "text-blue-600",
+  green: "text-green-600",
+  blue: "text-blue-600",
 };
 
-export function KpiCard({ label, value, accent, tooltip, icon, description, onClick }: KpiCardProps) {
+export function KpiCard({
+  label,
+  value,
+  accent,
+  tooltip,
+  icon,
+  description,
+  onClick,
+}: KpiCardProps) {
   const numCls = accent ? ACCENT_CLS[accent] : "text-foreground";
   const hasHeader = !!(icon || tooltip);
 
@@ -31,13 +43,18 @@ export function KpiCard({ label, value, accent, tooltip, icon, description, onCl
     <div
       className={cn(
         "rounded-xl border bg-card p-5",
-        onClick && "cursor-pointer hover:border-primary/40 hover:shadow-md transition-all",
+        onClick &&
+          "cursor-pointer hover:border-primary/40 hover:shadow-md transition-all",
       )}
       onClick={onClick}
     >
-      <div className={cn("flex items-center gap-1", hasHeader ? "mb-3" : "mb-5")}>
+      <div
+        className={cn("flex items-center gap-1", hasHeader ? "mb-3" : "mb-5")}
+      >
         {icon && <span className="text-muted-foreground shrink-0">{icon}</span>}
-        <p className="text-xs text-muted-foreground font-medium leading-none">{label}</p>
+        <p className="text-xs text-muted-foreground font-medium leading-none">
+          {label}
+        </p>
         {tooltip && (
           <Tooltip>
             <TooltipTrigger asChild>
@@ -50,10 +67,13 @@ export function KpiCard({ label, value, accent, tooltip, icon, description, onCl
         )}
       </div>
 
-      {value === undefined
-        ? <Skeleton className="h-10 w-14" />
-        : <p className={`text-5xl font-light tracking-tight ${numCls}`}>{value}</p>
-      }
+      {value === undefined ? (
+        <Skeleton className="h-10 w-14" />
+      ) : (
+        <p className={`text-5xl font-light tracking-tight ${numCls}`}>
+          {value}
+        </p>
+      )}
 
       {description && (
         <p className="text-xs text-muted-foreground mt-2">{description}</p>

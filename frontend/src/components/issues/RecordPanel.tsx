@@ -4,42 +4,59 @@ import { PriorityBadge } from "@/components/ui/priority-badge";
 import type { IssueDetail } from "@/types/issues";
 
 const TYPE_LABELS: Record<string, string> = {
-  bug:             "Bug",
+  bug: "Bug",
   feature_request: "Feature Request",
-  question:        "Question",
-  incident:        "Incident",
+  question: "Question",
+  incident: "Incident",
 };
 
-function SlaGauge({ slaDeadline, createdAt }: { slaDeadline: string; createdAt: string }) {
-  const now       = Date.now();
-  const start     = new Date(createdAt).getTime();
-  const end       = new Date(slaDeadline).getTime();
-  const total     = end - start;
+function SlaGauge({
+  slaDeadline,
+  createdAt,
+}: {
+  slaDeadline: string;
+  createdAt: string;
+}) {
+  const now = Date.now();
+  const start = new Date(createdAt).getTime();
+  const end = new Date(slaDeadline).getTime();
+  const total = end - start;
   const remaining = end - now;
-  const pct       = Math.max(0, Math.min(1, remaining / total));
+  const pct = Math.max(0, Math.min(1, remaining / total));
   const isExpired = remaining <= 0;
 
-  const arcColor = isExpired || pct <= 0.2
-    ? "var(--destructive)"
-    : pct <= 0.5
-    ? "var(--warning)"
-    : "var(--brand-green)";
+  const arcColor =
+    isExpired || pct <= 0.2
+      ? "var(--destructive)"
+      : pct <= 0.5
+        ? "var(--warning)"
+        : "var(--brand-green)";
 
-  const r            = 36;
+  const r = 36;
   const circumference = 2 * Math.PI * r;
-  const dash          = pct * circumference;
+  const dash = pct * circumference;
 
   const abs = Math.abs(remaining);
-  const d   = Math.floor(abs / 86_400_000);
-  const h   = Math.floor((abs % 86_400_000) / 3_600_000);
-  const m   = Math.floor((abs % 3_600_000) / 60_000);
+  const d = Math.floor(abs / 86_400_000);
+  const h = Math.floor((abs % 86_400_000) / 3_600_000);
+  const m = Math.floor((abs % 3_600_000) / 60_000);
 
   return (
     <div className="flex flex-col items-center gap-2">
       <svg width="90" height="90" viewBox="0 0 90 90">
-        <circle cx="45" cy="45" r={r} fill="none" style={{ stroke: "var(--border)" }} strokeWidth="7" />
         <circle
-          cx="45" cy="45" r={r} fill="none"
+          cx="45"
+          cy="45"
+          r={r}
+          fill="none"
+          style={{ stroke: "var(--border)" }}
+          strokeWidth="7"
+        />
+        <circle
+          cx="45"
+          cy="45"
+          r={r}
+          fill="none"
           style={{ stroke: arcColor }}
           strokeWidth="7"
           strokeDasharray={`${dash} ${circumference}`}
@@ -67,20 +84,30 @@ export function RecordPanel({ issue }: { issue: IssueDetail }) {
         <CardContent className="px-4 pb-4">
           <div className="grid grid-cols-2 gap-y-3">
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Number</p>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Number
+              </p>
               <p className="font-mono text-xs mt-0.5">{issue.ticketNumber}</p>
             </div>
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Priority</p>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Priority
+              </p>
               <PriorityBadge priority={issue.priority} className="mt-0.5" />
             </div>
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">State</p>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                State
+              </p>
               <StatusBadge status={issue.status} className="mt-0.5" />
             </div>
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Type</p>
-              <p className="text-xs mt-0.5">{TYPE_LABELS[issue.type] ?? issue.type}</p>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Type
+              </p>
+              <p className="text-xs mt-0.5">
+                {TYPE_LABELS[issue.type] ?? issue.type}
+              </p>
             </div>
           </div>
         </CardContent>
@@ -96,8 +123,12 @@ export function RecordPanel({ issue }: { issue: IssueDetail }) {
               {issue.creator.fullName.charAt(0).toUpperCase()}
             </div>
             <div className="min-w-0">
-              <p className="text-sm font-medium truncate">{issue.creator.fullName}</p>
-              <p className="text-xs text-muted-foreground truncate">{issue.creator.email}</p>
+              <p className="text-sm font-medium truncate">
+                {issue.creator.fullName}
+              </p>
+              <p className="text-xs text-muted-foreground truncate">
+                {issue.creator.email}
+              </p>
             </div>
           </div>
         </CardContent>
@@ -109,7 +140,10 @@ export function RecordPanel({ issue }: { issue: IssueDetail }) {
             <CardTitle className="text-sm">SLA Status</CardTitle>
           </CardHeader>
           <CardContent className="px-4 pb-4 flex justify-center">
-            <SlaGauge slaDeadline={issue.slaDeadline} createdAt={issue.createdAt} />
+            <SlaGauge
+              slaDeadline={issue.slaDeadline}
+              createdAt={issue.createdAt}
+            />
           </CardContent>
         </Card>
       )}

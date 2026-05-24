@@ -5,7 +5,7 @@ import { queryKeys } from "./query-keys";
 export function useProducts() {
   return useQuery({
     queryKey: queryKeys.products.all(),
-    queryFn:  listProducts,
+    queryFn: listProducts,
   });
 }
 
@@ -13,6 +13,7 @@ export function useCreateProduct() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: createProduct,
-    onSuccess:  () => qc.invalidateQueries({ queryKey: queryKeys.products.all() }),
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: queryKeys.products.all() }),
   });
 }

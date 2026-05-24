@@ -11,18 +11,6 @@ interface SearchInputProps {
   className?: string;
 }
 
-/**
- * Collapsible search input. Renders as an icon button when idle; expands to
- * a text input on click. Clearing the input also collapses it.
- *
- * Pair with useDebounce in the parent so API requests only fire after the
- * user pauses typing, not on every keystroke.
- *
- * Example:
- *   const [search, setSearch] = useState("");
- *   const debouncedSearch = useDebounce(search, 300);
- *   // pass debouncedSearch to your query, search to SearchInput
- */
 export function SearchInput({ value, onChange, placeholder = "Search…", className }: SearchInputProps) {
   const [open, setOpen] = useState(() => !!value);
   const inputRef = useRef<HTMLInputElement>(null);

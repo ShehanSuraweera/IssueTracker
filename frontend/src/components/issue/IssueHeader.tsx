@@ -3,8 +3,12 @@ import { relativeTime } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem,
-  DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
 import type { UserRole } from "@/types/auth";
 
@@ -83,18 +87,39 @@ export function IssueHeader({
         </Button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="h-8 text-xs" disabled={isExporting}>
-              <Download className={cn("size-3.5", isExporting && "animate-pulse", "sm:mr-1.5")} />
-              <span className="hidden sm:inline">{isExporting ? "Exporting…" : "Export"}</span>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 text-xs"
+              disabled={isExporting}
+            >
+              <Download
+                className={cn(
+                  "size-3.5",
+                  isExporting && "animate-pulse",
+                  "sm:mr-1.5",
+                )}
+              />
+              <span className="hidden sm:inline">
+                {isExporting ? "Exporting…" : "Export"}
+              </span>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-40">
-            <DropdownMenuLabel className="text-xs py-1.5">Export as</DropdownMenuLabel>
+            <DropdownMenuLabel className="text-xs py-1.5">
+              Export as
+            </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-xs" onClick={() => handleExport("csv")}>
+            <DropdownMenuItem
+              className="text-xs"
+              onClick={() => handleExport("csv")}
+            >
               CSV — spreadsheet
             </DropdownMenuItem>
-            <DropdownMenuItem className="text-xs" onClick={() => handleExport("json")}>
+            <DropdownMenuItem
+              className="text-xs"
+              onClick={() => handleExport("json")}
+            >
               JSON — structured
             </DropdownMenuItem>
           </DropdownMenuContent>

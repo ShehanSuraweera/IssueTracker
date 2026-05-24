@@ -1,18 +1,31 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useParams, useNavigate, useLocation, useBlocker } from "react-router-dom";
+import {
+  useParams,
+  useNavigate,
+  useLocation,
+  useBlocker,
+} from "react-router-dom";
 import { ArrowLeft, TriangleAlert } from "lucide-react";
 import { useIssue, useUpdateIssue } from "@/hooks/use-issues";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Dialog, DialogContent, DialogHeader, DialogFooter,
-  DialogTitle, DialogDescription,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogFooter,
+  DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { IssueForm } from "@/components/issue/IssueForm";
 import { IssueContextPanel } from "@/components/issue/IssueContextPanel";
 import type {
-  IssueStatus, IssueType, ImpactLevel, UrgencyLevel, UpdateIssueInput,
+  IssueStatus,
+  IssueType,
+  ImpactLevel,
+  UrgencyLevel,
+  UpdateIssueInput,
 } from "@/types/issues";
 
 const TIPS = [
@@ -23,12 +36,12 @@ const TIPS = [
 ];
 
 const STATUS_TRANSITIONS: Record<IssueStatus, IssueStatus[]> = {
-  new:         ["in_progress", "cancelled"],
+  new: ["in_progress", "cancelled"],
   in_progress: ["on_hold", "resolved", "cancelled"],
-  on_hold:     ["in_progress", "cancelled"],
-  resolved:    ["closed", "in_progress"],
-  closed:      [],
-  cancelled:   [],
+  on_hold: ["in_progress", "cancelled"],
+  resolved: ["closed", "in_progress"],
+  closed: [],
+  cancelled: [],
 };
 
 function EditSkeleton() {
@@ -54,18 +67,22 @@ function EditSkeleton() {
 }
 
 export default function IssueEditPage() {
-  const { id }     = useParams<{ id: string }>();
-  const navigate   = useNavigate();
-  const location   = useLocation();
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const location = useLocation();
   const { hasRole } = useAuth();
 
   const { data: issue, isLoading } = useIssue(id);
-  const updateMutation             = useUpdateIssue(id);
+  const updateMutation = useUpdateIssue(id);
 
-  const backTo  = (location.state as { back?: string } | null)?.back ?? `/issues/${id}`;
+  const backTo =
+    (location.state as { back?: string } | null)?.back ?? `/issues/${id}`;
   const isStaff = hasRole("admin", "engineer");
 
-  const [liveValues, setLiveValues] = useState<{ impact: ImpactLevel; urgency: UrgencyLevel }>({
+  const [liveValues, setLiveValues] = useState<{
+    impact: ImpactLevel;
+    urgency: UrgencyLevel;
+  }>({
     impact: "medium",
     urgency: "medium",
   });
@@ -75,49 +92,65 @@ export default function IssueEditPage() {
 
   const blocker = useBlocker(
     useCallback(
-      ({ currentLocation, nextLocation }: { currentLocation: { pathname: string }; nextLocation: { pathname: string } }) =>
-        formIsDirty && !savedRef.current && currentLocation.pathname !== nextLocation.pathname,
+      ({
+        currentLocation,
+        nextLocation,
+      }: {
+        currentLocation: { pathname: string };
+        nextLocation: { pathname: string };
+      }) =>
+        formIsDirty &&
+        !savedRef.current &&
+        currentLocation.pathname !== nextLocation.pathname,
       [formIsDirty],
     ),
   );
 
   useEffect(() => {
     if (!formIsDirty) return;
-    const handler = (e: BeforeUnloadEvent) => { e.preventDefault(); };
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+    };
     window.addEventListener("beforeunload", handler);
     return () => window.removeEventListener("beforeunload", handler);
   }, [formIsDirty]);
 
   if (isLoading) return <EditSkeleton />;
-  if (!issue)    return null;
+  if (!issue) return null;
 
   const validNextStatuses = STATUS_TRANSITIONS[issue.status];
 
   return (
     <div className="space-y-5">
-      <Button variant="ghost" size="sm" onClick={() => navigate(backTo)} className="-ml-2">
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => navigate(backTo)}
+        className="-ml-2"
+      >
         <ArrowLeft className="mr-1.5 size-4" />
         Back
       </Button>
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_288px] gap-6 lg:gap-8 items-start">
-
         {/* ── Left: form ─────────────────────────────────────── */}
         <div>
           <div className="mb-5">
             <h1 className="text-xl font-semibold">Edit Issue</h1>
-            <p className="font-mono text-sm text-muted-foreground mt-0.5">{issue.ticketNumber}</p>
+            <p className="font-mono text-sm text-muted-foreground mt-0.5">
+              {issue.ticketNumber}
+            </p>
           </div>
 
           <IssueForm
             mode="edit"
             defaultValues={{
-              title:       issue.title,
+              title: issue.title,
               description: issue.description,
-              type:        issue.type,
-              impact:      issue.impact  as ImpactLevel,
-              urgency:     issue.urgency as UrgencyLevel,
-              status:      issue.status,
+              type: issue.type,
+              impact: issue.impact as ImpactLevel,
+              urgency: issue.urgency as UrgencyLevel,
+              status: issue.status,
             }}
             showStatusSelect={isStaff && validNextStatuses.length > 0}
             currentStatus={issue.status}
@@ -126,15 +159,23 @@ export default function IssueEditPage() {
             onDirtyChange={setFormIsDirty}
             onSubmit={(values) => {
               const input: UpdateIssueInput = {};
-              if (values.title       !== issue.title)       input.title       = values.title;
-              if (values.description !== issue.description) input.description = values.description;
-              if (values.type        !== issue.type)        input.type        = values.type   as IssueType;
-              if (values.impact      !== issue.impact)      input.impact      = values.impact as ImpactLevel;
-              if (values.urgency     !== issue.urgency)     input.urgency     = values.urgency as UrgencyLevel;
+              if (values.title !== issue.title) input.title = values.title;
+              if (values.description !== issue.description)
+                input.description = values.description;
+              if (values.type !== issue.type)
+                input.type = values.type as IssueType;
+              if (values.impact !== issue.impact)
+                input.impact = values.impact as ImpactLevel;
+              if (values.urgency !== issue.urgency)
+                input.urgency = values.urgency as UrgencyLevel;
               if (isStaff && values.status && values.status !== issue.status)
-                                                            input.status      = values.status as IssueStatus;
+                input.status = values.status as IssueStatus;
               updateMutation.mutate(input, {
-                onSuccess: () => { savedRef.current = true; setFormIsDirty(false); navigate(backTo); },
+                onSuccess: () => {
+                  savedRef.current = true;
+                  setFormIsDirty(false);
+                  navigate(backTo);
+                },
               });
             }}
             onCancel={() => navigate(backTo)}
@@ -150,7 +191,6 @@ export default function IssueEditPage() {
           tips={TIPS}
           tipsTitle="Editing tips"
         />
-
       </div>
 
       {/* Unsaved-changes guard */}
@@ -165,14 +205,24 @@ export default function IssueEditPage() {
               <DialogTitle>Unsaved changes</DialogTitle>
             </div>
             <DialogDescription>
-              You have unsaved changes. If you leave now they will be permanently lost.
+              You have unsaved changes. If you leave now they will be
+              permanently lost.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => blocker.reset?.()}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => blocker.reset?.()}
+            >
               Stay and keep editing
             </Button>
-            <Button variant="outline" size="sm" className="text-amber-600 border-amber-300 hover:bg-amber-50 hover:text-amber-700" onClick={() => blocker.proceed?.()}>
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-amber-600 border-amber-300 hover:bg-amber-50 hover:text-amber-700"
+              onClick={() => blocker.proceed?.()}
+            >
               Leave anyway
             </Button>
           </DialogFooter>

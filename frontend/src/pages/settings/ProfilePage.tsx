@@ -8,7 +8,13 @@ import { useAuthStore } from "@/store/auth.store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ROLE_LABEL, ROLE_COLORS, OFFICE_LABEL } from "@/lib/theme";
@@ -21,7 +27,6 @@ function initials(name: string): string {
     .join("")
     .toUpperCase();
 }
-
 
 export default function ProfilePage() {
   const { user } = useAuth();
@@ -44,7 +49,9 @@ export default function ProfilePage() {
     <div className="max-w-md space-y-5">
       <div>
         <h1 className="text-xl font-semibold">Profile</h1>
-        <p className="text-sm text-muted-foreground">Manage your personal information</p>
+        <p className="text-sm text-muted-foreground">
+          Manage your personal information
+        </p>
       </div>
 
       <Card>
@@ -56,9 +63,16 @@ export default function ProfilePage() {
               </AvatarFallback>
             </Avatar>
             <div className="min-w-0">
-              <p className="font-semibold text-base truncate">{user.fullName}</p>
-              <p className="text-sm text-muted-foreground truncate">{user.email}</p>
-              <Badge variant="outline" className={`mt-1 text-xs ${ROLE_COLORS[user.role]}`}>
+              <p className="font-semibold text-base truncate">
+                {user.fullName}
+              </p>
+              <p className="text-sm text-muted-foreground truncate">
+                {user.email}
+              </p>
+              <Badge
+                variant="outline"
+                className={`mt-1 text-xs ${ROLE_COLORS[user.role]}`}
+              >
                 {ROLE_LABEL[user.role]}
               </Badge>
             </div>
@@ -95,7 +109,9 @@ export default function ProfilePage() {
       <Card>
         <CardHeader className="pb-4">
           <CardTitle className="text-base">Display Name</CardTitle>
-          <CardDescription>Update the name shown across the app</CardDescription>
+          <CardDescription>
+            Update the name shown across the app
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <form
@@ -107,8 +123,8 @@ export default function ProfilePage() {
                     setUser({ ...user, fullName: updated.fullName });
                     reset({ fullName: updated.fullName });
                   },
-                }
-              )
+                },
+              ),
             )}
             className="space-y-4"
           >
@@ -116,14 +132,19 @@ export default function ProfilePage() {
               <Label htmlFor="fullName">Full name</Label>
               <Input id="fullName" {...register("fullName")} />
               {errors.fullName && (
-                <p className="text-xs text-destructive">{errors.fullName.message}</p>
+                <p className="text-xs text-destructive">
+                  {errors.fullName.message}
+                </p>
               )}
             </div>
 
             {mutation.isError && (
               <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                {(mutation.error as { response?: { data?: { error?: { message?: string } } } })
-                  ?.response?.data?.error?.message ?? "Failed to update profile"}
+                {(
+                  mutation.error as {
+                    response?: { data?: { error?: { message?: string } } };
+                  }
+                )?.response?.data?.error?.message ?? "Failed to update profile"}
               </p>
             )}
 
@@ -135,7 +156,9 @@ export default function ProfilePage() {
             )}
 
             <Button type="submit" disabled={mutation.isPending || !isDirty}>
-              {mutation.isPending && <Loader2 className="mr-1.5 size-4 animate-spin" />}
+              {mutation.isPending && (
+                <Loader2 className="mr-1.5 size-4 animate-spin" />
+              )}
               Save changes
             </Button>
           </form>

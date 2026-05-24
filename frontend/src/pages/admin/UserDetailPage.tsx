@@ -1,6 +1,16 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Package, Trash2, CheckCircle2, XCircle } from "lucide-react";
-import { useUser, useRevokeProductAccess, useUpdateUser } from "@/hooks/use-users";
+import {
+  ArrowLeft,
+  Package,
+  Trash2,
+  CheckCircle2,
+  XCircle,
+} from "lucide-react";
+import {
+  useUser,
+  useRevokeProductAccess,
+  useUpdateUser,
+} from "@/hooks/use-users";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -12,8 +22,8 @@ export default function UserDetailPage() {
   const navigate = useNavigate();
 
   const { data: user, isLoading } = useUser(id);
-  const revokeMutation  = useRevokeProductAccess(id);
-  const updateMutation  = useUpdateUser(id);
+  const revokeMutation = useRevokeProductAccess(id);
+  const updateMutation = useUpdateUser(id);
 
   if (isLoading) {
     return (
@@ -28,7 +38,12 @@ export default function UserDetailPage() {
 
   return (
     <div className="max-w-xl space-y-6">
-      <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="-ml-2">
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => navigate(-1)}
+        className="-ml-2"
+      >
         <ArrowLeft className="mr-1.5 size-4" />
         Users
       </Button>
@@ -41,7 +56,10 @@ export default function UserDetailPage() {
         <div className="flex items-center gap-2">
           <Badge variant="secondary">{user.role.replace("_", " ")}</Badge>
           {!user.isActive && (
-            <Badge variant="outline" className="text-orange-600 border-orange-300 bg-orange-50">
+            <Badge
+              variant="outline"
+              className="text-orange-600 border-orange-300 bg-orange-50"
+            >
               pending approval
             </Badge>
           )}
@@ -71,12 +89,16 @@ export default function UserDetailPage() {
 
       {user.company && (
         <p className="text-sm text-muted-foreground">
-          Company: <span className="font-medium text-foreground">{user.company.name}</span>
+          Company:{" "}
+          <span className="font-medium text-foreground">
+            {user.company.name}
+          </span>
         </p>
       )}
       {user.office && (
         <p className="text-sm text-muted-foreground">
-          Office: <span className="font-medium text-foreground">{user.office}</span>
+          Office:{" "}
+          <span className="font-medium text-foreground">{user.office}</span>
         </p>
       )}
 
@@ -92,13 +114,20 @@ export default function UserDetailPage() {
           </CardHeader>
           <CardContent className="space-y-2">
             {user.productAccess.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No products assigned.</p>
+              <p className="text-sm text-muted-foreground">
+                No products assigned.
+              </p>
             ) : (
               user.productAccess.map((p) => (
-                <div key={p.id} className="flex items-center justify-between py-2 border-b last:border-0">
+                <div
+                  key={p.id}
+                  className="flex items-center justify-between py-2 border-b last:border-0"
+                >
                   <div>
                     <p className="text-sm font-medium">{p.name}</p>
-                    <p className="text-xs text-muted-foreground font-mono">{p.code}</p>
+                    <p className="text-xs text-muted-foreground font-mono">
+                      {p.code}
+                    </p>
                   </div>
                   <Button
                     variant="ghost"

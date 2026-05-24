@@ -2,14 +2,24 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { requestAccessSchema, type RequestAccessFormValues } from "@/lib/schemas";
-import { Loader2, Eye, EyeOff, CheckCircle2, ArrowLeft, Check, X } from "lucide-react";
+import {
+  requestAccessSchema,
+  type RequestAccessFormValues,
+} from "@/lib/schemas";
+import {
+  Loader2,
+  Eye,
+  EyeOff,
+  CheckCircle2,
+  ArrowLeft,
+  Check,
+  X,
+} from "lucide-react";
 import { NewnopLogo } from "@/components/ui/newnop-logo";
 import { requestAccess } from "@/api/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-
 
 const G = "#8cff2e";
 
@@ -24,41 +34,51 @@ export default function RequestAccessPage() {
     handleSubmit,
     watch,
     formState: { errors, isSubmitting },
-  } = useForm<RequestAccessFormValues>({ resolver: zodResolver(requestAccessSchema) });
+  } = useForm<RequestAccessFormValues>({
+    resolver: zodResolver(requestAccessSchema),
+  });
 
   const passwordValue = watch("password", "");
   const hasInput = passwordValue.length > 0;
 
   const rules = [
-    { label: "At least 8 characters",    met: passwordValue.length >= 8 },
+    { label: "At least 8 characters", met: passwordValue.length >= 8 },
     { label: "One uppercase letter (A–Z)", met: /[A-Z]/.test(passwordValue) },
-    { label: "One number (0–9)",           met: /[0-9]/.test(passwordValue) },
+    { label: "One number (0–9)", met: /[0-9]/.test(passwordValue) },
   ];
   const strength = rules.filter((r) => r.met).length;
-  const strengthLabel = strength === 0 ? "" : strength === 1 ? "Weak" : strength === 2 ? "Fair" : "Strong";
-  const strengthColor = strength === 1 ? "#ef4444" : strength === 2 ? "#f97316" : "#22c55e";
+  const strengthLabel =
+    strength === 0
+      ? ""
+      : strength === 1
+        ? "Weak"
+        : strength === 2
+          ? "Fair"
+          : "Strong";
+  const strengthColor =
+    strength === 1 ? "#ef4444" : strength === 2 ? "#f97316" : "#22c55e";
 
   async function onSubmit(values: RequestAccessFormValues) {
     setError(null);
     try {
       await requestAccess({
-        fullName:    values.fullName,
-        email:       values.email,
+        fullName: values.fullName,
+        email: values.email,
         companyName: values.companyName,
-        password:    values.password,
+        password: values.password,
       });
       setSubmitted(true);
     } catch (err: unknown) {
       const msg =
-        (err as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error
-          ?.message ?? "Something went wrong. Please try again.";
+        (err as { response?: { data?: { error?: { message?: string } } } })
+          ?.response?.data?.error?.message ??
+        "Something went wrong. Please try again.";
       setError(msg);
     }
   }
 
   return (
     <div className="min-h-screen flex">
-
       {/* ── Left panel ────────────────────────────────────────────────── */}
       <div
         className="hidden lg:flex lg:w-[48%] flex-col justify-between p-14 relative overflow-hidden select-none"
@@ -73,34 +93,56 @@ export default function RequestAccessPage() {
             backgroundSize: "128px 128px",
           }}
         />
-        <div className="absolute -top-32 -right-32 w-105 h-105 rounded-full pointer-events-none"
-          style={{ background: `radial-gradient(circle, ${G}22 0%, transparent 70%)` }} />
-        <div className="absolute -bottom-40 -left-20 w-90 h-90 rounded-full pointer-events-none"
-          style={{ background: `radial-gradient(circle, ${G}18 0%, transparent 70%)` }} />
+        <div
+          className="absolute -top-32 -right-32 w-105 h-105 rounded-full pointer-events-none"
+          style={{
+            background: `radial-gradient(circle, ${G}22 0%, transparent 70%)`,
+          }}
+        />
+        <div
+          className="absolute -bottom-40 -left-20 w-90 h-90 rounded-full pointer-events-none"
+          style={{
+            background: `radial-gradient(circle, ${G}18 0%, transparent 70%)`,
+          }}
+        />
 
         {/* wordmark */}
         <div className="relative z-10 flex items-center gap-3">
           <NewnopLogo width={34} height={30} />
-          <span className="text-white font-semibold text-lg tracking-tight">Newnop</span>
+          <span className="text-white font-semibold text-lg tracking-tight">
+            Newnop
+          </span>
         </div>
 
         {/* center */}
         <div className="relative z-10 space-y-8">
           <div
             className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold tracking-widest uppercase"
-            style={{ backgroundColor: `${G}18`, color: G, border: `1px solid ${G}30` }}
+            style={{
+              backgroundColor: `${G}18`,
+              color: G,
+              border: `1px solid ${G}30`,
+            }}
           >
-            <span className="size-1.5 rounded-full animate-pulse" style={{ backgroundColor: G }} />
+            <span
+              className="size-1.5 rounded-full animate-pulse"
+              style={{ backgroundColor: G }}
+            />
             Request Access
           </div>
 
           <div className="space-y-4">
             <h1 className="text-5xl font-bold leading-tight tracking-tight text-white">
-              Join the<br />
+              Join the
+              <br />
               <span style={{ color: G }}>portal.</span>
             </h1>
-            <p className="text-base leading-relaxed max-w-xs" style={{ color: "rgba(255,255,255,0.45)" }}>
-              Submit your details and a Newnop admin will review and activate your account within one business day.
+            <p
+              className="text-base leading-relaxed max-w-xs"
+              style={{ color: "rgba(255,255,255,0.45)" }}
+            >
+              Submit your details and a Newnop admin will review and activate
+              your account within one business day.
             </p>
           </div>
 
@@ -113,11 +155,20 @@ export default function RequestAccessPage() {
               <div key={i} className="flex items-start gap-3">
                 <span
                   className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold"
-                  style={{ backgroundColor: `${G}20`, color: G, border: `1px solid ${G}40` }}
+                  style={{
+                    backgroundColor: `${G}20`,
+                    color: G,
+                    border: `1px solid ${G}40`,
+                  }}
                 >
                   {i + 1}
                 </span>
-                <span className="text-sm" style={{ color: "rgba(255,255,255,0.6)" }}>{step}</span>
+                <span
+                  className="text-sm"
+                  style={{ color: "rgba(255,255,255,0.6)" }}
+                >
+                  {step}
+                </span>
               </div>
             ))}
           </div>
@@ -125,7 +176,12 @@ export default function RequestAccessPage() {
 
         {/* bottom */}
         <div className="relative z-10 space-y-4">
-          <div className="h-px" style={{ background: `linear-gradient(to right, ${G}60, transparent)` }} />
+          <div
+            className="h-px"
+            style={{
+              background: `linear-gradient(to right, ${G}60, transparent)`,
+            }}
+          />
           <p className="text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>
             ISO 9001-certified · CMMI-driven engineering · newnop.com
           </p>
@@ -134,14 +190,15 @@ export default function RequestAccessPage() {
 
       {/* ── Right panel ───────────────────────────────────────────────── */}
       <div className="flex flex-1 flex-col bg-background">
-
         {/* top bar */}
         <div className="flex items-center justify-between px-10 py-5 border-b">
           <div className="flex items-center gap-2 lg:hidden">
             <NewnopLogo width={24} height={21} />
             <span className="font-semibold text-sm">NewnopDesk</span>
           </div>
-          <span className="hidden lg:block text-sm font-semibold">NewnopDesk</span>
+          <span className="hidden lg:block text-sm font-semibold">
+            NewnopDesk
+          </span>
           <Link
             to="/login"
             className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
@@ -153,20 +210,25 @@ export default function RequestAccessPage() {
 
         <div className="flex flex-1 items-center justify-center px-8 py-12">
           <div className="w-full max-w-md">
-
             {submitted ? (
               /* ── Success state ── */
               <div className="text-center space-y-5">
                 <div
                   className="mx-auto flex size-16 items-center justify-center rounded-full"
-                  style={{ backgroundColor: `${G}18`, border: `1px solid ${G}40` }}
+                  style={{
+                    backgroundColor: `${G}18`,
+                    border: `1px solid ${G}40`,
+                  }}
                 >
                   <CheckCircle2 className="size-8" style={{ color: G }} />
                 </div>
                 <div className="space-y-2">
-                  <h2 className="text-2xl font-bold tracking-tight">Request submitted!</h2>
+                  <h2 className="text-2xl font-bold tracking-tight">
+                    Request submitted!
+                  </h2>
                   <p className="text-sm text-muted-foreground max-w-sm mx-auto leading-relaxed">
-                    A Newnop admin will review your request and activate your account. Check your email for a confirmation.
+                    A Newnop admin will review your request and activate your
+                    account. Check your email for a confirmation.
                   </p>
                 </div>
                 <Link to="/login">
@@ -179,9 +241,12 @@ export default function RequestAccessPage() {
               /* ── Form ── */
               <div className="space-y-8">
                 <div className="space-y-2">
-                  <h2 className="text-3xl font-bold tracking-tight">Request access</h2>
+                  <h2 className="text-3xl font-bold tracking-tight">
+                    Request access
+                  </h2>
                   <p className="text-sm text-muted-foreground">
-                    Fill in your details — a Newnop admin will review and activate your account.
+                    Fill in your details — a Newnop admin will review and
+                    activate your account.
                   </p>
                 </div>
 
@@ -198,7 +263,9 @@ export default function RequestAccessPage() {
                         {...register("fullName")}
                       />
                       {errors.fullName && (
-                        <p className="text-xs text-destructive">{errors.fullName.message}</p>
+                        <p className="text-xs text-destructive">
+                          {errors.fullName.message}
+                        </p>
                       )}
                     </div>
 
@@ -212,7 +279,9 @@ export default function RequestAccessPage() {
                         {...register("companyName")}
                       />
                       {errors.companyName && (
-                        <p className="text-xs text-destructive">{errors.companyName.message}</p>
+                        <p className="text-xs text-destructive">
+                          {errors.companyName.message}
+                        </p>
                       )}
                     </div>
                   </div>
@@ -228,7 +297,9 @@ export default function RequestAccessPage() {
                       {...register("email")}
                     />
                     {errors.email && (
-                      <p className="text-xs text-destructive">{errors.email.message}</p>
+                      <p className="text-xs text-destructive">
+                        {errors.email.message}
+                      </p>
                     )}
                   </div>
 
@@ -245,11 +316,17 @@ export default function RequestAccessPage() {
                       />
                       <button
                         type="button"
-                        onClick={() => setShowPassword(v => !v)}
+                        onClick={() => setShowPassword((v) => !v)}
                         className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                        aria-label={showPassword ? "Hide password" : "Show password"}
+                        aria-label={
+                          showPassword ? "Hide password" : "Show password"
+                        }
                       >
-                        {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                        {showPassword ? (
+                          <EyeOff className="size-4" />
+                        ) : (
+                          <Eye className="size-4" />
+                        )}
                       </button>
                     </div>
 
@@ -263,14 +340,20 @@ export default function RequestAccessPage() {
                                 key={i}
                                 className="h-1 flex-1 rounded-full transition-all duration-300"
                                 style={{
-                                  backgroundColor: i <= strength ? strengthColor : "var(--border)",
+                                  backgroundColor:
+                                    i <= strength
+                                      ? strengthColor
+                                      : "var(--border)",
                                 }}
                               />
                             ))}
                           </div>
                           <span
                             className="text-xs font-medium w-10 text-right transition-colors"
-                            style={{ color: strength > 0 ? strengthColor : "transparent" }}
+                            style={{
+                              color:
+                                strength > 0 ? strengthColor : "transparent",
+                            }}
                           >
                             {strengthLabel}
                           </span>
@@ -283,18 +366,28 @@ export default function RequestAccessPage() {
                               <span
                                 className="flex size-4 shrink-0 items-center justify-center rounded-full transition-colors"
                                 style={{
-                                  backgroundColor: met ? "#22c55e18" : "var(--muted)",
+                                  backgroundColor: met
+                                    ? "#22c55e18"
+                                    : "var(--muted)",
                                   border: `1px solid ${met ? "#22c55e40" : "transparent"}`,
                                 }}
                               >
-                                {met
-                                  ? <Check className="size-2.5" style={{ color: "#22c55e" }} />
-                                  : <X className="size-2.5 text-muted-foreground" />
-                                }
+                                {met ? (
+                                  <Check
+                                    className="size-2.5"
+                                    style={{ color: "#22c55e" }}
+                                  />
+                                ) : (
+                                  <X className="size-2.5 text-muted-foreground" />
+                                )}
                               </span>
                               <span
                                 className="text-xs transition-colors"
-                                style={{ color: met ? "#22c55e" : "var(--muted-foreground)" }}
+                                style={{
+                                  color: met
+                                    ? "#22c55e"
+                                    : "var(--muted-foreground)",
+                                }}
                               >
                                 {label}
                               </span>
@@ -318,15 +411,23 @@ export default function RequestAccessPage() {
                       />
                       <button
                         type="button"
-                        onClick={() => setShowConfirm(v => !v)}
+                        onClick={() => setShowConfirm((v) => !v)}
                         className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                        aria-label={showConfirm ? "Hide password" : "Show password"}
+                        aria-label={
+                          showConfirm ? "Hide password" : "Show password"
+                        }
                       >
-                        {showConfirm ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                        {showConfirm ? (
+                          <EyeOff className="size-4" />
+                        ) : (
+                          <Eye className="size-4" />
+                        )}
                       </button>
                     </div>
                     {errors.confirmPassword && (
-                      <p className="text-xs text-destructive">{errors.confirmPassword.message}</p>
+                      <p className="text-xs text-destructive">
+                        {errors.confirmPassword.message}
+                      </p>
                     )}
                   </div>
 
@@ -336,8 +437,14 @@ export default function RequestAccessPage() {
                     </div>
                   )}
 
-                  <Button type="submit" className="w-full h-11 font-semibold" disabled={isSubmitting}>
-                    {isSubmitting && <Loader2 className="mr-2 size-4 animate-spin" />}
+                  <Button
+                    type="submit"
+                    className="w-full h-11 font-semibold"
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting && (
+                      <Loader2 className="mr-2 size-4 animate-spin" />
+                    )}
                     Submit request
                   </Button>
                 </form>
@@ -350,7 +457,10 @@ export default function RequestAccessPage() {
         <div className="border-t px-10 py-5">
           <p className="text-xs text-center text-muted-foreground">
             Already have an account?{" "}
-            <Link to="/login" className="font-medium text-foreground underline underline-offset-4 hover:opacity-70 transition-opacity">
+            <Link
+              to="/login"
+              className="font-medium text-foreground underline underline-offset-4 hover:opacity-70 transition-opacity"
+            >
               Sign in
             </Link>
           </p>

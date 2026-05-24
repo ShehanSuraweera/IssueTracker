@@ -27,7 +27,11 @@ export function AppShell() {
     const m = path.match(/^\/issues\/([^/]+)$/);
     if (m) {
       const issueId = m[1];
-      openTab({ id: `issue:${issueId}`, label: issueId.slice(0, 8) + "…", path });
+      openTab({
+        id: `issue:${issueId}`,
+        label: issueId.slice(0, 8) + "…",
+        path,
+      });
     }
   }, [location.pathname]);
 
@@ -36,13 +40,14 @@ export function AppShell() {
       <Sidebar mobileOpen={mobileOpen} onClose={() => setMobileOpen(false)} />
       <div className="flex flex-1 flex-col overflow-hidden">
         <Header onMenuClick={() => setMobileOpen(true)} />
-        <main className={cn(
-          "flex-1 bg-background",
-          location.pathname === "/issues"
-            ? "overflow-hidden p-1"
-            : "overflow-y-auto p-6"
-        )}>
-       
+        <main
+          className={cn(
+            "flex-1 bg-background",
+            location.pathname === "/issues"
+              ? "overflow-hidden p-1"
+              : "overflow-y-auto p-6",
+          )}
+        >
           <Outlet />
         </main>
       </div>
