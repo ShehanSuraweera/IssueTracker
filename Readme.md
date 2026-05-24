@@ -13,7 +13,7 @@ Inspired by ServiceNow and Jira Service Management, NewnopDesk gives each client
 | | |
 |---|---|
 | ![Sign In](docs/screenshots/signin.png) | ![Register](docs/screenshots/register.png) |
-| ![Home](docs/screenshots/home.png) | ![Dashboard](docs/screenshots/dashboard.png) |
+| ![Create Issue](docs/screenshots/create-issue.png) | ![Dashboard](docs/screenshots/dashboard.png) |
 | ![Issue List](docs/screenshots/issue-list.png) | ![Issue Detail](docs/screenshots/issue-detail.png) |
 
 ---
