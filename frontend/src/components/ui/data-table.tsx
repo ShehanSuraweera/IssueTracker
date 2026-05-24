@@ -1,14 +1,19 @@
 import { useEffect, useRef } from "react";
-import { ArrowDown, ArrowUp, ArrowUpDown, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { SortIcon } from "@/components/ui/sort-icon";
 
 export interface ColumnDef<T> {
   key: string;
   header: string;
   className?: string;
-  /** If set the column header becomes clickable for sorting */
   sortKey?: string;
   render?: (row: T) => React.ReactNode;
+  mobile?: {
+    /** Rendered full-width at the top of the card — use for the title/name column */
+    primary?: boolean;
+    hidden?: boolean;
+  };
 }
 
 interface DataTableProps<T> {
@@ -17,28 +22,20 @@ interface DataTableProps<T> {
   onRowClick?: (row: T) => void;
   isLoading?: boolean;
   emptyMessage?: string;
-  /**
-   * "card" — bordered, rounded, self-scrolling (default, used in HomePage)
-   * "page" — no wrapper, fills parent scroll container (used in full-page tables)
-   */
+  /** "card": self-scrolling with border. "page": fills the parent scroll container. */
   variant?: "card" | "page";
   maxHeight?: number;
-  /** Extra classes applied to the <table> element, e.g. "min-w-190" */
   tableClassName?: string;
-  /** When provided, renders group header rows between groups */
   groupedData?: Record<string, T[]> | null;
-  /** Active sort field key */
   sortField?: string;
-  /** Active sort direction */
   sortDir?: "asc" | "desc";
-  /** Called with the column's sortKey when a sortable header is clicked */
   onSort?: (sortKey: string) => void;
-  /** Infinite scroll — called when the user scrolls near the bottom */
   onLoadMore?: () => void;
-  /** Set to true while the next page is loading */
   isFetchingMore?: boolean;
-  /** Set to false to stop observing (no more pages) */
   hasMore?: boolean;
+  mobileRender?: (row: T) => React.ReactNode;
+  /** Falls back to array index when omitted — pass a stable id to avoid key collisions on reorder */
+  rowKey?: (row: T) => string | number;
 }
 
 export function DataTable<T>({
@@ -57,7 +54,10 @@ export function DataTable<T>({
   onLoadMore,
   isFetchingMore = false,
   hasMore = false,
+  mobileRender,
+  rowKey,
 }: DataTableProps<T>) {
+  const getKey = (row: T, i: number) => rowKey ? rowKey(row) : i;
   const clickClass       = onRowClick ? "cursor-pointer hover:bg-muted/40" : "";
   const desktopScrollRef = useRef<HTMLDivElement>(null);
   const mobileScrollRef  = useRef<HTMLDivElement>(null);
@@ -94,17 +94,10 @@ export function DataTable<T>({
       : String((row as Record<string, unknown>)[col.key] ?? "");
   }
 
-  function SortIcon({ sortKey }: { sortKey: string }) {
-    if (sortField !== sortKey) return <ArrowUpDown className="size-3 opacity-20 ml-1 shrink-0" />;
-    return sortDir === "asc"
-      ? <ArrowUp   className="size-3 text-primary ml-1 shrink-0" />
-      : <ArrowDown className="size-3 text-primary ml-1 shrink-0" />;
-  }
-
   function renderRows(rows: T[]) {
     return rows.map((row, i) => (
       <tr
-        key={i}
+        key={getKey(row, i)}
         onClick={() => onRowClick?.(row)}
         className={`border-b last:border-0 transition-colors ${clickClass}`}
       >
@@ -130,7 +123,7 @@ export function DataTable<T>({
               {col.sortKey && onSort ? (
                 <span className="inline-flex items-center">
                   {col.header}
-                  <SortIcon sortKey={col.sortKey} />
+                  <SortIcon sortKey={col.sortKey} sortField={sortField} sortDir={sortDir} />
                 </span>
               ) : col.header}
             </th>
@@ -172,22 +165,25 @@ export function DataTable<T>({
   );
 
   function renderCards(rows: T[]) {
+    if (mobileRender) {
+      return rows.map((row, i) => <div key={getKey(row, i)}>{mobileRender(row)}</div>);
+    }
+    const primaryCols   = columns.filter(c => c.mobile?.primary && !c.mobile?.hidden);
+    const secondaryCols = columns.filter(c => !c.mobile?.primary && !c.mobile?.hidden);
     return rows.map((row, i) => (
       <div
-        key={i}
+        key={getKey(row, i)}
         onClick={() => onRowClick?.(row)}
-        className={`p-4 transition-colors ${clickClass}`}
+        className={`px-4 py-3.5 border-b transition-colors ${clickClass}`}
       >
-        {columns.map((col) => (
-          <div key={col.key} className="flex items-start justify-between gap-4 py-1">
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground whitespace-nowrap shrink-0">
-              {col.header}
-            </span>
-            <span className="text-sm text-right min-w-0 wrap-break-word">
-              {cellValue(row, col)}
-            </span>
-          </div>
+        {primaryCols.map(col => (
+          <div key={col.key} className="mb-2">{cellValue(row, col)}</div>
         ))}
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
+          {secondaryCols.map(col => (
+            <span key={col.key}>{cellValue(row, col)}</span>
+          ))}
+        </div>
       </div>
     ));
   }
@@ -196,13 +192,13 @@ export function DataTable<T>({
     <div className={variant === "card" ? "divide-y" : "divide-y border-t"}>
       {isLoading ? (
         Array.from({ length: 3 }).map((_, i) => (
-          <div key={i} className="p-4 space-y-2">
-            {columns.slice(0, 4).map((col) => (
-              <div key={col.key} className="flex items-center justify-between gap-4">
-                <Skeleton className="h-3 w-16" />
-                <Skeleton className="h-3 w-28" />
-              </div>
-            ))}
+          <div key={i} className="px-4 py-3.5 border-b space-y-2">
+            <Skeleton className="h-4 w-2/3" />
+            <div className="flex gap-2">
+              <Skeleton className="h-3 w-16" />
+              <Skeleton className="h-3 w-20" />
+              <Skeleton className="h-3 w-12" />
+            </div>
           </div>
         ))
       ) : groupedData ? (

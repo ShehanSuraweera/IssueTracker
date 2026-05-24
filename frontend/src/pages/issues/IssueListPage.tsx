@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import {
   Plus, Filter, RefreshCw, Download,
   ChevronDown, ChevronRight, ArrowUpDown, Layers,
-  PanelLeftClose, PanelLeftOpen, Loader2, Pin,
+  PanelLeftClose, PanelLeftOpen, Loader2, Pin, Menu,
 } from "lucide-react";
 import { useInfiniteIssues } from "@/hooks/use-issues";
 import { exportIssues } from "@/api/issues";
@@ -44,12 +44,14 @@ const ISSUE_COLS: ColumnDef<IssueSummary>[] = [
     header: "Short description",
     className: "min-w-[220px]",
     sortKey: "title",
-    render: (row) => <span className="text-sm font-medium line-clamp-1 hover:text-primary transition-colors">{row.title}</span>,
+    mobile: { primary: true },
+    render: (row) => <span className="text-sm font-medium line-clamp-2">{row.title}</span>,
   },
   {
     key: "type",
     header: "Type",
     className: "w-28",
+    mobile: { hidden: true },
     render: (row) => <span className="text-xs text-muted-foreground capitalize whitespace-nowrap">{row.type.replace(/_/g, " ")}</span>,
   },
   {
@@ -76,6 +78,7 @@ const ISSUE_COLS: ColumnDef<IssueSummary>[] = [
     key: "impact",
     header: "Impact",
     className: "w-24",
+    mobile: { hidden: true },
     render: (row) => <ImpactBadge impact={row.impact} />,
   },
   {
@@ -97,6 +100,8 @@ const ISSUE_COLS: ColumnDef<IssueSummary>[] = [
     render: (row) => <span className="text-xs text-muted-foreground whitespace-nowrap">{new Date(row.updatedAt).toLocaleDateString()}</span>,
   },
 ];
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function IssueListPage() {
   const { hasRole, user } = useAuth();
@@ -144,35 +149,34 @@ export default function IssueListPage() {
     }] : []),
   ], [user]);
 
-  // Activate a view passed via navigation state (e.g. from homepage "My Open" tile)
   useEffect(() => {
     const viewId = (location.state as { viewId?: string } | null)?.viewId;
     if (!viewId) return;
     const item = NAV_GROUPS.flatMap(g => g.items).find(i => i.id === viewId);
     if (item) selectView(item);
-    // Clear the state so a manual refresh doesn't re-apply it
     window.history.replaceState({}, "");
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [NAV_GROUPS]);
 
   const sentinelRef = useRef<HTMLDivElement>(null);
 
-  const [sidebarOpen, setSidebarOpen] = useState(
+  const [sidebarOpen,       setSidebarOpen]       = useState(
     () => localStorage.getItem("issues-sidebar-open") !== "false",
   );
-  const [activeViewId,    setActiveViewId]    = useState("all");
-  const [activeViewQuery, setActiveViewQuery] = useState<Partial<ListIssuesQuery>>({});
-  const [activeViewLabel, setActiveViewLabel] = useState("All Issues");
-  const [collapsed,       setCollapsed]       = useState<Set<string>>(new Set());
-  const [pinned,          setPinned]          = useState<Set<string>>(() => {
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [activeViewId,      setActiveViewId]      = useState("all");
+  const [activeViewQuery,   setActiveViewQuery]   = useState<Partial<ListIssuesQuery>>({});
+  const [activeViewLabel,   setActiveViewLabel]   = useState("All Issues");
+  const [collapsed,         setCollapsed]         = useState<Set<string>>(new Set());
+  const [pinned,            setPinned]            = useState<Set<string>>(() => {
     try { return new Set(JSON.parse(localStorage.getItem("sidebar-pinned") ?? "[]")); }
     catch { return new Set(); }
   });
-  const [search,          setSearch]          = useState("");
-  const [sortField,       setSortField]       = useState<SortField>("updatedAt");
-  const [sortDir,         setSortDir]         = useState<SortDir>("desc");
-  const [groupBy,         setGroupBy]         = useState<string | null>(null);
-  const [isExporting,     setIsExporting]     = useState(false);
+  const [search,            setSearch]            = useState("");
+  const [sortField,         setSortField]         = useState<SortField>("updatedAt");
+  const [sortDir,           setSortDir]           = useState<SortDir>("desc");
+  const [groupBy,           setGroupBy]           = useState<string | null>(null);
+  const [isExporting,       setIsExporting]       = useState(false);
 
   const handleExport = async (format: "csv" | "json") => {
     setIsExporting(true);
@@ -210,7 +214,6 @@ export default function IssueListPage() {
     { refetchInterval: 60_000 },
   );
 
-  // Infinite scroll sentinel
   useEffect(() => {
     const el = sentinelRef.current;
     if (!el || !hasNextPage) return;
@@ -257,6 +260,7 @@ export default function IssueListPage() {
     setActiveViewId(item.id);
     setActiveViewQuery(item.query);
     setActiveViewLabel(item.label);
+    setMobileSidebarOpen(false); // auto-close drawer on mobile
   };
 
   const toggleCollapse = (label: string) => {
@@ -292,103 +296,132 @@ export default function IssueListPage() {
   const filterCount = [search, activeViewQuery.status, activeViewQuery.priority, activeViewQuery.assigned_to]
     .filter(Boolean).length;
 
+  // ── Sidebar nav content (shared between desktop + mobile drawer) ──────────
+
+  const sidebarNav = (
+    <>
+      <div className="flex border-b shrink-0 min-w-56">
+        <button className="flex-1 py-2.5 text-xs font-medium text-primary border-b-2 border-primary bg-background/60">
+          Default lists
+        </button>
+        <button className="flex-1 py-2.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors">
+          My lists
+        </button>
+        <button
+          onClick={() => { setSidebarOpen(false); setMobileSidebarOpen(false); localStorage.setItem("issues-sidebar-open", "false"); }}
+          className="px-2.5 text-muted-foreground hover:text-foreground transition-colors"
+          title="Collapse sidebar"
+        >
+          <PanelLeftClose className="size-3.5" />
+        </button>
+      </div>
+      <nav className="flex-1 overflow-y-auto py-2">
+        {sortedGroups.map((group, idx) => {
+          const isCollapsed  = collapsed.has(group.label);
+          const isPinned     = pinned.has(group.label);
+          const firstUnpinned = idx > 0 && !isPinned && pinned.has(sortedGroups[idx - 1].label);
+          return (
+            <div key={group.label} className="mb-1">
+              {firstUnpinned && <div className="mx-3 mb-1 border-t border-dashed border-border/60" />}
+              <div className="group/grp flex items-center">
+                <button
+                  onClick={() => toggleCollapse(group.label)}
+                  className="flex flex-1 items-center gap-1 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground hover:text-foreground transition-colors min-w-0"
+                >
+                  {isCollapsed
+                    ? <ChevronRight className="size-3 shrink-0" />
+                    : <ChevronDown  className="size-3 shrink-0" />
+                  }
+                  <span className="truncate">{group.label}</span>
+                </button>
+                <button
+                  onClick={() => togglePin(group.label)}
+                  title={isPinned ? "Unpin group" : "Pin to top"}
+                  className={cn(
+                    "mr-2 p-0.5 rounded transition-colors",
+                    isPinned
+                      ? "text-primary"
+                      : "text-transparent group-hover/grp:text-muted-foreground hover:text-foreground!",
+                  )}
+                >
+                  <Pin className={cn("size-3", isPinned && "fill-current")} />
+                </button>
+              </div>
+              {!isCollapsed && group.items.map(item => (
+                <button
+                  key={item.id}
+                  onClick={() => selectView(item)}
+                  className={cn(
+                    "flex w-full items-center pl-6 pr-3 py-1.5 text-sm transition-colors text-left",
+                    activeViewId === item.id
+                      ? "bg-primary/90 text-primary-foreground font-medium"
+                      : "text-foreground/80 hover:bg-primary/10 hover:text-primary",
+                  )}
+                >
+                  <span className="truncate">{item.label}</span>
+                </button>
+              ))}
+            </div>
+          );
+        })}
+      </nav>
+    </>
+  );
+
   return (
     <div className="h-full flex overflow-hidden">
 
-      {/* ── Left secondary sidebar ──────────────────────────── */}
+      {/* ── Mobile drawer backdrop ──────────────────────────────── */}
+      {mobileSidebarOpen && (
+        <div
+          className="fixed inset-0 z-30 bg-black/40 lg:hidden"
+          onClick={() => setMobileSidebarOpen(false)}
+        />
+      )}
+
+      {/* ── Left sidebar — desktop: push; mobile: overlay drawer ── */}
       <aside className={cn(
-        "border-r bg-muted/20 flex flex-col shrink-0 overflow-hidden transition-[width] duration-200 ease-in-out",
-        sidebarOpen ? "w-56" : "w-0 border-r-0",
+        "bg-background border-r flex flex-col shrink-0 overflow-hidden",
+        // Mobile: fixed overlay drawer, always w-72, slide in/out
+        "fixed inset-y-0 left-0 z-40 w-72 shadow-xl transition-transform duration-200 ease-in-out",
+        mobileSidebarOpen ? "translate-x-0" : "-translate-x-full",
+        // Desktop: back in flow, width-based toggle
+        "lg:relative lg:inset-y-auto lg:left-auto lg:z-auto lg:w-auto lg:shadow-none lg:translate-x-0 lg:transition-[width] lg:duration-200",
+        sidebarOpen ? "lg:w-56" : "lg:w-0 lg:border-r-0",
       )}>
-        {/* Tabs */}
-        <div className="flex border-b shrink-0 min-w-56">
-          <button className="flex-1 py-2.5 text-xs font-medium text-primary border-b-2 border-primary bg-background/60">
-            Default lists
-          </button>
-          <button className="flex-1 py-2.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors">
-            My lists
-          </button>
-          <button
-            onClick={() => { setSidebarOpen(false); localStorage.setItem("issues-sidebar-open", "false"); }}
-            className="px-2.5 text-muted-foreground hover:text-foreground transition-colors"
-            title="Collapse sidebar"
-          >
-            <PanelLeftClose className="size-3.5" />
-          </button>
-        </div>
-        {/* Nav groups */}
-        <nav className="flex-1 overflow-y-auto py-2">
-          {sortedGroups.map((group, idx) => {
-            const isCollapsed = collapsed.has(group.label);
-            const isPinned    = pinned.has(group.label);
-            const firstUnpinned = idx > 0 && !isPinned && pinned.has(sortedGroups[idx - 1].label);
-            return (
-              <div key={group.label} className="mb-1">
-                {firstUnpinned && <div className="mx-3 mb-1 border-t border-dashed border-border/60" />}
-                <div className="group/grp flex items-center">
-                  <button
-                    onClick={() => toggleCollapse(group.label)}
-                    className="flex flex-1 items-center gap-1 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground hover:text-foreground transition-colors min-w-0"
-                  >
-                    {isCollapsed
-                      ? <ChevronRight className="size-3 shrink-0" />
-                      : <ChevronDown  className="size-3 shrink-0" />
-                    }
-                    <span className="truncate">{group.label}</span>
-                  </button>
-                  <button
-                    onClick={() => togglePin(group.label)}
-                    title={isPinned ? "Unpin group" : "Pin to top"}
-                    className={cn(
-                      "mr-2 p-0.5 rounded transition-colors",
-                      isPinned
-                        ? "text-primary"
-                        : "text-transparent group-hover/grp:text-muted-foreground hover:text-foreground!",
-                    )}
-                  >
-                    <Pin className={cn("size-3", isPinned && "fill-current")} />
-                  </button>
-                </div>
-                {!isCollapsed && group.items.map(item => (
-                  <button
-                    key={item.id}
-                    onClick={() => selectView(item)}
-                    className={cn(
-                      "flex w-full items-center pl-6 pr-3 py-1.5 text-sm transition-colors text-left",
-                      activeViewId === item.id
-                        ? "bg-primary/90 text-primary-foreground font-medium"
-                        : "text-foreground/80 hover:bg-primary/10 hover:text-primary",
-                    )}
-                  >
-                    <span className="truncate">{item.label}</span>
-                  </button>
-                ))}
-              </div>
-            );
-          })}
-        </nav>
+        {sidebarNav}
       </aside>
 
-      {/* ── Main content ────────────────────────────────────── */}
+      {/* ── Main content ────────────────────────────────────────── */}
       <div className="flex flex-1 flex-col overflow-hidden min-w-0">
 
         {/* Title bar */}
-        <div className="flex items-center justify-between px-5 py-2.5 border-b bg-background shrink-0">
+        <div className="flex items-center justify-between px-4 py-2.5 border-b bg-background shrink-0">
           <div className="flex items-center gap-2.5 min-w-0">
+            {/* Mobile: hamburger to open overlay drawer */}
+            <button
+              className="lg:hidden text-muted-foreground hover:text-foreground transition-colors shrink-0"
+              onClick={() => setMobileSidebarOpen(true)}
+              title="Open navigation"
+            >
+              <Menu className="size-4" />
+            </button>
+            {/* Desktop: expand collapsed sidebar */}
             {!sidebarOpen && (
               <button
                 onClick={() => { setSidebarOpen(true); localStorage.setItem("issues-sidebar-open", "true"); }}
-                className="text-muted-foreground hover:text-foreground transition-colors shrink-0"
+                className="hidden lg:block text-muted-foreground hover:text-foreground transition-colors shrink-0"
                 title="Expand sidebar"
               >
                 <PanelLeftOpen className="size-3.5" />
               </button>
             )}
             <h1 className="text-sm font-semibold truncate">
-              Issues — {activeViewLabel}
+              Issues — <span className="hidden sm:inline">{activeViewLabel}</span>
+              <span className="sm:hidden">{totalCount > 0 ? totalCount : ""}</span>
             </h1>
             {totalCount > 0 && (
-              <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium tabular-nums">
+              <span className="hidden sm:inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium tabular-nums">
                 {totalCount}
               </span>
             )}
@@ -411,8 +444,8 @@ export default function IssueListPage() {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="h-8 text-xs" disabled={isExporting}>
-                  <Download className={`size-3.5 mr-1.5 ${isExporting ? "animate-pulse" : ""}`} />
-                  {isExporting ? "Exporting…" : "Export"}
+                  <Download className={cn("size-3.5", isExporting && "animate-pulse", "sm:mr-1.5")} />
+                  <span className="hidden sm:inline">{isExporting ? "Exporting…" : "Export"}</span>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-40">
@@ -428,15 +461,15 @@ export default function IssueListPage() {
             </DropdownMenu>
             {!hasRole("engineer") && (
               <Button size="sm" className="h-8 text-xs" onClick={() => navigate("/issues/new")}>
-                <Plus className="size-3.5 mr-1" />
-                New
+                <Plus className="size-3.5 sm:mr-1" />
+                <span className="hidden sm:inline">New</span>
               </Button>
             )}
           </div>
         </div>
 
         {/* Toolbar */}
-        <div className="flex items-center gap-1.5 px-5 py-2 border-b bg-background shrink-0 flex-wrap">
+        <div className="flex items-center gap-1.5 px-4 py-2 border-b bg-background shrink-0 flex-wrap">
           <SearchInput
             value={search}
             onChange={setSearch}
@@ -450,12 +483,11 @@ export default function IssueListPage() {
             </span>
           )}
 
-          {/* Sort by */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" className="h-7 text-xs gap-1.5">
                 <ArrowUpDown className="size-3.5" />
-                Sort by
+                <span className="hidden sm:inline">Sort by</span>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-44">
@@ -479,15 +511,13 @@ export default function IssueListPage() {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          {/* Group by */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" className="h-7 text-xs gap-1.5">
                 <Layers className="size-3.5" />
-                Group by
-                {groupBy && (
-                  <span className="text-muted-foreground capitalize ml-0.5">({groupBy})</span>
-                )}
+                <span className="hidden sm:inline">
+                  Group by{groupBy && <span className="text-muted-foreground capitalize ml-0.5"> ({groupBy})</span>}
+                </span>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-40">
@@ -509,7 +539,7 @@ export default function IssueListPage() {
           </DropdownMenu>
         </div>
 
-        {/* Table */}
+        {/* Content */}
         <div className="flex-1 overflow-auto">
           <DataTable
             variant="page"
@@ -524,8 +554,6 @@ export default function IssueListPage() {
             sortDir={sortDir}
             onSort={(key) => cycleSort(key as SortField)}
           />
-          {/* Sentinel must live inside the scroll container so it's only
-              visible when the user actually scrolls to the bottom */}
           {isFetchingNextPage && (
             <div className="flex items-center justify-center py-3 border-t">
               <Loader2 className="size-4 animate-spin text-muted-foreground" />

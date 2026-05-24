@@ -39,7 +39,8 @@ const homeColumns: ColumnDef<IssueSummary>[] = [
     key: "title",
     header: "Title",
     className: "max-w-55",
-    render: (row) => <span className="font-medium truncate block">{row.title}</span>,
+    mobile: { primary: true },
+    render: (row) => <span className="text-sm font-medium line-clamp-2">{row.title}</span>,
   },
   {
     key: "priority",
@@ -72,6 +73,7 @@ const homeColumns: ColumnDef<IssueSummary>[] = [
     key: "slaBreached",
     header: "Has breached",
     className: "whitespace-nowrap",
+    mobile: { hidden: true },
     render: (row) => {
       const sla = slaInfo(row.slaDeadline);
       return sla.breached
@@ -83,6 +85,7 @@ const homeColumns: ColumnDef<IssueSummary>[] = [
     key: "createdAt",
     header: "Created",
     className: "whitespace-nowrap",
+    mobile: { hidden: true },
     render: (row) => (
       <span className="text-xs text-muted-foreground">
         {new Date(row.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}

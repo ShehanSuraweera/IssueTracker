@@ -18,6 +18,7 @@ const productColumns: ColumnDef<Product>[] = [
   {
     key: "name",
     header: "Product",
+    mobile: { primary: true },
     render: (row) => (
       <div className="flex items-center gap-2.5">
         <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-primary/10">
@@ -197,6 +198,22 @@ export default function ProductListPage() {
           data={products}
           isLoading={isLoading}
           emptyMessage="No products found."
+          mobileRender={(product) => (
+            <div className="px-4 py-3.5 border-b active:bg-muted/50 cursor-pointer transition-colors">
+              <div className="flex items-center gap-2.5 mb-2">
+                <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-primary/10">
+                  <Package className="size-3.5 text-primary" />
+                </div>
+                <span className="text-sm font-medium">{product.name}</span>
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-mono text-xs text-muted-foreground">{product.code}</span>
+                <span className="text-xs text-muted-foreground">{product.company.name}</span>
+                <Badge variant="outline" className="text-xs">{product.owningOffice}</Badge>
+                <span className="text-xs text-muted-foreground">{product._count?.issues ?? 0} issues</span>
+              </div>
+            </div>
+          )}
         />
       </div>
 

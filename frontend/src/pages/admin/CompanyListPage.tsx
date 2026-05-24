@@ -18,6 +18,7 @@ const companyColumns: ColumnDef<Company>[] = [
   {
     key: "name",
     header: "Company",
+    mobile: { primary: true },
     render: (row) => (
       <div className="flex items-center gap-2.5">
         <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-primary/10">
@@ -173,6 +174,28 @@ export default function CompanyListPage() {
           data={companies}
           isLoading={isLoading}
           emptyMessage="No companies found."
+          mobileRender={(company) => (
+            <div className="px-4 py-3.5 border-b active:bg-muted/50 cursor-pointer transition-colors">
+              <div className="flex items-center gap-2.5 mb-2">
+                <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-primary/10">
+                  <Building2 className="size-3.5 text-primary" />
+                </div>
+                <Link
+                  to={`/admin/companies/${company.id}`}
+                  className="text-sm font-medium hover:text-primary transition-colors"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {company.name}
+                </Link>
+              </div>
+              <p className="text-xs text-muted-foreground truncate mb-2">{company.contactEmail}</p>
+              <div className="flex items-center gap-2">
+                <Badge variant="secondary" className="text-xs">{company.region}</Badge>
+                <span className="text-xs text-muted-foreground">{company._count?.products ?? 0} products</span>
+                <span className="text-xs text-muted-foreground">{company._count?.users ?? 0} users</span>
+              </div>
+            </div>
+          )}
         />
       </div>
 

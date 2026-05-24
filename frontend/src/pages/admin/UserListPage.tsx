@@ -25,6 +25,7 @@ const userColumns: ColumnDef<User>[] = [
   {
     key: "fullName",
     header: "User",
+    mobile: { primary: true },
     render: (row) => (
       <div className="flex items-center gap-2.5">
         <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary text-[10px] font-semibold">
@@ -58,6 +59,7 @@ const userColumns: ColumnDef<User>[] = [
   {
     key: "office",
     header: "Office",
+    mobile: { hidden: true },
     render: (row) => <span className="text-xs text-muted-foreground">{row.office ?? <span className="opacity-40">—</span>}</span>,
   },
   {
@@ -268,6 +270,31 @@ export default function UserListPage() {
           data={visible}
           isLoading={isLoading}
           emptyMessage={filter === "pending" ? "No pending approval requests." : "No users found."}
+          mobileRender={(user) => (
+            <div className="px-4 py-3.5 border-b active:bg-muted/50 cursor-pointer transition-colors">
+              <div className="flex items-center gap-2.5 mb-2">
+                <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary text-[10px] font-semibold">
+                  {initials(user.fullName)}
+                </div>
+                <Link
+                  to={`/admin/users/${user.id}`}
+                  className="text-sm font-medium hover:text-primary transition-colors"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {user.fullName}
+                </Link>
+              </div>
+              <p className="text-xs text-muted-foreground truncate mb-2">{user.email}</p>
+              <div className="flex items-center gap-2 flex-wrap">
+                <RoleBadge role={user.role} />
+                {user.company && <span className="text-xs text-muted-foreground">{user.company.name}</span>}
+                {user.isActive
+                  ? <Badge variant="secondary" className="text-xs">Active</Badge>
+                  : <Badge variant="outline" className="text-xs text-orange-600 border-orange-300 bg-orange-50">Pending</Badge>
+                }
+              </div>
+            </div>
+          )}
         />
       </div>
 
