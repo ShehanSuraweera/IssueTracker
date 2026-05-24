@@ -20,6 +20,7 @@ const ProductListPage   = lazy(() => import("@/pages/admin/ProductListPage"));
 const UserListPage      = lazy(() => import("@/pages/admin/UserListPage"));
 const UserDetailPage    = lazy(() => import("@/pages/admin/UserDetailPage"));
 const PasswordPage      = lazy(() => import("@/pages/settings/PasswordPage"));
+const ProfilePage       = lazy(() => import("@/pages/settings/ProfilePage"));
 const NotFoundPage      = lazy(() => import("@/pages/NotFoundPage"));
 
 function PageLoader() {
@@ -59,6 +60,7 @@ export const router = createBrowserRouter([
           { path: "/issues/:id",      element: wrap(<IssueDetailPage />) },
           { path: "/issues/:id/edit", element: wrap(<IssueEditPage />) },
 
+          { path: "/settings/profile",  element: wrap(<ProfilePage />) },
           { path: "/settings/password", element: wrap(<PasswordPage />) },
 
           // Admin-only routes

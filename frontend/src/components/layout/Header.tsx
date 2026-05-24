@@ -210,7 +210,7 @@ export function Header({ onMenuClick }: { onMenuClick?: () => void }) {
                 <p className="text-xs text-muted-foreground">{user.email}</p>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate("/settings/profile")}>
                 <User className="mr-2 size-4" />
                 Profile
               </DropdownMenuItem>

@@ -26,6 +26,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { OFFICE_LABEL } from "@/lib/theme";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { IssueDetail, Comment, Activity, IssueStatus, PriorityLevel, FeedItem, FeedFilter } from "@/types/issues";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -660,11 +661,6 @@ function ActivityPanel({
   );
 }
 
-const OFFICE_LABEL: Record<string, string> = {
-  KR: "Korea",
-  LK: "Sri Lanka",
-  IN: "India",
-};
 
 // ─── Assignment card ──────────────────────────────────────────────────────────
 

@@ -35,6 +35,12 @@ export const ROLE_LABEL: Record<UserRole, string> = {
   client_user: "Client",
 };
 
+export const OFFICE_LABEL: Record<string, string> = {
+  KR: "Korea",
+  LK: "Sri Lanka",
+  IN: "India",
+};
+
 export const LEVEL_COLORS: Record<string, { active: string; idle: string }> = {
   low:    { active: "bg-slate-500 text-white", idle: "text-slate-500 hover:bg-slate-100/70" },
   medium: { active: "bg-amber-400 text-white", idle: "text-amber-600 hover:bg-amber-50"     },
