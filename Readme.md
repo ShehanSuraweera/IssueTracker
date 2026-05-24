@@ -1,5 +1,7 @@
 # NewnopDesk
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 A multi-tenant client issue portal for software agencies — purpose-built around Newnop's operating model of 50+ client products across engineering centers in Korea, Sri Lanka, and India.
 
 Inspired by ServiceNow and Jira Service Management, NewnopDesk gives each client a dedicated workspace to raise and track issues, while routing tickets to the right internal engineering team and giving leadership cross-portfolio visibility.
