@@ -191,13 +191,7 @@ export function IssueTimeline({ issue }: { issue: IssueDetail }) {
               <div
                 title={issue.resolvedAt ? "Resolved" : issue.closedAt ? "Closed" : "Now"}
                 className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 size-3.5 rounded-full border-2 border-background shadow z-10 bg-muted-foreground/50"
-              >
-                {isLive && (
-                  <span className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 text-[10px] font-semibold text-foreground whitespace-nowrap">
-                    Now
-                  </span>
-                )}
-              </div>
+              />
             </div>
           </div>
 
@@ -217,6 +211,20 @@ export function IssueTimeline({ issue }: { issue: IssueDetail }) {
                 {tick.label}
               </span>
             ))}
+            {isLive && (
+              <span
+                className="absolute text-[10px] font-semibold whitespace-nowrap"
+                style={{
+                  left:      `${trackRightPct}%`,
+                  transform: trackRightPct > 75 ? "translateX(-100%)"
+                           : trackRightPct < 25 ? "none"
+                           : "translateX(-50%)",
+                  color: "var(--brand-green)",
+                }}
+              >
+                Now
+              </span>
+            )}
           </div>
 
           {presentKinds.length > 0 && (
