@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from "@tanstack/react-query";
-import { listIssues, getIssue, getStats, createIssue, updateIssue, addComment, resolveIssue, getFeed, assignIssue, listSavedViews, createSavedView, renameSavedView, deleteSavedView, presignUpload, confirmAttachment } from "@/api/issues";
+import { listIssues, getIssue, getStats, createIssue, updateIssue, deleteIssue, addComment, resolveIssue, getFeed, assignIssue, listSavedViews, createSavedView, renameSavedView, deleteSavedView, presignUpload, confirmAttachment } from "@/api/issues";
 import { queryKeys } from "./query-keys";
 import type { ListIssuesQuery, UpdateIssueInput, FeedFilter } from "@/types/issues";
 
@@ -97,6 +97,14 @@ export function useResolveIssue(issueId: string | undefined) {
   return useMutation({
     mutationFn: () => resolveIssue(issueId!),
     onSuccess:  () => qc.invalidateQueries({ queryKey: queryKeys.issues.detail(issueId) }),
+  });
+}
+
+export function useDeleteIssue() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => deleteIssue(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.issues.all() }),
   });
 }
 

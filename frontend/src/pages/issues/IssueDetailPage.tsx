@@ -2,9 +2,9 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useBack } from "@/hooks/use-back";
 import {
-  ArrowLeft, CheckCircle2, UserPlus, Pencil,
+  ArrowLeft, CheckCircle2, UserPlus, Pencil, Trash2,
 } from "lucide-react";
-import { useIssue, useResolveIssue, useUpdateIssue, useAssignIssue } from "@/hooks/use-issues";
+import { useIssue, useResolveIssue, useUpdateIssue, useAssignIssue, useDeleteIssue } from "@/hooks/use-issues";
 import { useAuth } from "@/hooks/use-auth";
 import { useIssuePermissions } from "@/hooks/use-issue-permissions";
 import { useTabsStore } from "@/store/tabs.store";
@@ -59,6 +59,7 @@ export default function IssueDetailPage() {
   const resolveMutation    = useResolveIssue(id);
   const updateMutation     = useUpdateIssue(id);
   const assignSelfMutation = useAssignIssue(id);
+  const deleteMutation     = useDeleteIssue();
   const { updateLabel, updateMeta } = useTabsStore();
   const [activeTab, setActiveTab] = useState<"details" | "activity" | "info">("details");
 
@@ -158,6 +159,21 @@ export default function IssueDetailPage() {
               confirmLabel="Close Issue"
               isPending={updateMutation.isPending}
               onConfirm={() => updateMutation.mutate({ status: "closed" })}
+            />
+          )}
+
+          {hasRole("admin") && (
+            <InlineConfirm
+              trigger={
+                <Button variant="outline" size="sm" className="text-destructive hover:text-destructive border-destructive/30 hover:border-destructive/60">
+                  <Trash2 className="mr-1.5 size-3.5" />
+                  Delete
+                </Button>
+              }
+              message="Permanently delete this issue? This cannot be undone."
+              confirmLabel="Delete"
+              isPending={deleteMutation.isPending}
+              onConfirm={() => deleteMutation.mutate(id!, { onSuccess: () => navigate("/issues") })}
             />
           )}
         </div>
