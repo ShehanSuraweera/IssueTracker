@@ -59,7 +59,7 @@ export function SearchInput({ value, onChange, placeholder = "Search…", classN
       <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
       <Input
         ref={inputRef}
-        className="h-7 pl-8 pr-7 text-xs w-full"
+        className="h-7 pl-8 pr-7 text-base sm:text-xs w-full"
         placeholder={placeholder}
         value={value}
         onChange={e => onChange(e.target.value)}
