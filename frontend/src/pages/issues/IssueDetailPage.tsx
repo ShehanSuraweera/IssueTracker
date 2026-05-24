@@ -16,6 +16,7 @@ import {
 import { useIssue, useAddComment, useResolveIssue, useUpdateIssue, useFeed, useAssignIssue } from "@/hooks/use-issues";
 import { useEngineers } from "@/hooks/use-users";
 import { useAuth } from "@/hooks/use-auth";
+import { useIssuePermissions } from "@/hooks/use-issue-permissions";
 import type { User as AuthUser } from "@/types/users";
 import { useTabsStore } from "@/store/tabs.store";
 import { Button } from "@/components/ui/button";
@@ -1247,16 +1248,10 @@ export default function IssueDetailPage() {
   if (isLoading) return <DetailSkeleton />;
   if (!issue)    return null;
 
-  const isStaff      = hasRole("admin", "engineer");
-  const isEngineer   = hasRole("engineer");
-  const isClosed     = issue.status === "closed" || issue.status === "cancelled";
-  const isSelf       = !!user && !!issue.assignee && issue.assignee.id === user.id;
-  const canEdit      = isStaff || issue.status === "new";
-  const canResolve   = isStaff && (issue.status === "in_progress" || issue.status === "on_hold");
-  const canAssignSelf = isEngineer && !isSelf && !isClosed;
-  const canClose      = (hasRole("admin") || hasRole("client_user")) && issue.status === "resolved";
-  const canComment   = issue.status !== "closed" && issue.status !== "cancelled";
-  const isLocked     = !isStaff && issue.status !== "new";
+  const {
+    isStaff,
+    canEdit, canResolve, canAssignSelf, canClose, canComment, isLocked,
+  } = useIssuePermissions(issue, user ?? null, hasRole);
 
   return (
     <div className="space-y-4">
