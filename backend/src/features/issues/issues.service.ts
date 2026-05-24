@@ -888,6 +888,64 @@ export async function getDownloadUrl(
   };
 }
 
+// ─── Saved Views ─────────────────────────────────────────────────────────────
+
+export async function listSavedViews(user: AuthUser) {
+  const rows = await prisma.savedView.findMany({
+    where:   { userId: user.id },
+    orderBy: { createdAt: "asc" },
+    select:  { id: true, name: true, query: true, createdAt: true },
+  });
+  return rows.map((r) => ({
+    id:        r.id.toString(),
+    name:      r.name,
+    query:     JSON.parse(r.query) as Record<string, unknown>,
+    createdAt: r.createdAt.toISOString(),
+  }));
+}
+
+export async function createSavedView(
+  input: { name: string; query: Record<string, unknown> },
+  user: AuthUser
+) {
+  const row = await prisma.savedView.create({
+    data: { userId: user.id, name: input.name, query: JSON.stringify(input.query) },
+    select: { id: true, name: true, query: true, createdAt: true },
+  });
+  return {
+    id:        row.id.toString(),
+    name:      row.name,
+    query:     JSON.parse(row.query) as Record<string, unknown>,
+    createdAt: row.createdAt.toISOString(),
+  };
+}
+
+export async function renameSavedView(id: bigint, name: string, user: AuthUser) {
+  const row = await prisma.savedView.findUnique({ where: { id } });
+  if (!row || row.userId !== user.id) {
+    throw new AppError(404, "NOT_FOUND", "Saved view not found");
+  }
+  const updated = await prisma.savedView.update({
+    where:  { id },
+    data:   { name },
+    select: { id: true, name: true, query: true, createdAt: true },
+  });
+  return {
+    id:        updated.id.toString(),
+    name:      updated.name,
+    query:     JSON.parse(updated.query) as Record<string, unknown>,
+    createdAt: updated.createdAt.toISOString(),
+  };
+}
+
+export async function deleteSavedView(id: bigint, user: AuthUser) {
+  const row = await prisma.savedView.findUnique({ where: { id } });
+  if (!row || row.userId !== user.id) {
+    throw new AppError(404, "NOT_FOUND", "Saved view not found");
+  }
+  await prisma.savedView.delete({ where: { id } });
+}
+
 function escapeCsv(value: string): string {
   if (value.includes(",") || value.includes('"') || value.includes("\n")) {
     return `"${value.replace(/"/g, '""')}"`;

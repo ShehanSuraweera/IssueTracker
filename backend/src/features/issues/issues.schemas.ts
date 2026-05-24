@@ -121,3 +121,27 @@ export type CreateCommentInput = z.infer<typeof CreateCommentSchema>;
 export type PresignUploadInput = z.infer<typeof PresignUploadSchema>;
 export type ConfirmAttachmentInput = z.infer<typeof ConfirmAttachmentSchema>;
 export type FeedQuery = z.infer<typeof FeedQuerySchema>;
+
+// ─── Saved Views ─────────────────────────────────────────────────────────────
+
+export const CreateSavedViewSchema = z.object({
+  name: z.string().min(1, "Name is required").max(120),
+  query: z.object({
+    status:      IssueStatusEnum.optional(),
+    priority:    PriorityLevelEnum.optional(),
+    type:        IssueTypeEnum.optional(),
+    product_id:  z.string().regex(/^\d+$/).optional(),
+    assigned_to: z.string().regex(/^\d+$/).optional(),
+    unassigned:  z.boolean().optional(),
+    sort:        z.string().optional(),
+    search:      z.string().optional(),
+  }),
+});
+
+export const RenameSavedViewSchema = z.object({
+  name: z.string().min(1, "Name is required").max(120),
+});
+
+export type RenameSavedViewInput = z.infer<typeof RenameSavedViewSchema>;
+
+export type CreateSavedViewInput = z.infer<typeof CreateSavedViewSchema>;

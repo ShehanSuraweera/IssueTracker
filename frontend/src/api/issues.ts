@@ -11,6 +11,7 @@ import type {
   PresignUploadResult,
   FeedResponse,
   FeedFilter,
+  SavedView,
 } from "@/types/issues";
 
 export async function listIssues(query: ListIssuesQuery): Promise<IssueListResponse> {
@@ -107,6 +108,28 @@ export async function exportIssues(
   const ext      = format === "csv" ? "csv" : "json";
   const filename = `issues-export.${ext}`;
   return { blob: response.data as Blob, filename };
+}
+
+export async function listSavedViews(): Promise<SavedView[]> {
+  const { data } = await api.get<{ data: SavedView[] }>("/issues/saved-views");
+  return data.data;
+}
+
+export async function createSavedView(
+  name: string,
+  query: Omit<ListIssuesQuery, "page" | "limit">
+): Promise<SavedView> {
+  const { data } = await api.post<{ data: SavedView }>("/issues/saved-views", { name, query });
+  return data.data;
+}
+
+export async function renameSavedView(id: string, name: string): Promise<SavedView> {
+  const { data } = await api.patch<{ data: SavedView }>(`/issues/saved-views/${id}`, { name });
+  return data.data;
+}
+
+export async function deleteSavedView(id: string): Promise<void> {
+  await api.delete(`/issues/saved-views/${id}`);
 }
 
 export async function getDownloadUrl(

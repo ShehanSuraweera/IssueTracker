@@ -154,6 +154,13 @@ export interface FeedResponse {
   hasMore: boolean;
 }
 
+export interface SavedView {
+  id: string;
+  name: string;
+  query: Omit<ListIssuesQuery, "page" | "limit">;
+  createdAt: string;
+}
+
 export interface ListIssuesQuery {
   search?: string;
   status?: IssueStatus;

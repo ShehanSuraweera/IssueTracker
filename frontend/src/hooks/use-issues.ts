@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from "@tanstack/react-query";
-import { listIssues, getIssue, getStats, createIssue, updateIssue, addComment, resolveIssue, getFeed, assignIssue } from "@/api/issues";
+import { listIssues, getIssue, getStats, createIssue, updateIssue, addComment, resolveIssue, getFeed, assignIssue, listSavedViews, createSavedView, renameSavedView, deleteSavedView } from "@/api/issues";
 import { queryKeys } from "./query-keys";
 import type { ListIssuesQuery, UpdateIssueInput, FeedFilter } from "@/types/issues";
 
@@ -108,5 +108,37 @@ export function useAssignIssue(issueId: string | undefined) {
       qc.invalidateQueries({ queryKey: queryKeys.issues.detail(issueId) });
       qc.invalidateQueries({ queryKey: queryKeys.issues.stats() });
     },
+  });
+}
+
+export function useSavedViews() {
+  return useQuery({
+    queryKey: queryKeys.savedViews.all(),
+    queryFn:  listSavedViews,
+  });
+}
+
+export function useCreateSavedView() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ name, query }: { name: string; query: Omit<ListIssuesQuery, "page" | "limit"> }) =>
+      createSavedView(name, query),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.savedViews.all() }),
+  });
+}
+
+export function useRenameSavedView() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, name }: { id: string; name: string }) => renameSavedView(id, name),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.savedViews.all() }),
+  });
+}
+
+export function useDeleteSavedView() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => deleteSavedView(id),
+    onSuccess:  () => qc.invalidateQueries({ queryKey: queryKeys.savedViews.all() }),
   });
 }

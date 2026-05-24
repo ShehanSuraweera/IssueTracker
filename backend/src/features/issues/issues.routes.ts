@@ -35,6 +35,69 @@ router.get("/stats", IssueController.stats);
 
 /**
  * @openapi
+ * /api/issues/saved-views:
+ *   get:
+ *     tags: [Issues]
+ *     summary: List the current user's saved views
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Saved views list
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *   post:
+ *     tags: [Issues]
+ *     summary: Create a saved view
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [name, query]
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 maxLength: 120
+ *               query:
+ *                 type: object
+ *     responses:
+ *       201:
+ *         description: Saved view created
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       422:
+ *         $ref: '#/components/responses/ValidationFailed'
+ * /api/issues/saved-views/{viewId}:
+ *   delete:
+ *     tags: [Issues]
+ *     summary: Delete a saved view (owner only)
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: viewId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       204:
+ *         description: Deleted
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ */
+router.get("/saved-views",              IssueController.listSavedViews);
+router.post("/saved-views",             IssueController.createSavedView);
+router.patch("/saved-views/:viewId",    IssueController.renameSavedView);
+router.delete("/saved-views/:viewId",   IssueController.deleteSavedView);
+
+/**
+ * @openapi
  * /api/issues/export:
  *   get:
  *     tags: [Issues]

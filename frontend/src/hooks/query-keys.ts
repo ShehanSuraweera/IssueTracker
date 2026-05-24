@@ -21,4 +21,7 @@ export const queryKeys = {
   products: {
     all: () => ["products"] as const,
   },
+  savedViews: {
+    all: () => ["savedViews"] as const,
+  },
 };

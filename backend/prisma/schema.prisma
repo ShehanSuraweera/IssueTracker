@@ -115,10 +115,24 @@ model User {
   attachments       IssueAttachment[]
   userProductAccess UserProductAccess[]
   refreshTokens     RefreshToken[]
+  savedViews        SavedView[]
 
   @@index([role], name: "idx_users_role")
   @@index([companyId], name: "idx_users_company")
   @@map("users")
+}
+
+model SavedView {
+  id        BigInt   @id @default(autoincrement())
+  userId    BigInt   @map("user_id")
+  name      String   @db.VarChar(120)
+  query     String   @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId], name: "idx_saved_views_user")
+  @@map("saved_views")
 }
 
 model UserProductAccess {

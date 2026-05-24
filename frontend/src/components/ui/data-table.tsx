@@ -141,7 +141,7 @@ export function DataTable<T>({
               ))}
             </tr>
           ))
-        ) : groupedData ? (
+        ) : groupedData && Object.keys(groupedData).length > 0 ? (
           Object.entries(groupedData).flatMap(([gk, rows]) => [
             <tr key={`g-${gk}`} className="border-b bg-muted/30">
               <td colSpan={columns.length} className="px-4 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
@@ -201,7 +201,7 @@ export function DataTable<T>({
             </div>
           </div>
         ))
-      ) : groupedData ? (
+      ) : groupedData && Object.keys(groupedData).length > 0 ? (
         Object.entries(groupedData).flatMap(([gk, rows]) => [
           <div key={`g-${gk}`} className="px-4 py-2 bg-muted/30 border-b">
             <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">

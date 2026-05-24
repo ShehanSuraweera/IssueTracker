@@ -24,12 +24,16 @@ interface SearchInputProps {
  *   // pass debouncedSearch to your query, search to SearchInput
  */
 export function SearchInput({ value, onChange, placeholder = "Search…", className }: SearchInputProps) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(() => !!value);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (open) inputRef.current?.focus();
   }, [open]);
+
+  useEffect(() => {
+    if (value) setOpen(true);
+  }, [value]);
 
   function handleClear() {
     onChange("");
@@ -55,7 +59,7 @@ export function SearchInput({ value, onChange, placeholder = "Search…", classN
       <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
       <Input
         ref={inputRef}
-        className="h-7 pl-8 pr-7 text-xs w-56"
+        className="h-7 pl-8 pr-7 text-xs w-full"
         placeholder={placeholder}
         value={value}
         onChange={e => onChange(e.target.value)}

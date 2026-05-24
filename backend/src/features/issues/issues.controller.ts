@@ -10,6 +10,8 @@ import {
   PresignUploadSchema,
   ConfirmAttachmentSchema,
   FeedQuerySchema,
+  CreateSavedViewSchema,
+  RenameSavedViewSchema,
 } from "./issues.schemas";
 import * as IssueService from "./issues.service";
 
@@ -169,6 +171,48 @@ export async function getDownloadUrl(req: Request, res: Response, next: NextFunc
     const attId = parseId(req.params.attId);
     const result = await IssueService.getDownloadUrl(id, attId, req.user!);
     res.json({ data: result });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ─── Saved Views ──────────────────────────────────────────────────────────────
+
+export async function listSavedViews(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const views = await IssueService.listSavedViews(req.user!);
+    res.json({ data: views });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function createSavedView(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const input = CreateSavedViewSchema.parse(req.body);
+    const view = await IssueService.createSavedView(input, req.user!);
+    res.status(201).json({ data: view });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function renameSavedView(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const id    = parseId(req.params.viewId);
+    const input = RenameSavedViewSchema.parse(req.body);
+    const view  = await IssueService.renameSavedView(id, input.name, req.user!);
+    res.json({ data: view });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function deleteSavedView(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const id = parseId(req.params.viewId);
+    await IssueService.deleteSavedView(id, req.user!);
+    res.status(204).end();
   } catch (err) {
     next(err);
   }
