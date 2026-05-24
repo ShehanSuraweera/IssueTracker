@@ -1,6 +1,6 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
+import { changePasswordSchema, type ChangePasswordFormValues } from "@/lib/schemas";
 import { CheckCircle, Loader2 } from "lucide-react";
 import { useChangePassword } from "@/hooks/use-users";
 import { Button } from "@/components/ui/button";
@@ -8,18 +8,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
-const schema = z
-  .object({
-    currentPassword: z.string().min(1, "Current password is required"),
-    newPassword:     z.string().min(8, "New password must be at least 8 characters"),
-    confirmPassword: z.string().min(1, "Please confirm your new password"),
-  })
-  .refine((d) => d.newPassword === d.confirmPassword, {
-    path:    ["confirmPassword"],
-    message: "Passwords do not match",
-  });
-
-type FormValues = z.infer<typeof schema>;
 
 export default function PasswordPage() {
   const {
@@ -27,7 +15,7 @@ export default function PasswordPage() {
     handleSubmit,
     reset,
     formState: { errors },
-  } = useForm<FormValues>({ resolver: zodResolver(schema) });
+  } = useForm<ChangePasswordFormValues>({ resolver: zodResolver(changePasswordSchema) });
 
   const mutation = useChangePassword();
 

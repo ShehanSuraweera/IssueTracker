@@ -2,20 +2,13 @@ import { useState } from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
+import { loginSchema, type LoginFormValues } from "@/lib/schemas";
 import { Loader2, Eye, EyeOff, ShieldCheck, Globe, Users } from "lucide-react";
 import { NewnopLogo } from "@/components/ui/newnop-logo";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-
-const schema = z.object({
-  email:    z.string().email("Enter a valid email"),
-  password: z.string().min(1, "Password is required"),
-});
-
-type FormValues = z.infer<typeof schema>;
 
 const G = "#8cff2e";
 
@@ -32,9 +25,9 @@ export default function LoginPage() {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
-  } = useForm<FormValues>({ resolver: zodResolver(schema) });
+  } = useForm<LoginFormValues>({ resolver: zodResolver(loginSchema) });
 
-  async function onSubmit(values: FormValues) {
+  async function onSubmit(values: LoginFormValues) {
     setError(null);
     try {
       await login(values.email, values.password);

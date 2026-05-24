@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
+import { requestAccessSchema, type RequestAccessFormValues } from "@/lib/schemas";
 import { Loader2, Eye, EyeOff, CheckCircle2, ArrowLeft, Check, X } from "lucide-react";
 import { NewnopLogo } from "@/components/ui/newnop-logo";
 import { requestAccess } from "@/api/auth";
@@ -10,24 +10,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-const schema = z
-  .object({
-    fullName:        z.string().min(2, "Full name must be at least 2 characters"),
-    email:           z.string().email("Enter a valid email"),
-    companyName:     z.string().min(2, "Company name must be at least 2 characters"),
-    password:        z
-      .string()
-      .min(8, "Password must be at least 8 characters")
-      .regex(/[A-Z]/, "Must contain at least one uppercase letter")
-      .regex(/[0-9]/, "Must contain at least one digit"),
-    confirmPassword: z.string(),
-  })
-  .refine((d) => d.password === d.confirmPassword, {
-    message: "Passwords do not match",
-    path: ["confirmPassword"],
-  });
-
-type FormValues = z.infer<typeof schema>;
 
 const G = "#8cff2e";
 
@@ -42,7 +24,7 @@ export default function RequestAccessPage() {
     handleSubmit,
     watch,
     formState: { errors, isSubmitting },
-  } = useForm<FormValues>({ resolver: zodResolver(schema) });
+  } = useForm<RequestAccessFormValues>({ resolver: zodResolver(requestAccessSchema) });
 
   const passwordValue = watch("password", "");
   const hasInput = passwordValue.length > 0;
@@ -56,7 +38,7 @@ export default function RequestAccessPage() {
   const strengthLabel = strength === 0 ? "" : strength === 1 ? "Weak" : strength === 2 ? "Fair" : "Strong";
   const strengthColor = strength === 1 ? "#ef4444" : strength === 2 ? "#f97316" : "#22c55e";
 
-  async function onSubmit(values: FormValues) {
+  async function onSubmit(values: RequestAccessFormValues) {
     setError(null);
     try {
       await requestAccess({

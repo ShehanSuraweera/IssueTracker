@@ -1,6 +1,6 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
+import { profileSchema, type ProfileFormValues } from "@/lib/schemas";
 import { CheckCircle, Loader2, Building2, Globe, Calendar } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useUpdateUser } from "@/hooks/use-users";
@@ -22,11 +22,6 @@ function initials(name: string): string {
     .toUpperCase();
 }
 
-const schema = z.object({
-  fullName: z.string().min(2, "Name must be at least 2 characters").max(100),
-});
-
-type FormValues = z.infer<typeof schema>;
 
 export default function ProfilePage() {
   const { user } = useAuth();
@@ -38,8 +33,8 @@ export default function ProfilePage() {
     handleSubmit,
     formState: { errors, isDirty },
     reset,
-  } = useForm<FormValues>({
-    resolver: zodResolver(schema),
+  } = useForm<ProfileFormValues>({
+    resolver: zodResolver(profileSchema),
     defaultValues: { fullName: user?.fullName ?? "" },
   });
 

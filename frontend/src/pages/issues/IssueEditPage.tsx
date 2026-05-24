@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate, useLocation, useBlocker } from "react-router-dom";
 import { ArrowLeft, TriangleAlert } from "lucide-react";
 import { useIssue, useUpdateIssue } from "@/hooks/use-issues";
@@ -71,10 +71,14 @@ export default function IssueEditPage() {
   });
 
   const [formIsDirty, setFormIsDirty] = useState(false);
+  const savedRef = useRef(false);
 
   const blocker = useBlocker(
-    ({ currentLocation, nextLocation }) =>
-      formIsDirty && currentLocation.pathname !== nextLocation.pathname,
+    useCallback(
+      ({ currentLocation, nextLocation }: { currentLocation: { pathname: string }; nextLocation: { pathname: string } }) =>
+        formIsDirty && !savedRef.current && currentLocation.pathname !== nextLocation.pathname,
+      [formIsDirty],
+    ),
   );
 
   useEffect(() => {
@@ -130,7 +134,7 @@ export default function IssueEditPage() {
               if (isStaff && values.status && values.status !== issue.status)
                                                             input.status      = values.status as IssueStatus;
               updateMutation.mutate(input, {
-                onSuccess: () => { setFormIsDirty(false); navigate(backTo); },
+                onSuccess: () => { savedRef.current = true; setFormIsDirty(false); navigate(backTo); },
               });
             }}
             onCancel={() => navigate(backTo)}

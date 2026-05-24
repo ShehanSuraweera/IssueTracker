@@ -15,14 +15,14 @@ import type { IssueType, ImpactLevel, IssueStatus } from "@/types/issues";
 function buildSchema(mode: "create" | "edit") {
   return z.object({
     productId:   mode === "create"
-                   ? z.string().min(1, "Select a product")
+                   ? z.string().min(1, "Select a product").regex(/^\d+$/, "Invalid product")
                    : z.string().optional(),
     title:       z.string().min(1, "Title is required").max(200),
     description: z.string().min(1, "Description is required"),
     type:        z.enum(["bug", "feature_request", "question", "incident"]),
     impact:      z.enum(["low", "medium", "high"]),
     urgency:     z.enum(["low", "medium", "high"]),
-    status:      z.string().optional(),
+    status:      z.enum(["new", "in_progress", "on_hold", "resolved", "closed", "cancelled"]).optional(),
   });
 }
 
