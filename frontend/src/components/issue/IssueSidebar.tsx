@@ -71,14 +71,14 @@ export function IssueSidebar({
       {/* Mobile drawer backdrop */}
       {mobileSidebarOpen && (
         <div
-          className="fixed inset-0 z-30 bg-black/40 lg:hidden"
+          className="fixed top-14 bottom-0 inset-x-0 z-30 bg-black/40 lg:hidden"
           onClick={() => setMobileSidebarOpen(false)}
         />
       )}
 
       <aside className={cn(
         "bg-background border-r flex flex-col shrink-0 overflow-hidden",
-        "fixed inset-y-0 left-0 z-40 w-72 shadow-xl transition-transform duration-200 ease-in-out",
+        "fixed top-14 bottom-0 left-0 z-40 w-72 shadow-xl transition-transform duration-200 ease-in-out",
         mobileSidebarOpen ? "translate-x-0" : "-translate-x-full",
         "lg:relative lg:inset-y-auto lg:left-auto lg:z-auto lg:w-auto lg:shadow-none lg:translate-x-0 lg:transition-[width] lg:duration-200",
         sidebarOpen ? "lg:w-56" : "lg:w-0 lg:border-r-0",
