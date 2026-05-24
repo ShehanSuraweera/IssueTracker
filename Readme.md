@@ -84,7 +84,7 @@ localdev/
 │   ├── src/
 │   │   ├── features/             # auth, issues, products, users, companies
 │   │   ├── middleware/           # authenticate, role guards
-│   │   ├── lib/                  # prisma client
+│   │   ├── lib/                  # prisma client, S3 helpers
 │   │   └── config/               # env validation
 │   ├── prisma/
 │   │   ├── schema.prisma
@@ -95,11 +95,19 @@ localdev/
 │   └── prisma.config.ts
 ├── frontend/
 │   └── src/
-│       ├── features/             # auth, issues, dashboard, admin
-│       ├── components/           # shared UI primitives
-│       ├── hooks/                # useDebouncedValue, etc.
-│       ├── lib/                  # api-client, permissions, format
-│       └── types/
+│       ├── api/                  # Axios call functions, one file per resource
+│       ├── components/
+│       │   ├── home/             # home page sections (KPIs, engineer stats, my-work)
+│       │   ├── issue/            # issue detail sub-components (header, sidebar, form)
+│       │   ├── issues/           # shared issue widgets (timeline, comments, attachments)
+│       │   ├── layout/           # AppShell, Header, Sidebar
+│       │   └── ui/               # shadcn/ui primitives + custom badges
+│       ├── hooks/                # TanStack Query wrappers + utility hooks
+│       ├── lib/                  # api-client, format, schemas, theme, utils
+│       ├── pages/                # one file per route
+│       ├── router/               # createBrowserRouter + route guards
+│       ├── store/                # Zustand stores (auth, tabs)
+│       └── types/                # TypeScript interfaces mirroring API responses
 └── docs/
     └── deployment.md             # full AWS deployment guide
 ```

@@ -191,6 +191,10 @@ All issue routes require authentication.
 | POST | `/issues` | All | Create issue. Priority auto-computed from impact × urgency. |
 | GET | `/issues/stats` | admin | Dashboard KPIs: open count, critical count, SLA-at-risk, resolved last 7 days. |
 | GET | `/issues/export` | admin | Export up to 1,000 issues as `csv` or `json`. |
+| GET | `/issues/saved-views` | All | List the current user's saved filter presets. |
+| POST | `/issues/saved-views` | All | Create a named saved view (name + query object). |
+| PATCH | `/issues/saved-views/:viewId` | All | Rename a saved view (owner only). |
+| DELETE | `/issues/saved-views/:viewId` | All | Delete a saved view (owner only). |
 | GET | `/issues/:id` | All | Full issue detail with comments, activity log, and attachments. |
 | PATCH | `/issues/:id` | All | Partial update. Activity log entry created for every changed field. |
 | DELETE | `/issues/:id` | admin | Soft-cancel — sets status to `cancelled`. Irreversible. |

@@ -68,36 +68,80 @@ frontend/src/
 │   ├── products.ts
 │   └── users.ts
 ├── components/
+│   ├── home/               # Home page sections
+│   │   ├── HomeHero.tsx          # Welcome banner with role-aware message
+│   │   ├── HomeKpis.tsx          # Summary KPI strip on the home page
+│   │   ├── EngineerStats.tsx     # Engineer-specific workload stats
+│   │   ├── MyWorkSection.tsx     # Issues assigned to the current user
+│   │   └── home-columns.tsx      # Column definitions for the my-work table
+│   ├── issue/              # Issue detail sub-components
+│   │   ├── IssueHeader.tsx       # Title, ticket number, breadcrumb
+│   │   ├── IssueSidebar.tsx      # Metadata panel (status, priority, assignee)
+│   │   ├── IssueContextPanel.tsx # Collapsible context sidebar
+│   │   ├── IssueForm.tsx         # Shared create/edit form fields
+│   │   ├── IssueToolbar.tsx      # Action buttons (assign, resolve, delete)
+│   │   └── issue-columns.tsx     # Column definitions for the issue list table
+│   ├── issues/             # Shared issue widgets
+│   │   ├── IssueTimeline.tsx     # Combined feed (comments + activity)
+│   │   ├── ActivityPanel.tsx     # Activity log section
+│   │   ├── ActivityRow.tsx       # Single activity entry
+│   │   ├── CommentBubble.tsx     # Rendered comment (internal vs public)
+│   │   ├── CommentComposer.tsx   # Rich text input for new comments
+│   │   ├── MetaPanel.tsx         # Metadata edit panel (engineer/admin)
+│   │   ├── RecordPanel.tsx       # Issue record display section
+│   │   ├── AssignmentCard.tsx    # Assignee display + quick-assign UI
+│   │   ├── AttachmentRow.tsx     # Single attachment with download link
+│   │   └── AttachmentPreviewModal.tsx  # Lightbox for image attachments
 │   ├── layout/
 │   │   ├── AppShell.tsx    # Root layout: sidebar + header + <Outlet>; manages tab state
 │   │   ├── Header.tsx      # Tab bar + user menu + logout
 │   │   └── Sidebar.tsx     # Navigation links, role-filtered
-│   └── ui/                 # shadcn/ui primitives (no business logic)
+│   └── ui/                 # shadcn/ui primitives + custom badges (no business logic)
 │       ├── avatar.tsx
 │       ├── badge.tsx
 │       ├── button.tsx
 │       ├── card.tsx
+│       ├── confirm-dialog.tsx
+│       ├── dashboard-charts.tsx
+│       ├── data-table.tsx
+│       ├── dialog.tsx
 │       ├── dropdown-menu.tsx
+│       ├── impact-badge.tsx
+│       ├── inline-confirm.tsx
 │       ├── input.tsx
+│       ├── kpi-card.tsx
 │       ├── label.tsx
 │       ├── newnop-logo.tsx
+│       ├── priority-badge.tsx
+│       ├── role-badge.tsx
+│       ├── search-input.tsx
 │       ├── separator.tsx
 │       ├── skeleton.tsx
+│       ├── sort-icon.tsx
+│       ├── status-badge.tsx
 │       └── tooltip.tsx
 ├── hooks/                  # TanStack Query wrappers — co-locate mutation + invalidation
-│   ├── query-keys.ts       # Centralised key factory
+│   ├── query-keys.ts              # Centralised key factory
 │   ├── use-auth.ts
+│   ├── use-back.ts                # Navigation back helper
 │   ├── use-companies.ts
+│   ├── use-debounce.ts            # Debounce value hook
+│   ├── use-issue-list-state.ts    # URL-synced filter + sort state for issue list
+│   ├── use-issue-permissions.ts   # Role-based permission flags for the current issue
 │   ├── use-issues.ts
 │   ├── use-products.ts
 │   └── use-users.ts
 ├── lib/
+│   ├── format.ts           # Date, priority, and status formatting helpers
 │   ├── query-client.ts     # QueryClient singleton (staleTime: 30 s)
+│   ├── schemas.ts          # Shared Zod schemas for form validation
+│   ├── theme.ts            # Tailwind colour tokens for badges and charts
 │   └── utils.ts            # cn() helper (clsx + tailwind-merge)
 ├── pages/
-│   ├── HomePage.tsx        # Landing page / redirect based on role
-│   ├── LoginPage.tsx       # Email + password login form
-│   ├── NotFoundPage.tsx    # 404
+│   ├── HomePage.tsx              # Role-aware landing: KPIs + my-work table
+│   ├── LoginPage.tsx             # Email + password login form
+│   ├── RequestAccessPage.tsx     # Self-service registration for new client users
+│   ├── NotFoundPage.tsx          # 404
 │   ├── admin/
 │   │   ├── DashboardPage.tsx     # KPI cards + charts (admin only)
 │   │   ├── CompanyListPage.tsx   # Company management
@@ -106,11 +150,13 @@ frontend/src/
 │   │   ├── UserListPage.tsx      # User management
 │   │   └── UserDetailPage.tsx    # User + product access grants
 │   ├── issues/
-│   │   ├── IssueListPage.tsx     # Filterable, searchable issue table
-│   │   ├── IssueDetailPage.tsx   # Full issue view with feed, comments, attachments
-│   │   └── IssueCreatePage.tsx   # New issue form
+│   │   ├── IssueListPage.tsx     # Filterable, searchable issue table with saved views
+│   │   ├── IssueDetailPage.tsx   # Full issue view with timeline, comments, attachments
+│   │   ├── IssueCreatePage.tsx   # New issue form
+│   │   └── IssueEditPage.tsx     # Full edit form for an existing issue
 │   └── settings/
-│       └── PasswordPage.tsx      # Change own password
+│       ├── PasswordPage.tsx      # Change own password
+│       └── ProfilePage.tsx       # View and edit own profile
 ├── router/
 │   ├── index.tsx           # createBrowserRouter — all route definitions
 │   └── guards.tsx          # RequireAuth, RequireRole, RedirectIfAuth
@@ -144,10 +190,13 @@ Routes are defined in [router/index.tsx](src/router/index.tsx) using React Route
 | Path | Access | Page |
 |------|--------|------|
 | `/login` | Public (unauthenticated only) | `LoginPage` |
+| `/register` | Public (unauthenticated only) | `RequestAccessPage` |
 | `/` | All authenticated | `HomePage` |
 | `/issues` | All authenticated | `IssueListPage` |
 | `/issues/new` | All authenticated | `IssueCreatePage` |
 | `/issues/:id` | All authenticated | `IssueDetailPage` |
+| `/issues/:id/edit` | All authenticated | `IssueEditPage` |
+| `/settings/profile` | All authenticated | `ProfilePage` |
 | `/settings/password` | All authenticated | `PasswordPage` |
 | `/admin/dashboard` | admin only | `DashboardPage` |
 | `/admin/companies` | admin only | `CompanyListPage` |
@@ -162,11 +211,13 @@ Routes are defined in [router/index.tsx](src/router/index.tsx) using React Route
 
 ### Issue pages
 
-**`IssueListPage`** — Paginated/infinite-scrolling table with debounced full-text search and filters for status, priority, type, and product. Filtering state lives in URL query params so bookmarking and sharing work. The list scope is automatically role-filtered by the API (clients see only their company's issues, engineers see their assigned products, admins see everything).
+**`IssueListPage`** — Paginated/infinite-scrolling table with debounced full-text search and filters for status, priority, type, and product. Filtering state lives in URL query params so bookmarking and sharing work. Includes a **saved views** panel — users can pin a named filter preset and switch between them from the sidebar. The list scope is automatically role-filtered by the API (clients see only their company's issues, engineers see their assigned products, admins see everything).
 
-**`IssueDetailPage`** — Full issue view opened in a new tab. Displays issue metadata, an editable status/priority section (role-restricted), a combined activity feed (comments + field change history), file attachments, and quick-action buttons (Assign, Resolve). Internal comments are rendered with a visual distinction and are hidden from client users.
+**`IssueDetailPage`** — Full issue view opened in a new tab. Displays issue metadata, an editable status/priority section (role-restricted), a combined activity timeline (comments + field change history), file attachments, and quick-action buttons (Assign, Resolve, Delete). Internal comments are rendered with a visual distinction and are hidden from client users.
 
 **`IssueCreatePage`** — Form with product selector, issue type, title, description, impact, and urgency. Priority is shown as a computed preview that updates as the user adjusts impact/urgency.
+
+**`IssueEditPage`** — Full edit form for an existing issue. Pre-populates all fields from the current issue data and submits a PATCH request on save.
 
 ### Admin pages
 
@@ -222,21 +273,31 @@ All server state is managed by **TanStack Query v5**. Query keys are defined in 
 | Hook | Description |
 |------|-------------|
 | `useIssues` | Paginated issue list |
-| `useInfiniteIssues` | Infinite-scroll variant (30 per page) |
+| `useInfiniteIssues` | Infinite-scroll variant (15 per page) |
 | `useFeed` | Cursor-paginated activity + comment feed for an issue |
 | `useIssue` | Single issue detail |
 | `useIssueStats` | Dashboard KPIs |
 | `useCreateIssue` | Mutation — invalidates all issue lists on success |
 | `useUpdateIssue` | Mutation — invalidates the detail and all lists |
+| `useDeleteIssue` | Mutation — admin-only cancel; invalidates all lists |
 | `useAddComment` | Mutation — invalidates detail and resets feed queries |
 | `useResolveIssue` | Mutation — invalidates the detail |
 | `useAssignIssue` | Mutation — invalidates the detail and stats |
+| `useSavedViews` | User's saved filter presets |
+| `useCreateSavedView` | Mutation — creates a named saved view |
+| `useRenameSavedView` | Mutation — renames a saved view |
+| `useDeleteSavedView` | Mutation — deletes a saved view |
+| `useUploadAttachments` | Mutation — presigns, uploads to S3, then confirms each file |
 | `useCompanies` | Company list |
 | `useCompany` | Single company detail |
 | `useProducts` | Product list |
 | `useUsers` | User list |
 | `useUser` | Single user detail |
 | `useEngineers` | Engineer list (for assignee dropdowns) |
+| `useUpdateUser` | Mutation — updates user fields; invalidates list and detail |
+| `useCreateUser` | Mutation — admin creates a user; invalidates list |
+| `useRevokeProductAccess` | Mutation — revokes an engineer's product access |
+| `useChangePassword` | Mutation — changes own password |
 | `useAuth` | Login and logout mutations |
 
 Default `staleTime` is 30 seconds (configured in `lib/query-client.ts`).
@@ -296,10 +357,14 @@ Layout components (`AppShell`, `Header`, `Sidebar`) do contain business logic �
 
 **URL-driven filter state** — Issue list filters (status, priority, search, etc.) are stored in URL query params rather than component state. This makes filtered views bookmarkable and sharable, and means the browser back button restores the filter state naturally.
 
+**Saved views** — Users can pin any active filter combination as a named view. Views are persisted server-side (`saved_views` table) so they survive browser sessions and are consistent across devices. The sidebar renders the saved view list alongside standard navigation links.
+
 **Silent token refresh** — The Axios response interceptor handles `401` errors transparently. Components never need to check token expiry or trigger a refresh manually. Concurrent requests during a refresh are queued and replayed, not cancelled.
 
 **Role-scoped data at the API layer** — The frontend does not filter data by role. It passes the user's token and the API returns only what that user can see. This avoids the risk of client-side filtering bugs exposing data.
 
+**Role-based permission flags** — `use-issue-permissions.ts` derives a set of boolean flags (`canEdit`, `canAssign`, `canResolve`, `canDelete`, `canComment`, `canPostInternal`) from the current user's role and the issue's ownership. Components read these flags rather than branching on role strings directly.
+
 **Lazy page loading** — All pages are loaded with `React.lazy` + `Suspense`. The initial JS bundle contains only the router and layout shell; page code downloads on first navigation to keep time-to-interactive low.
 
-**Computed priority preview** — The issue create form shows a read-only priority badge that updates in real time as the user selects impact and urgency values. This makes the ITIL matrix tangible and prevents confusion about how priority is determined.
+**Computed priority preview** — The issue create and edit forms show a read-only priority badge that updates in real time as the user selects impact and urgency values. This makes the ITIL matrix tangible and prevents confusion about how priority is determined.
