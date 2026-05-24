@@ -7,48 +7,10 @@ import { useIssueStats } from "@/hooks/use-issues";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip as UITooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { DashboardCharts } from "@/components/ui/dashboard-charts";
+import { KpiCard } from "@/components/ui/kpi-card";
 import { relativeTime } from "@/lib/utils";
 
 const REGION_COLOR = "#6366f1"; // indigo-500
-
-// ─── KPI tile ─────────────────────────────────────────────────────────────────
-
-function KpiCard({
-  label,
-  value,
-  accent,
-  tooltip,
-}: {
-  label:    string;
-  value?:   number;
-  accent?:  "red" | "orange";
-  tooltip:  string;
-}) {
-  const numCls =
-    accent === "red"    ? "text-red-600"    :
-    accent === "orange" ? "text-orange-500" :
-    "text-foreground";
-
-  return (
-    <div className="rounded-xl border bg-card p-4">
-      <div className="flex items-center gap-1 mb-3">
-        <p className="text-xs font-medium text-muted-foreground leading-none">{label}</p>
-        <UITooltip>
-          <TooltipTrigger asChild>
-            <Info className="size-3 text-muted-foreground/60 cursor-default shrink-0" />
-          </TooltipTrigger>
-          <TooltipContent className="max-w-52 text-xs leading-relaxed px-3 py-2">
-            {tooltip}
-          </TooltipContent>
-        </UITooltip>
-      </div>
-      {value === undefined
-        ? <Skeleton className="h-9 w-14" />
-        : <p className={`text-4xl font-light tracking-tight ${numCls}`}>{value}</p>
-      }
-    </div>
-  );
-}
 
 // ─── Region chart ─────────────────────────────────────────────────────────────
 
