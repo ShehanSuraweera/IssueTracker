@@ -72,5 +72,7 @@ def test_unexpected_errors_return_a_generic_500(
     response = client.post("/v1/analyze", json=ISSUE)
     assert response.status_code == 500
     assert response.json()["error"]["code"] == "INTERNAL_ERROR"
+    # Possibly transient, so the caller may retry within its attempt limit
+    assert response.json()["error"]["retryable"] is True
     assert "internal detail" not in response.text
     assert response.headers["X-Request-ID"]

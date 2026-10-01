@@ -98,6 +98,7 @@ class ScriptedProvider:
     def __init__(self) -> None:
         self.requests: list[LLMRequest] = []
         self._queue: list[LLMResponse | BaseException] = []
+        self.closed = False
 
     def will_return(self, payload: dict[str, Any] | str, *, truncated: bool = False) -> None:
         text = payload if isinstance(payload, str) else json.dumps(payload)
@@ -118,6 +119,9 @@ class ScriptedProvider:
         if isinstance(item, BaseException):
             raise item
         return item
+
+    async def aclose(self) -> None:
+        self.closed = True
 
     @property
     def last(self) -> LLMRequest:

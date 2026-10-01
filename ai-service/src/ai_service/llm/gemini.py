@@ -76,15 +76,25 @@ class GeminiProvider:
         self._timeout_seconds = timeout_seconds
         self._thinking_level = thinking_level
         self._temperature = temperature
+        self._client: genai.Client | None = None
         if generate_content is None:
             # No retry_options: the SDK makes exactly one attempt. Retries are
             # the Node backend's decision, so they never stack up.
-            client = genai.Client(
+            #
+            # The client must be kept for the provider's lifetime. The SDK
+            # closes its HTTP connections when a Client is garbage-collected,
+            # so holding only a bound method breaks every later call.
+            self._client = genai.Client(
                 api_key=api_key,
                 http_options=types.HttpOptions(timeout=int(timeout_seconds * 1000)),
             )
-            generate_content = client.aio.models.generate_content
+            generate_content = self._client.aio.models.generate_content
         self._generate_content = generate_content
+
+    async def aclose(self) -> None:
+        """Close the SDK's HTTP connections. Called on application shutdown."""
+        if self._client is not None:
+            await self._client.aio.aclose()
 
     def build_config(self, request: LLMRequest) -> types.GenerateContentConfig:
         return types.GenerateContentConfig(
@@ -93,6 +103,9 @@ class GeminiProvider:
             response_json_schema=request.response_schema,
             max_output_tokens=request.max_output_tokens,
             safety_settings=_SAFETY_SETTINGS,
+            # No tools are passed; disabling automatic function calling makes
+            # sure the SDK can never execute a function on the model's behalf
+            automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
             temperature=self._temperature,
             thinking_config=(
                 types.ThinkingConfig(thinking_level=_THINKING_LEVELS[self._thinking_level])

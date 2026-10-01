@@ -1,6 +1,10 @@
 import { createApp } from "./app";
 import { env } from "./config/env";
 import { prisma } from "./lib/prisma";
+import { getDefaultAiClient } from "./features/ai/ai.client";
+import { startAiWorker, type RunningWorker } from "./features/ai/ai.worker";
+
+let aiWorker: RunningWorker | undefined;
 
 async function bootstrap() {
   // Verify DB connectivity before accepting traffic
@@ -15,6 +19,11 @@ async function bootstrap() {
     console.log(`✓ OpenAPI JSON: http://localhost:${env.PORT}/api-docs.json`);
     console.log(`  Environment: ${env.NODE_ENV}`);
   });
+
+  if (env.AI_ENABLED && env.AI_WORKER_ENABLED) {
+    aiWorker = startAiWorker({ client: getDefaultAiClient(), pollMs: env.AI_WORKER_POLL_MS });
+    console.log("✓ AI worker started");
+  }
 }
 
 bootstrap().catch((err) => {
@@ -25,11 +34,13 @@ bootstrap().catch((err) => {
 // Graceful shutdown
 process.on("SIGTERM", async () => {
   console.log("SIGTERM received — shutting down gracefully");
+  await aiWorker?.stop();
   await prisma.$disconnect();
   process.exit(0);
 });
 
 process.on("SIGINT", async () => {
+  await aiWorker?.stop();
   await prisma.$disconnect();
   process.exit(0);
 });

@@ -69,6 +69,12 @@ All variables are validated at startup via Zod. The server exits immediately if 
 | `SMTP_PASSWORD` | No | — | SMTP password |
 | `SMTP_FROM` | No | — | Sender address |
 | `AI_ENABLED` | No | `false` | Master switch for the AI layer. Accepts `true`/`false`. When off, the app behaves exactly as it did without AI. |
+| `AI_SERVICE_URL` | No | `http://127.0.0.1:8000` | Internal URL of the Python AI service |
+| `AI_SERVICE_TOKEN` | When AI is on | — | Shared secret sent to the AI service (min. 32 characters) |
+| `AI_TIMEOUT_MS` | No | `25000` | Time limit for one AI service call |
+| `AI_WORKER_ENABLED` | No | `true` | Run the background AI worker in this process |
+| `AI_WORKER_POLL_MS` | No | `3000` | How often the worker checks for queued jobs when idle |
+| `AI_JOB_MAX_ATTEMPTS` | No | `5` | Attempts per AI job before it is marked failed |
 
 > **Note:** SMTP and S3 variables are optional. If S3 variables are absent, attachment presign endpoints return `503 Service Unavailable` instead of failing at startup.
 
@@ -86,7 +92,7 @@ backend/
 │   ├── docs/
 │   │   └── swagger.ts          # OpenAPI spec generated from JSDoc annotations
 │   ├── features/               # One folder per domain — routes, controller, service, schemas
-│   │   ├── ai/                 # AI feature flag + (later) AI endpoints
+│   │   ├── ai/                 # AI integration: client, job queue, worker, staff endpoints
 │   │   ├── auth/
 │   │   ├── companies/
 │   │   ├── issues/
@@ -137,6 +143,32 @@ Every Prisma query in service files is scoped by the caller's identity, injected
 
 The API always returns `404` (never `403`) when a resource exists but the caller cannot access it — this prevents resource enumeration.
 
+### AI integration
+
+AI features run in a separate Python service ([ai-service/](../ai-service/README.md)). This backend owns all data; the AI service has no database access and only sees what it's sent.
+
+```
+client creates issue ──┐
+                       ├─ one transaction: issue + ai_jobs row ──► 201 to the client (no waiting)
+                       ┘
+worker (in-process) ── claims due jobs (FOR UPDATE SKIP LOCKED)
+       │
+       ├─► POST /v1/analyze  ──► AI service ──► Gemini
+       │
+       └─ one transaction: ai_suggestions + ai_sentiments + ai_call_logs, job → done
+                       │
+engineer reviews ──► apply / edit / reject ──► normal issue update (priority, activity log)
+```
+
+- **Transactional outbox.** The `ai_jobs` row is inserted in the same transaction as the issue or comment, so a job exists if and only if its data was saved, and saving never waits for the AI service.
+- **Durable, concurrent-safe queue.** Jobs are claimed with `FOR UPDATE SKIP LOCKED`, so multiple workers never process the same job. A job whose worker crashed is reclaimed after 5 minutes. Completion re-checks the lock, so a reclaimed job can't be written twice.
+- **Retries.** Retryable failures (timeouts, rate limits, outages, invalid model output) are retried with exponential backoff (30s doubling to 15 min, ±20% jitter) up to `AI_JOB_MAX_ATTEMPTS`. Non-retryable ones (e.g. a safety block) fail at once. Failed analyses can be re-queued from the API.
+- **Circuit breaker.** After 3 consecutive outages the client pauses calls for 30 seconds, and the worker stops claiming jobs instead of letting each one wait out a timeout.
+- **Defence in depth.** Every AI service response is validated again with Zod before anything is stored.
+- **The AI never changes an issue.** The worker writes only AI tables. Applying a suggestion goes through `updateIssue`, so tenancy, the ITIL priority matrix and the activity log all apply, and the change is attributed to the reviewer.
+- **Sentiment is separate from priority.** It's stored in `ai_sentiments` and never read by any priority logic. Only client-written text is analysed: the issue itself and client comments, never staff or internal comments.
+- **Staff only.** AI endpoints require the engineer or admin role and the same tenancy filter as the issue. No client-facing response includes AI data.
+
 ### Request lifecycle
 
 ```
@@ -183,6 +215,12 @@ Raw OpenAPI JSON: **`/api-docs.json`**
 | Method | Path | Roles | Description |
 |--------|------|-------|-------------|
 | GET | `/ai/config` | All | Returns `{ enabled }` so the frontend can hide AI UI when `AI_ENABLED=false` |
+| GET | `/issues/:id/ai/suggestion` | engineer, admin | Latest triage suggestion and analysis status (`none`, `queued`, `running`, `done`, `failed`) |
+| POST | `/issues/:id/ai/suggestion/:suggestionId/review` | engineer, admin | `{ action: "apply", impact?, urgency?, category?, team? }` or `{ action: "reject" }`. Recorded as `accepted` or `edited` from the data. `409` if already reviewed. |
+| POST | `/issues/:id/ai/analyze` | engineer, admin | Re-queue analysis, e.g. after a failure. `409` while one is queued or running. |
+| GET | `/issues/:id/ai/sentiment` | engineer, admin | Sentiment timeline: the issue plus each client comment |
+
+All AI routes return `404 AI_DISABLED` when `AI_ENABLED=false`, and `403` to clients.
 
 ### Authentication — `/api/auth`
 
@@ -270,12 +308,17 @@ All issue routes require authentication.
 ## Data Model
 
 ```
-companies ──< products ──< issues ──< issue_comments
+companies ──< products ──< issues ──< issue_comments ──< ai_sentiments (per comment)
     │              │           │
     └──< users     │           ├──< issue_activity
-         │         │           └──< issue_attachments
+         │         │           ├──< issue_attachments
+         │         │           ├──< ai_jobs
+         │         │           ├──< ai_suggestions
+         │         │           └──< ai_sentiments (issue)
          └── user_product_access (engineers ↔ products)
          └──< refresh_tokens
+
+ai_call_logs (no foreign keys: an audit trail that outlives issues)
 ```
 
 ### Key tables
@@ -288,13 +331,23 @@ companies ──< products ──< issues ──< issue_comments
 
 **`user_product_access`** — Join table that grants an engineer access to a specific product. Engineers can only see issues for products in this table.
 
-**`issues`** — Core entity. `priority` is a computed column (never user-set). `ticket_number` is assigned atomically using a count of existing issues per product. The status machine allows: `new → in_progress → on_hold → in_progress → resolved → closed`.
+**`issues`** — Core entity. `priority` is a computed column (never user-set). `category` and `team` are optional and set by staff, usually by accepting an AI suggestion. `ticket_number` is assigned atomically using a count of existing issues per product. The status machine allows: `new → in_progress → on_hold → in_progress → resolved → closed`.
 
 **`issue_comments`** — `is_internal` comments are hidden from `client_user` in all API responses.
 
 **`issue_activity`** — Immutable audit log. One row per changed field, storing `old_value` and `new_value` as strings.
 
 **`issue_attachments`** — Metadata record created after the client confirms an S3 upload. The `s3_key` is never exposed directly; only presigned URLs are returned.
+
+**`ai_jobs`** — Durable queue of AI work, inserted with the issue or comment it belongs to. Tracks attempts, backoff and the worker holding the lock.
+
+**`ai_suggestions`** — One triage suggestion (impact, urgency, category, team, each with a reason) plus what the reviewer did: `pending`, `accepted`, `edited`, `rejected` or `superseded`. Suggested and applied values are both kept, so acceptance can be reported per field. Records the model and prompt version.
+
+**`ai_sentiments`** — Sentiment, frustration (1–5, enforced by a `CHECK` constraint), escalation risk and a verbatim evidence quote for the issue or one client comment.
+
+**`ai_call_logs`** — Every AI service call: feature, outcome, latency and token usage.
+
+Every AI table stores `company_id`, copied from the issue's product when the row is written, so each row carries its own tenant and per-company reports need no joins.
 
 **`refresh_tokens`** — Server-side refresh token store. Tokens are stored as SHA-256 hashes. Each use invalidates the current token and issues a new one (rotation).
 
@@ -347,7 +400,9 @@ To use an existing empty database instead of a container, set `TEST_DATABASE_URL
 | `internal-comments.test.ts` | Clients never receive internal comments through issue detail or the feed, and cannot post them. |
 | `priority.test.ts` | All nine cells of the ITIL impact × urgency matrix, defaults, and recomputation on update. |
 | `auth.test.ts` | Missing, malformed, forged, expired, and HS256 algorithm-confusion tokens are rejected. |
-| `ai-config.test.ts` | The `AI_ENABLED` flag and `/api/ai/config`. |
+| `ai-config.test.ts` | The `AI_ENABLED` flag: `/api/ai/config`, AI routes disabled, no jobs queued, and startup refused without `AI_SERVICE_TOKEN`. |
+| `ai-pipeline.test.ts` | Jobs are queued with the issue or comment (clients only) without calling the AI service; the worker stores results and never changes the issue; retries, backoff, failure, timeouts, invalid responses and the circuit breaker; `SKIP LOCKED` and stale-lock recovery. Runs against a stub AI service over real HTTP. |
+| `ai-api.test.ts` | Tenancy on every AI route, clients get `403`, no client response contains AI data, accept/edit/reject, review-once (including two simultaneous reviews), retry, and staff-only `category`/`team`. |
 
 `tests/helpers/fixtures.ts` builds a small two-company world (Acme and Globex, each with a product, a client, and an engineer, plus an admin) that every test probes across. Test files run one at a time because they share the database.
 

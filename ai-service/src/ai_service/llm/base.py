@@ -43,6 +43,10 @@ class LLMProvider(Protocol):
         """Make exactly one call. Raise an LLMError subclass on failure; never retry."""
         ...
 
+    async def aclose(self) -> None:
+        """Release network resources. Called once, on application shutdown."""
+        ...
+
 
 class LLMError(Exception):
     """Base class. `retryable` tells the caller whether trying again might succeed."""

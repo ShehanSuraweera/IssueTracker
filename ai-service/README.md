@@ -89,6 +89,7 @@ All `/v1` endpoints need `Authorization: Bearer <AI_SERVICE_TOKEN>`. An `X-Reque
 | `LLM_UNAVAILABLE` | 503 | yes | Provider error or unreachable |
 | `LLM_BLOCKED` | 422 | no | Provider safety filters refused |
 | `LLM_REQUEST_REJECTED` | 502 | no | Provider rejected the request (bad key, unknown model) |
+| `INTERNAL_ERROR` | 500 | yes | Unexpected error; possibly transient, so the caller may retry within its attempt limit |
 
 The service makes **exactly one attempt** per request. Retrying is the Node backend's decision: its job queue owns the retry budget, so retries never stack up across two layers.
 
@@ -125,7 +126,7 @@ Client-written text is treated as untrusted at every step.
 1. **Instructions and data are separated.** The system prompt is a fixed constant; client text only ever appears in the user message. The prompt's security rules tell the model to treat client data as data, ignore instructions inside it, and report attempts in `manipulation_attempt`.
 2. **Unescapable delimiters.** Client text is wrapped in `<client_data-{boundary}>` tags with a random boundary per request. A client can't close the block early because they can't know the boundary, and anything resembling the tag in their text is replaced with `[tag removed]`.
 3. **Input cleaning.** Control characters are stripped and text is capped at `MAX_INPUT_CHARS` before it reaches the model.
-4. **Constrained output.** The model is given a JSON Schema, so it can't reply with free text.
+4. **Constrained output.** The model is given a JSON Schema, so it can't reply with free text. No tools are passed and the SDK's automatic function calling is explicitly disabled, so a model can never trigger code execution.
 5. **Strict validation.** Every response is parsed against a strict Pydantic model: unknown fields, out-of-range values, wrong types and over-long strings are rejected, never repaired.
 6. **Verbatim evidence.** `evidence_quote` must appear in the client's text (allowing only case, whitespace and quote-style differences). A model that has been manipulated into inventing evidence fails this check mechanically.
 7. **Human in the loop.** Even a manipulated answer that passes every check is only a suggestion an engineer reviews.
@@ -142,7 +143,7 @@ Regex blocklists of "bad phrases" are deliberately not used: they are easy to ev
 ## Testing
 
 ```bash
-uv run pytest             # 156 tests, no API key or network needed
+uv run pytest             # 158 tests, no API key or network needed
 uv run ruff check .       # lint (includes security rules)
 uv run ruff format .      # format
 uv run mypy               # strict type checking of src/ and tests/

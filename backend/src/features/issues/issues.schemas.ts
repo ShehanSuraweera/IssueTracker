@@ -23,9 +23,29 @@ const IssueTypeEnum = z.enum([
   "incident",
 ]);
 
-const ImpactLevelEnum = z.enum(["low", "medium", "high"]);
-const UrgencyLevelEnum = z.enum(["low", "medium", "high"]);
+export const ImpactLevelEnum = z.enum(["low", "medium", "high"]);
+export const UrgencyLevelEnum = z.enum(["low", "medium", "high"]);
 const PriorityLevelEnum = z.enum(["low", "moderate", "high", "critical"]);
+export const IssueCategoryEnum = z.enum([
+  "authentication_access",
+  "notifications",
+  "data_integrity",
+  "performance",
+  "ui_display",
+  "crash_error",
+  "file_handling",
+  "integrations",
+  "reporting_analytics",
+  "other",
+]);
+export const EngineeringTeamEnum = z.enum([
+  "mobile",
+  "web_frontend",
+  "backend",
+  "data_platform",
+  "infrastructure",
+  "support",
+]);
 
 // ─── Request schemas ─────────────────────────────────────────────────────────
 
@@ -47,6 +67,9 @@ export const UpdateIssueSchema = z
     status: IssueStatusEnum.optional(),
     impact: ImpactLevelEnum.optional(),
     urgency: UrgencyLevelEnum.optional(),
+    // Staff only; ignored for clients. null clears the value.
+    category: IssueCategoryEnum.nullable().optional(),
+    team: EngineeringTeamEnum.nullable().optional(),
     slaDeadline: z.string().datetime().nullable().optional(),
   })
   .refine((d) => Object.keys(d).length > 0, {

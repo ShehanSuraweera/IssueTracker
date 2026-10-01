@@ -10,6 +10,7 @@ import { prisma } from "../../lib/prisma";
 import { AppError } from "../../middleware/errorHandler";
 import { createPresignedUploadUrl, createPresignedDownloadUrl, deleteS3Objects, UPLOAD_EXPIRES_IN } from "../../lib/s3";
 import { v4 as uuidv4 } from "uuid";
+import { enqueueCommentSentiment, enqueueIssueAnalysis } from "../ai/ai.jobs";
 import type {
   CreateIssueInput,
   UpdateIssueInput,
@@ -57,7 +58,7 @@ function assertTransition(from: IssueStatus, to: IssueStatus): void {
 
 // ─── Auth user shape (mirrors req.user) ──────────────────────────────────────
 
-interface AuthUser {
+export interface AuthUser {
   id: bigint;
   email: string;
   role: UserRole;
@@ -66,7 +67,7 @@ interface AuthUser {
 
 // ─── Multi-tenant where clause ────────────────────────────────────────────────
 
-function buildTenantWhere(user: AuthUser): Prisma.IssueWhereInput {
+export function buildTenantWhere(user: AuthUser): Prisma.IssueWhereInput {
   if (user.role === "admin") return {};
   if (user.role === "engineer") {
     return { product: { userProductAccess: { some: { userId: user.id } } } };
@@ -241,6 +242,13 @@ export async function createIssue(input: CreateIssueInput, user: AuthUser) {
       },
     });
 
+    // AI triage and sentiment run on issues raised by clients. The job is
+    // committed with the issue (transactional outbox) and processed later by
+    // the worker, so creating an issue never waits for the AI service.
+    if (user.role === "client_user") {
+      await enqueueIssueAnalysis(tx, { issueId: created.id, companyId: product.companyId });
+    }
+
     return created;
   });
 
@@ -315,9 +323,29 @@ export async function getIssue(issueId: bigint, user: AuthUser) {
 export async function updateIssue(
   issueId: bigint,
   input: UpdateIssueInput,
+  user: AuthUser,
+  // Pass a transaction to make the update part of a larger atomic change
+  // (e.g. applying an AI suggestion and marking it reviewed together)
+  options: { tx?: Prisma.TransactionClient } = {}
+) {
+  const run = (db: Prisma.TransactionClient) => applyIssueUpdate(db, issueId, input, user);
+  const updated = options.tx ? await run(options.tx) : await prisma.$transaction(run);
+
+  return {
+    ...serializeIssue(updated),
+    product: serializeUser(updated.product),
+    creator: serializeUser(updated.creator),
+    assignee: updated.assignee ? serializeUser(updated.assignee) : null,
+  };
+}
+
+async function applyIssueUpdate(
+  db: Prisma.TransactionClient,
+  issueId: bigint,
+  input: UpdateIssueInput,
   user: AuthUser
 ) {
-  const existing = await prisma.issue.findFirst({
+  const existing = await db.issue.findFirst({
     where: { id: issueId, ...buildTenantWhere(user) },
   });
 
@@ -348,6 +376,12 @@ export async function updateIssue(
     delete input.status;
   }
 
+  // Category and team are triage decisions made by staff
+  if (user.role === "client_user") {
+    delete input.category;
+    delete input.team;
+  }
+
   if (input.status && input.status !== existing.status) {
     assertTransition(existing.status, input.status as IssueStatus);
   }
@@ -368,6 +402,8 @@ export async function updateIssue(
   if (input.description && input.description !== existing.description) changes.push({ field: "description", oldValue: trunc(existing.description), newValue: trunc(input.description) });
   if (input.impact      && input.impact      !== existing.impact)      changes.push({ field: "impact",      oldValue: existing.impact,           newValue: input.impact });
   if (input.urgency     && input.urgency     !== existing.urgency)     changes.push({ field: "urgency",     oldValue: existing.urgency,          newValue: input.urgency });
+  if (input.category !== undefined && input.category !== existing.category) changes.push({ field: "category", oldValue: existing.category, newValue: input.category });
+  if (input.team     !== undefined && input.team     !== existing.team)     changes.push({ field: "team",     oldValue: existing.team,     newValue: input.team });
 
   const resolvedAt =
     input.status === "resolved" && existing.status !== "resolved"
@@ -379,8 +415,7 @@ export async function updateIssue(
       ? new Date()
       : existing.closedAt;
 
-  const updated = await prisma.$transaction(async (tx) => {
-    const result = await tx.issue.update({
+  const result = await db.issue.update({
       where: { id: issueId },
       data: {
         ...(input.title       && { title:       input.title }),
@@ -389,6 +424,8 @@ export async function updateIssue(
         ...(input.status      && { status:      input.status as any }),
         ...(input.impact      && { impact:      input.impact as any }),
         ...(input.urgency     && { urgency:     input.urgency as any }),
+        ...(input.category !== undefined && { category: input.category }),
+        ...(input.team     !== undefined && { team:     input.team }),
         priority: newPriority,
         ...(input.slaDeadline !== undefined && {
           slaDeadline: input.slaDeadline ? new Date(input.slaDeadline) : null,
@@ -403,16 +440,8 @@ export async function updateIssue(
       },
     });
 
-    await writeActivity(tx, issueId, user.id, changes);
-    return result;
-  });
-
-  return {
-    ...serializeIssue(updated),
-    product: serializeUser(updated.product),
-    creator: serializeUser(updated.creator),
-    assignee: updated.assignee ? serializeUser(updated.assignee) : null,
-  };
+  await writeActivity(db, issueId, user.id, changes);
+  return result;
 }
 
 // ─── Delete Issue (hard) ──────────────────────────────────────────────────────
@@ -781,6 +810,7 @@ export async function addComment(
 ) {
   const issue = await prisma.issue.findFirst({
     where: { id: issueId, ...buildTenantWhere(user) },
+    select: { id: true, product: { select: { companyId: true } } },
   });
   if (!issue) throw new AppError(404, "ISSUE_NOT_FOUND", "Issue not found");
 
@@ -788,14 +818,25 @@ export async function addComment(
     throw new AppError(403, "FORBIDDEN", "Clients cannot post internal comments");
   }
 
-  const comment = await prisma.issueComment.create({
-    data: {
-      issueId,
-      userId: user.id,
-      body: input.body,
-      isInternal: input.isInternal,
-    },
-    include: { user: { select: { id: true, fullName: true, role: true } } },
+  const comment = await prisma.$transaction(async (tx) => {
+    const created = await tx.issueComment.create({
+      data: {
+        issueId,
+        userId: user.id,
+        body: input.body,
+        isInternal: input.isInternal,
+      },
+      include: { user: { select: { id: true, fullName: true, role: true } } },
+    });
+    // Sentiment tracks the client's mood, so only client comments are analysed
+    if (user.role === "client_user") {
+      await enqueueCommentSentiment(tx, {
+        issueId,
+        commentId: created.id,
+        companyId: issue.product.companyId,
+      });
+    }
+    return created;
   });
 
   return {

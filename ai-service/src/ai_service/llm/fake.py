@@ -61,3 +61,6 @@ class FakeProvider:
         return LLMResponse(
             text=json.dumps(output), model=self.model, usage=LLMUsage(), latency_ms=0
         )
+
+    async def aclose(self) -> None:
+        return None

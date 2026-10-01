@@ -45,6 +45,12 @@ def test_v1_endpoints_reject_a_missing_or_wrong_token(
     assert provider.requests == []
 
 
+def test_shutdown_closes_the_provider(provider: ScriptedProvider) -> None:
+    with TestClient(create_app(make_settings(), provider)):
+        assert provider.closed is False
+    assert provider.closed is True
+
+
 def test_api_docs_are_off_by_default(client: TestClient) -> None:
     assert client.get("/docs").status_code == 404
     assert client.get("/openapi.json").status_code == 404
