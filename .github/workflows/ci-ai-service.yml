@@ -1,0 +1,49 @@
+name: CI — AI service
+
+# WHEN: every push and pull request that touches the AI service
+# WHY: lint, type-check and test the Python service. Tests use scripted and
+#      fake providers, so CI needs no API key and makes no network calls to Gemini.
+on:
+  push:
+    paths:
+      - "ai-service/**"
+      - ".github/workflows/ci-ai-service.yml"
+  pull_request:
+    paths:
+      - "ai-service/**"
+      - ".github/workflows/ci-ai-service.yml"
+
+jobs:
+  ai-service:
+    name: AI service — lint, types and tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ai-service
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Pinned to a full commit SHA: a tag can be moved to different code, a
+      # SHA can't. setup-uv publishes no floating major tag (no "@v10").
+      - name: Install uv
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+
+      # --locked fails if uv.lock is out of date with pyproject.toml, so CI
+      # always tests exactly the dependency versions that are committed.
+      # uv also installs the Python version pinned in .python-version.
+      - name: Install dependencies
+        run: uv sync --locked
+
+      - name: Lint
+        run: uv run ruff check .
+
+      - name: Check formatting
+        run: uv run ruff format --check .
+
+      - name: Type-check (mypy --strict)
+        run: uv run mypy
+
+      - name: Run tests
+        run: uv run pytest

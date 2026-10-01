@@ -1,0 +1,67 @@
+[project]
+name = "ai-service"
+version = "0.1.0"
+description = "NewnopDesk AI service: triage, sentiment and retrieval for client issues"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "fastapi>=0.142.2",
+    "google-genai>=2.26.0",
+    "pydantic>=2.13.5",
+    "pydantic-settings>=2.15.0",
+    "uvicorn[standard]>=0.54.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.12.21,<0.13.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "httpx2>=2.13.1",
+    "mypy>=2.3.1",
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+    "ruff>=0.16.9",
+]
+
+# ─── Tooling ──────────────────────────────────────────────────────────────────
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E", "W", "F",  # pycodestyle, pyflakes
+    "I",            # import sorting
+    "B",            # bugbear: likely bugs
+    "UP",           # pyupgrade: modern syntax
+    "S",            # bandit: security issues
+    "ASYNC",        # blocking calls inside async code
+    "SIM",          # simplifications
+    "PT",           # pytest style
+    "N",            # naming
+    "RUF",          # ruff-specific checks
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests use assert and fake credentials by design
+"tests/**" = ["S101", "S105", "S106"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+plugins = ["pydantic.mypy"]
+mypy_path = "src"
+files = ["src", "tests"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+# Tests marked `live` call the real Gemini API and are skipped by default
+addopts = "--strict-markers -m 'not live'"
+markers = [
+    "live: calls the real Gemini API; needs GEMINI_API_KEY. Run with: uv run pytest -m live",
+]
