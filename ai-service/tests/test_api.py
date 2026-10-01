@@ -36,7 +36,11 @@ def test_v1_endpoints_reject_a_missing_or_wrong_token(
 ) -> None:
     headers = {} if authorization is None else {"Authorization": authorization}
     with TestClient(create_app(make_settings(), provider)) as anonymous:
-        for path, body in (("/v1/analyze", ISSUE), ("/v1/sentiment", COMMENT)):
+        for path, body in (
+            ("/v1/analyze", ISSUE),
+            ("/v1/sentiment", COMMENT),
+            ("/v1/summarize-thread", {}),
+        ):
             response = anonymous.post(path, json=body, headers=headers)
             assert response.status_code == 401
             assert response.json()["error"]["code"] == "UNAUTHORIZED"

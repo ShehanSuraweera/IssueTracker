@@ -23,9 +23,12 @@ from ai_service.schemas import (
     SentimentResponse,
     SimilarRequest,
     SimilarResponse,
+    SummaryRequest,
+    SummaryResponse,
 )
 from ai_service.services import retrieval
 from ai_service.services.analysis import analyze_comment_sentiment, analyze_issue
+from ai_service.services.summary import summarize_thread
 
 IssueId = Annotated[int, Path(gt=0)]
 CompanyIdQuery = Annotated[int, Query(gt=0)]
@@ -114,3 +117,14 @@ async def suggest_resolution(
     return await retrieval.suggest_resolution(
         body, provider=provider, embedder=embedder, store=store, settings=settings
     )
+
+
+# ─── Thread summary ──────────────────────────────────────────────────────────
+
+
+@v1_router.post("/summarize-thread")
+async def summarize(
+    body: SummaryRequest, provider: ProviderDep, settings: SettingsDep
+) -> SummaryResponse:
+    """A short summary of an issue's thread; every key point cites its comments."""
+    return await summarize_thread(body, provider=provider, settings=settings)
