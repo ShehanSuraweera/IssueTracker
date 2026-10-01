@@ -31,7 +31,9 @@ async def request_context(
         # Handled here, while the request ID is still set, so the log line has it
         logger.exception("unhandled_error")
         response = JSONResponse(
-            status_code=500, content=error_body("INTERNAL_ERROR", "Unexpected server error")
+            status_code=500,
+            # Possibly transient; the caller's attempt limit bounds the retries
+            content=error_body("INTERNAL_ERROR", "Unexpected server error", retryable=True),
         )
     finally:
         request_id_var.reset(token)

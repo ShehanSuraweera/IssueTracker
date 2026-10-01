@@ -3,6 +3,9 @@
 Run with:  uv run uvicorn ai_service.main:create_app --factory --host 127.0.0.1 --port 8000
 """
 
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 
 from ai_service import __version__
@@ -20,8 +23,16 @@ def create_app(settings: Settings | None = None, provider: LLMProvider | None = 
     settings = settings or get_settings()
     configure_logging(settings.log_level)
 
+    llm_provider = provider or build_provider(settings)
+
+    @asynccontextmanager
+    async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+        yield
+        await llm_provider.aclose()
+
     docs = settings.ai_service_docs
     app = FastAPI(
+        lifespan=lifespan,
         title="NewnopDesk AI Service",
         version=__version__,
         docs_url="/docs" if docs else None,
@@ -29,7 +40,7 @@ def create_app(settings: Settings | None = None, provider: LLMProvider | None = 
         openapi_url="/openapi.json" if docs else None,
     )
     app.state.settings = settings
-    app.state.provider = provider or build_provider(settings)
+    app.state.provider = llm_provider
 
     app.middleware("http")(request_context)
     register_error_handlers(app)

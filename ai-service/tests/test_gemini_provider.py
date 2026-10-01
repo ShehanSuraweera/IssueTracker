@@ -1,10 +1,13 @@
 """GeminiProvider against a stubbed SDK call: request building and response/error mapping."""
 
 import asyncio
+import gc
+import weakref
 from typing import Any
 
 import httpx
 import pytest
+from google import genai
 from google.genai import errors, types
 
 from ai_service.llm.base import (
@@ -103,6 +106,8 @@ async def test_builds_the_request_with_schema_safety_and_thinking_config() -> No
         types.HarmBlockThreshold.BLOCK_ONLY_HIGH
     }
     assert len(config.safety_settings) == 4
+    assert config.automatic_function_calling is not None
+    assert config.automatic_function_calling.disable is True
 
 
 async def test_returns_text_usage_and_model_version() -> None:
@@ -172,3 +177,26 @@ async def test_enforces_a_hard_timeout() -> None:
 def test_real_client_is_built_without_network_access() -> None:
     gemini = GeminiProvider(api_key="test-key", model="gemini-3.5-flash-lite", timeout_seconds=5)
     assert gemini.name == "gemini"
+
+
+async def test_sdk_client_lives_as_long_as_the_provider(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Regression test. The SDK closes its HTTP connections when a Client is
+    garbage-collected. The provider once kept only a bound method, so under
+    uvicorn (which builds the app inside its event loop) every call failed with
+    "client has been closed". Building the provider inside a running loop, as
+    this async test does, reproduces that setting."""
+    created: list[weakref.ref[genai.Client]] = []
+    real_client = genai.Client
+
+    class TrackedClient(real_client):  # type: ignore[misc,valid-type]
+        def __init__(self, **kwargs: Any) -> None:
+            super().__init__(**kwargs)
+            created.append(weakref.ref(self))
+
+    monkeypatch.setattr("ai_service.llm.gemini.genai.Client", TrackedClient)
+    gemini = GeminiProvider(api_key="test-key", model="gemini-3.5-flash-lite", timeout_seconds=5)
+    gc.collect()
+    await asyncio.sleep(0)  # let any close scheduled by a finaliser run
+
+    assert created[0]() is not None
+    await gemini.aclose()
