@@ -15,11 +15,12 @@ import secrets
 import unicodedata
 
 # Delimiter tags around untrusted text. client_data: the text being
-# analysed. past_issue: retrieved past tickets, which also contain
-# client-written text.
+# analysed. past_issue: retrieved past tickets. thread_comment: one comment
+# in a thread being summarised. All of them can contain client-written text.
 TAG_NAME = "client_data"
 PAST_ISSUE_TAG = "past_issue"
-_DELIMITER_TAGS = (TAG_NAME, PAST_ISSUE_TAG)
+THREAD_COMMENT_TAG = "thread_comment"
+_DELIMITER_TAGS = (TAG_NAME, PAST_ISSUE_TAG, THREAD_COMMENT_TAG)
 TRUNCATION_MARKER = "\n[... truncated ...]"
 REMOVED_TAG = "[tag removed]"
 
@@ -87,3 +88,16 @@ def is_verbatim_quote(quote: str, sources: list[str]) -> bool:
     if len(needle) < MIN_QUOTE_CHARS:
         return False
     return any(needle in _normalise(source) for source in sources)
+
+
+def wrap_thread_comment(
+    *, comment_id: int, author: str, internal: bool, posted_at: str, body: str, boundary: str
+) -> str:
+    """Wrap one comment of a thread. The attributes come from our own database;
+    `body` must already be cleaned with prepare_untrusted."""
+    tag = f"{THREAD_COMMENT_TAG}-{boundary}"
+    attributes = (
+        f'id="{comment_id}" author="{author}" internal="{str(internal).lower()}" '
+        f'posted="{posted_at}"'
+    )
+    return f"<{tag} {attributes}>\n{body}\n</{tag}>"

@@ -17,6 +17,7 @@ Python service that adds AI-assisted triage and sentiment analysis to NewnopDesk
 | `GET /v1/documents` | Which issues are indexed, for reconciliation | — |
 | `POST /v1/similar` | An issue being viewed | — (vector search: same company, optionally the viewer's products) |
 | `POST /v1/suggest-resolution` | An issue being viewed | A suggested fix grounded in similar past issues, citing their ticket numbers |
+| `POST /v1/summarize-thread` | An issue and its comments | A summary, key points that each cite the comments (or the description) they come from, and open questions |
 | `GET /healthz` | Liveness check, and whether retrieval is enabled | — |
 
 Triage and sentiment share one call per issue to keep cost down. Every result is a **suggestion**: the backend stores it and an engineer or admin accepts, edits or rejects it. This service never changes an issue.
@@ -124,11 +125,12 @@ src/ai_service/
 ├── vector_store.py      # VectorStore interface: PostgreSQL + pgvector, and in-memory
 ├── serve.py             # `ai-serve`: uvicorn on a selector event loop
 ├── db/                  # `ai-db`: bootstrap (role + schema) and migrations
-├── prompts/             # versioned prompts (analyze-v1, sentiment-v1, resolution-v1)
+├── prompts/             # versioned prompts (analyze-v1, sentiment-v1, resolution-v1, summary-v1)
 ├── services/
 │   ├── llm_call.py      # one call → validate → feature check → log, shared by every feature
 │   ├── analysis.py      # triage + sentiment, comment sentiment
-│   └── retrieval.py     # indexing, similar issues, suggested resolutions
+│   ├── retrieval.py     # indexing, similar issues, suggested resolutions
+│   └── summary.py       # thread summaries
 ├── llm/
 │   ├── base.py          # LLMProvider interface and error types
 │   ├── gemini.py        # Gemini implementation
@@ -170,6 +172,10 @@ Similar-issue search must never cross a tenant boundary, so isolation is enforce
 
 Suggested resolutions are grounded and checked: the model sees only the retrieved past issues (wrapped in `<past_issue-{boundary}>` delimiters with the same neutralisation as client text), must cite at least one of them when it claims relevant history, and **may only cite tickets that were actually retrieved**. A response citing anything else, including a real ticket from another company, is rejected. When no similar issue clears the threshold, no LLM call is made at all.
 
+### Thread summaries
+
+Each comment is wrapped in a `<thread_comment-{boundary}>` delimiter whose attributes (id, author role, internal flag, time) come from the backend's data, never from the text, so a client can't pose as staff. Every key point must cite the comments it comes from (`0` means the issue description), and a citation of anything not in the thread is rejected. Long threads keep their 40 most recent comments, each capped at 1,500 characters, and the prompt says how many older ones were left out.
+
 **Gemini safety filters** are set to block only high-probability harm. Client complaints are often angry or rude, and the default thresholds could block a legitimate complaint we need to classify. The output is constrained JSON, so this doesn't let the model write harmful free text.
 
 **Data:** on Gemini's free tier, Google may use prompts and responses to improve its products. That's acceptable for seeded demo data; a deployment handling real client tickets should use a paid tier.
@@ -179,7 +185,7 @@ Suggested resolutions are grounded and checked: the model sees only the retrieve
 ## Testing
 
 ```bash
-uv run pytest             # 233 tests; database tests start a throwaway pgvector container (Docker)
+uv run pytest             # 252 tests; database tests start a throwaway pgvector container (Docker)
 uv run ruff check .       # lint (includes security rules)
 uv run ruff format .      # format
 uv run mypy               # strict type checking of src/ and tests/
@@ -201,6 +207,7 @@ Tests use a **scripted provider** that returns whatever output a test specifies,
 | `test_vector_store.py` | One contract run against **both** stores (in-memory and PostgreSQL): ranking, company isolation, product narrowing, scoped delete, invalid company IDs |
 | `test_database_security.py` | Against real PostgreSQL: `ai_service` can't read, write or create anything in `public`; the extension lives in `ai`; `company_id > 0` is enforced by a `CHECK` |
 | `test_retrieval_api.py` | Indexing and re-embedding, disjoint results per company, product narrowing, citations limited to retrieved tickets, injected past-issue text staying in its block, retrieval disabled gracefully |
+| `test_summary_api.py` | Key points may only cite comments in the thread (or the description); trimmed comments can't be cited; forged comment tags are neutralised; comments ordered by time; long threads trimmed to the most recent |
 | `test_retrieval_postgres.py` | Full stack: HTTP → service → PostgreSQL + pgvector, isolated per company |
 | `test_live_gemini.py` | Opt-in smoke tests against the real API |
 

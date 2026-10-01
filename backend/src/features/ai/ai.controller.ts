@@ -1,7 +1,11 @@
 import { Request, Response, NextFunction } from "express";
 import { env } from "../../config/env";
 import { AppError } from "../../middleware/errorHandler";
-import { ResolutionFeedbackSchema, ReviewSuggestionSchema } from "./ai.schemas";
+import {
+  ClientHealthQuerySchema,
+  ResolutionFeedbackSchema,
+  ReviewSuggestionSchema,
+} from "./ai.schemas";
 import * as AiService from "./ai.service";
 
 function parseId(param: string | string[] | undefined, name = "ID"): bigint {
@@ -100,6 +104,43 @@ export async function giveResolutionFeedback(req: Request, res: Response, next: 
       feedback,
       req.user!
     );
+    res.json({ data });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getThreadSummary(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const data = await AiService.getThreadSummary(parseId(req.params.id), req.user!);
+    res.json({ data });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function requestThreadSummary(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const data = await AiService.requestThreadSummary(parseId(req.params.id), req.user!, traceId(req));
+    res.status(201).json({ data });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getEscalations(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const data = await AiService.getEscalations(req.user!);
+    res.json({ data });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getClientHealth(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { days } = ClientHealthQuerySchema.parse(req.query);
+    const data = await AiService.getClientHealth(days, req.user!);
     res.json({ data });
   } catch (err) {
     next(err);

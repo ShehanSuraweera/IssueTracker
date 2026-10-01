@@ -176,6 +176,12 @@ engineer reviews ──► apply / edit / reject ──► normal issue update (
 - Every result from the AI service is re-checked here against the viewer's tenancy before it's returned, which also drops issues reopened or deleted since they were indexed.
 - `npm run ai:reindex` queues every resolved issue for indexing and removes index entries for deleted issues. Run it after seeding or restoring a database.
 
+**Insights for staff:**
+
+- **Thread summaries** (admins) are generated on request for threads of 3 or more comments, including internal notes. Each key point cites the comments it comes from (or `"description"`), and citations of anything outside the issue are dropped here as a second check. A summary is marked `stale` once newer comments exist.
+- **High-risk issues** are open issues whose *latest* sentiment reading is high escalation risk, within the viewer's tenancy. A client who calms down drops off the list. Priority is shown next to the risk and never changed by it.
+- **Client health** (admins) aggregates the stored sentiment readings per company: weekly average frustration, share of negative messages and high-risk readings, and the last 30 days against the 30 before (`improving`, `stable`, `worsening`, or `insufficient_data`). It makes no LLM calls.
+
 ### Request lifecycle
 
 ```
@@ -230,6 +236,10 @@ Raw OpenAPI JSON: **`/api-docs.json`**
 | GET | `/issues/:id/ai/resolution` | engineer, admin | Latest suggested resolution, or `null` |
 | POST | `/issues/:id/ai/resolution` | engineer, admin | Generate a suggested resolution with citations to past tickets |
 | POST | `/issues/:id/ai/resolution/:resolutionId/feedback` | engineer, admin | `{ feedback: "helpful" \| "not_helpful" }`, recorded once |
+| GET | `/issues/:id/ai/summary` | admin | Latest thread summary (with `stale`), and the current comment count |
+| POST | `/issues/:id/ai/summary` | admin | Summarise the thread. `422 THREAD_TOO_SHORT` under 3 comments. |
+| GET | `/ai/escalations` | engineer, admin | Open issues whose latest sentiment is high escalation risk |
+| GET | `/ai/client-health?days=90` | admin | Sentiment trend per company (14–365 days) |
 
 All AI routes return `404 AI_DISABLED` when `AI_ENABLED=false`, and `403` to clients.
 
@@ -358,6 +368,8 @@ ai_call_logs (no foreign keys: an audit trail that outlives issues)
 
 **`ai_call_logs`** — Every AI service call: feature, outcome, latency and token usage.
 
+**`ai_thread_summaries`** — Each thread summary with its key points and citations, open questions, model and prompt version, and the newest comment it covered (to detect staleness).
+
 **`ai_resolution_suggestions`** — Each suggested resolution with its steps, cited tickets, a snapshot of the sources shown, model and prompt version, and whether the engineer marked it helpful.
 
 Every AI table stores `company_id`, copied from the issue's product when the row is written, so each row carries its own tenant and per-company reports need no joins.
@@ -415,6 +427,7 @@ To use an existing empty database instead of a container, set `TEST_DATABASE_URL
 | `auth.test.ts` | Missing, malformed, forged, expired, and HS256 algorithm-confusion tokens are rejected. |
 | `ai-config.test.ts` | The `AI_ENABLED` flag: `/api/ai/config`, AI routes disabled, no jobs queued, and startup refused without `AI_SERVICE_TOKEN`. |
 | `ai-pipeline.test.ts` | Jobs are queued with the issue or comment (clients only) without calling the AI service; the worker stores results and never changes the issue; retries, backoff, failure, timeouts, invalid responses and the circuit breaker; `SKIP LOCKED` and stale-lock recovery. Runs against a stub AI service over real HTTP. |
+| `ai-insights.test.ts` | Summaries send the whole thread with trusted roles, drop foreign citations, store description citations, go stale on new comments, refuse short threads, admin only; high-risk list uses only the latest reading, ignores resolved issues, follows tenancy, never changes priority; client health buckets by week, computes the 30-day trend, includes companies without data, admin only. |
 | `ai-retrieval.test.ts` | Index syncs queued on resolve, reopen, edit and staff comment (never twice); the worker indexes with staff notes only and removes reopened issues; searches scoped to company and viewer's products; every result the viewer couldn't open is dropped, even for admins; resolutions stored with cost and once-only feedback. |
 | `ai-api.test.ts` | Tenancy on every AI route, clients get `403`, no client response contains AI data, accept/edit/reject, review-once (including two simultaneous reviews), retry, and staff-only `category`/`team`. |
 
