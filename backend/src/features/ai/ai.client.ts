@@ -17,11 +17,13 @@ import {
   ResolutionResponseSchema,
   SentimentResponseSchema,
   SimilarResponseSchema,
+  SummaryResponseSchema,
   type AnalyzeResponse,
   type ErrorMeta,
   type ResolutionResponse,
   type SentimentResponse,
   type SimilarResponse,
+  type SummaryResponse,
 } from "./ai.schemas";
 
 export interface AnalyzeRequestBody {
@@ -67,6 +69,19 @@ export interface ResolutionRequestBody extends RetrievalScope {
   exclude_issue_id?: number;
 }
 
+export interface SummaryRequestBody {
+  issue_type: AnalyzeRequestBody["issue_type"];
+  title: string;
+  description: string;
+  comments: {
+    id: number;
+    author_role: "client" | "staff";
+    internal: boolean;
+    created_at: string;
+    body: string;
+  }[];
+}
+
 export interface AiCallContext {
   // Sent as X-Request-ID so one ID appears in both services' logs
   requestId: string;
@@ -80,6 +95,7 @@ export interface AiClient {
   listDocuments(ctx: AiCallContext): Promise<{ companyId: number; issueId: number }[]>;
   similar(body: SimilarRequestBody, ctx: AiCallContext): Promise<SimilarResponse>;
   suggestResolution(body: ResolutionRequestBody, ctx: AiCallContext): Promise<ResolutionResponse>;
+  summarizeThread(body: SummaryRequestBody, ctx: AiCallContext): Promise<SummaryResponse>;
   // False while the circuit breaker is open
   isAvailable(): boolean;
 }
@@ -258,6 +274,8 @@ export function createAiClient(options: AiClientOptions): AiClient {
     similar: (body, ctx) => call("POST", "/v1/similar", body, SimilarResponseSchema, ctx),
     suggestResolution: (body, ctx) =>
       call("POST", "/v1/suggest-resolution", body, ResolutionResponseSchema, ctx),
+    summarizeThread: (body, ctx) =>
+      call("POST", "/v1/summarize-thread", body, SummaryResponseSchema, ctx),
     isAvailable: () => !breaker.isOpen(),
   };
 }

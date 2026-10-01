@@ -153,3 +153,31 @@ export type ResolutionResponse = z.infer<typeof ResolutionResponseSchema>;
 export const ResolutionFeedbackSchema = z.object({
   feedback: z.enum(["helpful", "not_helpful"]),
 });
+
+// ─── Thread summary ──────────────────────────────────────────────────────────
+
+export const SummaryResponseSchema = z.object({
+  result: z.object({
+    summary: z.string().min(1).max(800),
+    key_points: z
+      .array(
+        z.object({
+          text: z.string().min(1).max(300),
+          // 0 means the issue description
+          comment_ids: z.array(z.number().int().nonnegative()).min(1).max(10),
+        })
+      )
+      .min(1)
+      .max(6),
+    open_questions: z.array(z.string().min(1).max(300)).max(4),
+    manipulation_attempt: z.boolean(),
+  }),
+  meta: CallMetaSchema,
+  comments_included: z.number().int().nonnegative(),
+  comments_omitted: z.number().int().nonnegative(),
+});
+export type SummaryResponse = z.infer<typeof SummaryResponseSchema>;
+
+export const ClientHealthQuerySchema = z.object({
+  days: z.coerce.number().int().min(14).max(365).default(90),
+});

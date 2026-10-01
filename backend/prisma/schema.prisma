@@ -252,6 +252,7 @@ model Issue {
   aiSuggestions AiSuggestion[]
   aiSentiments  AiSentiment[]
   aiResolutions AiResolutionSuggestion[]
+  aiSummaries   AiThreadSummary[]
 
   @@index([productId, status], name: "idx_issues_product_status")
   @@index([assignedTo], name: "idx_issues_assigned")
@@ -476,4 +477,30 @@ model AiResolutionSuggestion {
   @@index([issueId, createdAt], name: "idx_ai_resolutions_issue")
   @@index([companyId, feedback], name: "idx_ai_resolutions_company_feedback")
   @@map("ai_resolution_suggestions")
+}
+
+// An AI summary of an issue's comment thread, generated on request by an admin.
+// last_comment_id records the newest comment it covered: newer comments mean
+// the summary is out of date.
+model AiThreadSummary {
+  id                  BigInt   @id @default(autoincrement())
+  issueId             BigInt   @map("issue_id")
+  companyId           BigInt   @map("company_id")
+  provider            String   @db.VarChar(32)
+  model               String   @db.VarChar(64)
+  promptVersion       String   @db.VarChar(32) @map("prompt_version")
+  summary             String   @db.VarChar(800)
+  // [{ text, commentIds: string[] }]
+  keyPoints           Json     @map("key_points")
+  openQuestions       String[] @map("open_questions")
+  manipulationAttempt Boolean  @map("manipulation_attempt")
+  commentCount        Int      @map("comment_count")
+  lastCommentId       BigInt?  @map("last_comment_id")
+  requestedBy         BigInt   @map("requested_by")
+  createdAt           DateTime @default(now()) @map("created_at")
+
+  issue Issue @relation(fields: [issueId], references: [id], onDelete: Cascade)
+
+  @@index([issueId, createdAt], name: "idx_ai_summaries_issue")
+  @@map("ai_thread_summaries")
 }

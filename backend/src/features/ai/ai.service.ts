@@ -6,7 +6,13 @@
  * data for issues they could already open. Routes allow engineers and admins
  * only; clients never receive AI data.
  */
-import type { AiResolutionSuggestion, AiSentiment, AiSuggestion, Prisma } from "@prisma/client";
+import type {
+  AiResolutionSuggestion,
+  AiSentiment,
+  AiSuggestion,
+  AiThreadSummary,
+  Prisma,
+} from "@prisma/client";
 import { env } from "../../config/env";
 import { prisma } from "../../lib/prisma";
 import { AppError } from "../../middleware/errorHandler";
@@ -393,7 +399,7 @@ export async function requestResolution(issueId: bigint, user: AuthUser, request
     // A failed LLM call can still have cost tokens, so record it
     if (err instanceof AiServiceError && err.info.meta?.latency_ms != null) {
       await prisma.aiCallLog.create({
-        data: resolutionCallLog(err.code, err.info.meta, companyId, issueId, requestId, err.info.detail),
+        data: aiCallLogRow("resolution", err.code, err.info.meta, companyId, issueId, requestId, err.info.detail),
       });
     }
     throw unavailable(err);
@@ -451,7 +457,7 @@ export async function requestResolution(issueId: bigint, user: AuthUser, request
       },
     }),
     prisma.aiCallLog.create({
-      data: resolutionCallLog("ok", meta, companyId, issueId, requestId),
+      data: aiCallLogRow("resolution", "ok", meta, companyId, issueId, requestId),
     }),
   ]);
   return { suggestion: serializeResolution(stored) };
@@ -498,7 +504,8 @@ export async function giveResolutionFeedback(
 
 type MetaLike = Partial<Record<keyof CallMeta, string | number | null>>;
 
-function resolutionCallLog(
+function aiCallLogRow(
+  feature: "resolution" | "summary",
   status: string,
   meta: MetaLike,
   companyId: bigint,
@@ -509,7 +516,7 @@ function resolutionCallLog(
   const text = (v: string | number | null | undefined) => (typeof v === "string" ? v : null);
   const num = (v: string | number | null | undefined) => (typeof v === "number" ? v : null);
   return {
-    feature: "resolution",
+    feature,
     status,
     detail: detail ?? null,
     provider: text(meta.provider),
@@ -541,4 +548,317 @@ function serializeResolution(r: AiResolutionSuggestion) {
     feedback: r.feedback,
     createdAt: r.createdAt.toISOString(),
   };
+}
+
+// ─── Thread summary ──────────────────────────────────────────────────────────
+
+// Shorter threads are quick to read and not worth an LLM call
+export const MIN_SUMMARY_COMMENTS = 3;
+
+export async function getThreadSummary(issueId: bigint, user: AuthUser) {
+  assertEnabled();
+  await findIssue(issueId, user);
+  const [latest, commentCount, newest] = await Promise.all([
+    prisma.aiThreadSummary.findFirst({ where: { issueId }, orderBy: { createdAt: "desc" } }),
+    prisma.issueComment.count({ where: { issueId } }),
+    prisma.issueComment.findFirst({
+      where: { issueId },
+      orderBy: { id: "desc" },
+      select: { id: true },
+    }),
+  ]);
+  return {
+    summary: latest ? serializeSummary(latest, newest?.id ?? null) : null,
+    commentCount,
+    minimumComments: MIN_SUMMARY_COMMENTS,
+  };
+}
+
+export async function requestThreadSummary(issueId: bigint, user: AuthUser, requestId: string) {
+  assertEnabled();
+  const issue = await prisma.issue.findFirst({
+    where: { id: issueId, ...buildTenantWhere(user) },
+    select: {
+      id: true,
+      type: true,
+      title: true,
+      description: true,
+      product: { select: { companyId: true } },
+      // Admins summarise the whole thread, internal notes included
+      comments: {
+        orderBy: { createdAt: "asc" },
+        select: {
+          id: true,
+          body: true,
+          isInternal: true,
+          createdAt: true,
+          user: { select: { role: true } },
+        },
+      },
+    },
+  });
+  if (!issue) throw new AppError(404, "ISSUE_NOT_FOUND", "Issue not found");
+  if (issue.comments.length < MIN_SUMMARY_COMMENTS) {
+    throw new AppError(
+      422,
+      "THREAD_TOO_SHORT",
+      `A summary needs at least ${MIN_SUMMARY_COMMENTS} comments`
+    );
+  }
+  const companyId = issue.product.companyId;
+
+  let response;
+  try {
+    response = await getDefaultAiClient().summarizeThread(
+      {
+        issue_type: issue.type,
+        title: issue.title,
+        description: issue.description.slice(0, 20_000),
+        comments: issue.comments.map((c) => ({
+          id: Number(c.id),
+          // From our own data, never inferred from the text
+          author_role: c.user.role === "client_user" ? "client" : "staff",
+          internal: c.isInternal,
+          created_at: c.createdAt.toISOString(),
+          body: c.body.slice(0, 10_000),
+        })),
+      },
+      { requestId }
+    );
+  } catch (err) {
+    if (err instanceof AiServiceError && err.info.meta?.latency_ms != null) {
+      await prisma.aiCallLog.create({
+        data: aiCallLogRow("summary", err.code, err.info.meta, companyId, issueId, requestId, err.info.detail),
+      });
+    }
+    throw unavailable(err);
+  }
+
+  // Second check after the AI service's own: keep only citations of this
+  // issue's comments, or of its description (id 0, stored as "description")
+  const threadIds = new Set(issue.comments.map((c) => Number(c.id)));
+  const keyPoints = response.result.key_points
+    .map((point) => ({
+      text: point.text,
+      commentIds: point.comment_ids
+        .filter((id) => id === 0 || threadIds.has(id))
+        .map((id) => (id === 0 ? "description" : String(id))),
+    }))
+    .filter((point) => point.commentIds.length > 0);
+  const newestId = issue.comments.at(-1)?.id ?? null;
+
+  const [stored] = await prisma.$transaction([
+    prisma.aiThreadSummary.create({
+      data: {
+        issueId,
+        companyId,
+        provider: response.meta.provider,
+        model: response.meta.model,
+        promptVersion: response.meta.prompt_version,
+        summary: response.result.summary,
+        keyPoints,
+        openQuestions: response.result.open_questions,
+        manipulationAttempt: response.result.manipulation_attempt,
+        commentCount: issue.comments.length,
+        lastCommentId: newestId,
+        requestedBy: user.id,
+      },
+    }),
+    prisma.aiCallLog.create({
+      data: aiCallLogRow("summary", "ok", response.meta, companyId, issueId, requestId),
+    }),
+  ]);
+  return { summary: serializeSummary(stored, newestId) };
+}
+
+function serializeSummary(s: AiThreadSummary, newestCommentId: bigint | null) {
+  return {
+    id: s.id.toString(),
+    summary: s.summary,
+    keyPoints: s.keyPoints,
+    openQuestions: s.openQuestions,
+    manipulationAttempt: s.manipulationAttempt,
+    commentCount: s.commentCount,
+    // Comments posted after the summary was made
+    stale: newestCommentId !== null && (s.lastCommentId === null || newestCommentId > s.lastCommentId),
+    model: s.model,
+    promptVersion: s.promptVersion,
+    createdAt: s.createdAt.toISOString(),
+  };
+}
+
+// ─── Escalation risk ─────────────────────────────────────────────────────────
+
+const OPEN_STATUSES = ["new", "in_progress", "on_hold"] as const;
+
+/**
+ * Open issues whose most recent sentiment reading is high escalation risk,
+ * within the viewer's normal tenancy. Only the latest reading counts: a client
+ * who has calmed down drops off the list.
+ */
+async function openHighRiskIssues(user: AuthUser) {
+  const issues = await prisma.issue.findMany({
+    where: {
+      AND: [
+        buildTenantWhere(user),
+        { status: { in: [...OPEN_STATUSES] } },
+        { aiSentiments: { some: { escalationRisk: "high" } } },
+      ],
+    },
+    select: {
+      id: true,
+      ticketNumber: true,
+      title: true,
+      status: true,
+      priority: true,
+      product: { select: { name: true, companyId: true, company: { select: { name: true } } } },
+      aiSentiments: {
+        orderBy: { createdAt: "desc" },
+        take: 1,
+        select: {
+          escalationRisk: true,
+          frustrationLevel: true,
+          sentiment: true,
+          evidenceQuote: true,
+          createdAt: true,
+        },
+      },
+    },
+  });
+  return issues.filter((issue) => issue.aiSentiments[0]?.escalationRisk === "high");
+}
+
+export async function getEscalations(user: AuthUser) {
+  assertEnabled();
+  const issues = await openHighRiskIssues(user);
+  issues.sort(
+    (a, b) => b.aiSentiments[0].createdAt.getTime() - a.aiSentiments[0].createdAt.getTime()
+  );
+  return {
+    issues: issues.map((issue) => {
+      const latest = issue.aiSentiments[0];
+      return {
+        issueId: issue.id.toString(),
+        ticketNumber: issue.ticketNumber,
+        title: issue.title,
+        status: issue.status,
+        // Shown alongside, never changed: sentiment does not affect priority
+        priority: issue.priority,
+        productName: issue.product.name,
+        companyId: issue.product.companyId.toString(),
+        companyName: issue.product.company.name,
+        frustrationLevel: latest.frustrationLevel,
+        sentiment: latest.sentiment,
+        evidenceQuote: latest.evidenceQuote,
+        assessedAt: latest.createdAt.toISOString(),
+      };
+    }),
+  };
+}
+
+// ─── Client health ───────────────────────────────────────────────────────────
+
+const TREND_THRESHOLD = 0.5; // change in average frustration (1-5 scale) that counts as a trend
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+interface WeekRow {
+  company_id: bigint;
+  week: Date;
+  entries: number;
+  avg_frustration: number;
+  negative: number;
+  high_risk: number;
+}
+
+interface WindowRow {
+  company_id: bigint;
+  recent: number | null;
+  previous: number | null;
+}
+
+/**
+ * Sentiment per client company over time, for admins. Weekly buckets of
+ * average frustration, share of negative messages and high-risk readings,
+ * plus the last 30 days compared with the 30 before. No LLM calls: this only
+ * aggregates readings already stored.
+ */
+export async function getClientHealth(days: number, user: AuthUser) {
+  assertEnabled();
+  // Times come from here, not the database clock, like the job worker
+  const now = Date.now();
+  const since = new Date(now - days * DAY_MS);
+  const recentFrom = new Date(now - 30 * DAY_MS);
+  const previousFrom = new Date(now - 60 * DAY_MS);
+
+  const [companies, weeks, windows, highRisk] = await Promise.all([
+    prisma.company.findMany({ select: { id: true, name: true, region: true }, orderBy: { name: "asc" } }),
+    prisma.$queryRaw<WeekRow[]>`
+      SELECT company_id,
+             date_trunc('week', created_at) AS week,
+             count(*)::int AS entries,
+             round(avg(frustration_level)::numeric, 2)::float8 AS avg_frustration,
+             (count(*) FILTER (WHERE sentiment = 'negative'))::int AS negative,
+             (count(*) FILTER (WHERE escalation_risk = 'high'))::int AS high_risk
+      FROM ai_sentiments
+      WHERE created_at >= ${since}
+      GROUP BY company_id, week
+      ORDER BY week
+    `,
+    prisma.$queryRaw<WindowRow[]>`
+      SELECT company_id,
+             (avg(frustration_level) FILTER (WHERE created_at >= ${recentFrom}))::float8 AS recent,
+             (avg(frustration_level) FILTER (WHERE created_at < ${recentFrom}))::float8 AS previous
+      FROM ai_sentiments
+      WHERE created_at >= ${previousFrom}
+      GROUP BY company_id
+    `,
+    openHighRiskIssues(user),
+  ]);
+
+  const weeksByCompany = new Map<string, WeekRow[]>();
+  for (const row of weeks) {
+    const key = row.company_id.toString();
+    weeksByCompany.set(key, [...(weeksByCompany.get(key) ?? []), row]);
+  }
+  const windowByCompany = new Map(windows.map((w) => [w.company_id.toString(), w]));
+  const highRiskByCompany = new Map<string, number>();
+  for (const issue of highRisk) {
+    const key = issue.product.companyId.toString();
+    highRiskByCompany.set(key, (highRiskByCompany.get(key) ?? 0) + 1);
+  }
+
+  const round = (n: number | null) => (n === null ? null : Math.round(n * 100) / 100);
+  return {
+    days,
+    companies: companies.map((company) => {
+      const key = company.id.toString();
+      const window = windowByCompany.get(key);
+      const recent = round(window?.recent ?? null);
+      const previous = round(window?.previous ?? null);
+      return {
+        companyId: key,
+        name: company.name,
+        region: company.region,
+        weeks: (weeksByCompany.get(key) ?? []).map((w) => ({
+          weekStart: w.week.toISOString().slice(0, 10),
+          entries: w.entries,
+          avgFrustration: w.avg_frustration,
+          negativeShare: Math.round((w.negative / w.entries) * 100) / 100,
+          highRisk: w.high_risk,
+        })),
+        recentAvgFrustration: recent,
+        previousAvgFrustration: previous,
+        trend: trendOf(recent, previous),
+        openHighRiskIssues: highRiskByCompany.get(key) ?? 0,
+      };
+    }),
+  };
+}
+
+function trendOf(recent: number | null, previous: number | null) {
+  if (recent === null || previous === null) return "insufficient_data" as const;
+  const change = recent - previous;
+  if (change >= TREND_THRESHOLD) return "worsening" as const;
+  if (change <= -TREND_THRESHOLD) return "improving" as const;
+  return "stable" as const;
 }

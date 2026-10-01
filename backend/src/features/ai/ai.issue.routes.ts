@@ -209,4 +209,40 @@ router.post("/resolution", AiController.requestResolution);
  */
 router.post("/resolution/:resolutionId/feedback", AiController.giveResolutionFeedback);
 
+/**
+ * @openapi
+ * /api/issues/{id}/ai/summary:
+ *   get:
+ *     tags: [AI]
+ *     summary: Latest thread summary (admin)
+ *     description: >
+ *       The most recent summary, with `stale: true` when comments were posted after it.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/IssueId'
+ *     responses:
+ *       200:
+ *         description: The latest summary or null, and the current comment count
+ *   post:
+ *     tags: [AI]
+ *     summary: Summarise the comment thread (admin)
+ *     description: >
+ *       Summary, key points and open questions. Every key point cites the comments it comes
+ *       from. Needs at least 3 comments.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/IssueId'
+ *     responses:
+ *       201:
+ *         description: The new summary
+ *       422:
+ *         description: The thread is too short to summarise
+ *       503:
+ *         description: The AI service is unavailable
+ */
+router.get("/summary", requireRole("admin"), AiController.getThreadSummary);
+router.post("/summary", requireRole("admin"), AiController.requestThreadSummary);
+
 export default router;
