@@ -3,8 +3,11 @@ import { z } from "zod";
 import { readFileSync } from "fs";
 import { resolve } from "path";
 
-// Load .env before validation — no-op if the file doesn't exist
-dotenvConfig();
+// Load .env before validation — no-op if the file doesn't exist.
+// Skipped under test, so a developer's local .env can't change test results.
+if (process.env.NODE_ENV !== "test") {
+  dotenvConfig();
+}
 
 const EnvSchema = z.object({
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
