@@ -62,6 +62,64 @@ enum PriorityLevel {
   critical
 }
 
+// Functional area of an issue. Must match ai-service/src/ai_service/taxonomy.py
+enum IssueCategory {
+  authentication_access
+  notifications
+  data_integrity
+  performance
+  ui_display
+  crash_error
+  file_handling
+  integrations
+  reporting_analytics
+  other
+}
+
+// Engineering team that owns the fix. Must match ai-service taxonomy.py
+enum EngineeringTeam {
+  mobile
+  web_frontend
+  backend
+  data_platform
+  infrastructure
+  support
+}
+
+// ─── AI enums ────────────────────────────────────────────────────────────────
+
+enum AiJobKind {
+  analyze_issue
+  sentiment_comment
+}
+
+enum AiJobStatus {
+  queued
+  running
+  done
+  failed
+}
+
+enum AiSuggestionStatus {
+  pending
+  accepted   // applied exactly as suggested
+  edited     // applied with at least one value changed by the reviewer
+  rejected   // discarded
+  superseded // replaced by a newer suggestion before anyone reviewed it
+}
+
+enum Sentiment {
+  negative
+  neutral
+  positive
+}
+
+enum RiskLevel {
+  low
+  medium
+  high
+}
+
 // ─── Core Tables ────────────────────────────────────────────────────────────
 
 model Company {
@@ -116,6 +174,7 @@ model User {
   userProductAccess UserProductAccess[]
   refreshTokens     RefreshToken[]
   savedViews        SavedView[]
+  aiReviews         AiSuggestion[]      @relation("AiSuggestionReviewer")
 
   @@index([role], name: "idx_users_role")
   @@index([companyId], name: "idx_users_company")
@@ -159,6 +218,9 @@ model Issue {
   impact       ImpactLevel   @default(medium)
   urgency      UrgencyLevel  @default(medium)
   priority     PriorityLevel
+  // Set by staff, typically by accepting or editing an AI triage suggestion
+  category     IssueCategory?
+  team         EngineeringTeam?
   createdBy    BigInt        @map("created_by")
   assignedTo   BigInt?       @map("assigned_to")
   slaDeadline  DateTime?     @map("sla_due_at")
@@ -173,6 +235,9 @@ model Issue {
   comments    IssueComment[]
   activities  IssueActivity[]
   attachments IssueAttachment[]
+  aiJobs        AiJob[]
+  aiSuggestions AiSuggestion[]
+  aiSentiments  AiSentiment[]
 
   @@index([productId, status], name: "idx_issues_product_status")
   @@index([assignedTo], name: "idx_issues_assigned")
@@ -190,6 +255,9 @@ model IssueComment {
 
   issue Issue @relation(fields: [issueId], references: [id])
   user  User  @relation(fields: [userId], references: [id])
+
+  aiJobs       AiJob[]
+  aiSentiments AiSentiment[]
 
   @@index([issueId, createdAt], name: "idx_comments_issue")
   @@map("issue_comments")
@@ -244,4 +312,124 @@ model RefreshToken {
 
   @@index([userId], name: "idx_refresh_tokens_user")
   @@map("refresh_tokens")
+}
+
+// ─── AI ──────────────────────────────────────────────────────────────────────
+// Every AI table stores company_id, copied from the issue's product when the
+// row is written. It duplicates the issue -> product -> company join on
+// purpose: each AI row carries its own tenant, and per-company reporting
+// doesn't need a three-table join.
+
+// Durable queue of AI work. Rows are inserted in the same transaction as the
+// issue or comment they belong to (transactional outbox), so a job exists if
+// and only if its issue or comment was saved.
+model AiJob {
+  id            BigInt      @id @default(autoincrement())
+  kind          AiJobKind
+  status        AiJobStatus @default(queued)
+  issueId       BigInt      @map("issue_id")
+  commentId     BigInt?     @map("comment_id")
+  companyId     BigInt      @map("company_id")
+  attempts      Int         @default(0)
+  maxAttempts   Int         @map("max_attempts")
+  nextAttemptAt DateTime    @default(now()) @map("next_attempt_at")
+  lockedAt      DateTime?   @map("locked_at")
+  lockedBy      String?     @db.VarChar(64) @map("locked_by")
+  lastError     String?     @db.VarChar(500) @map("last_error")
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+
+  issue   Issue         @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  comment IssueComment? @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@index([status, nextAttemptAt], name: "idx_ai_jobs_due")
+  @@index([issueId], name: "idx_ai_jobs_issue")
+  @@map("ai_jobs")
+}
+
+// One AI triage suggestion and what the reviewer did with it. Suggested and
+// applied values are both kept, so acceptance can be reported per field.
+model AiSuggestion {
+  id                  BigInt             @id @default(autoincrement())
+  issueId             BigInt             @map("issue_id")
+  companyId           BigInt             @map("company_id")
+  provider            String             @db.VarChar(32)
+  model               String             @db.VarChar(64)
+  promptVersion       String             @db.VarChar(32) @map("prompt_version")
+  suggestedImpact     ImpactLevel        @map("suggested_impact")
+  suggestedUrgency    UrgencyLevel       @map("suggested_urgency")
+  suggestedCategory   IssueCategory      @map("suggested_category")
+  suggestedTeam       EngineeringTeam    @map("suggested_team")
+  impactReason        String             @db.VarChar(300) @map("impact_reason")
+  urgencyReason       String             @db.VarChar(300) @map("urgency_reason")
+  categoryReason      String             @db.VarChar(300) @map("category_reason")
+  teamReason          String             @db.VarChar(300) @map("team_reason")
+  manipulationAttempt Boolean            @map("manipulation_attempt")
+  status              AiSuggestionStatus @default(pending)
+  appliedImpact       ImpactLevel?       @map("applied_impact")
+  appliedUrgency      UrgencyLevel?      @map("applied_urgency")
+  appliedCategory     IssueCategory?     @map("applied_category")
+  appliedTeam         EngineeringTeam?   @map("applied_team")
+  reviewedBy          BigInt?            @map("reviewed_by")
+  reviewedAt          DateTime?          @map("reviewed_at")
+  createdAt           DateTime           @default(now()) @map("created_at")
+
+  issue    Issue @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  reviewer User? @relation("AiSuggestionReviewer", fields: [reviewedBy], references: [id])
+
+  @@index([issueId, createdAt], name: "idx_ai_suggestions_issue")
+  @@index([companyId, status], name: "idx_ai_suggestions_company_status")
+  @@map("ai_suggestions")
+}
+
+// Sentiment of one piece of client-written text: the issue itself
+// (comment_id null) or one client comment. Internal signal for staff only;
+// never used to compute priority.
+model AiSentiment {
+  id                  BigInt    @id @default(autoincrement())
+  issueId             BigInt    @map("issue_id")
+  commentId           BigInt?   @map("comment_id")
+  companyId           BigInt    @map("company_id")
+  sentiment           Sentiment
+  frustrationLevel    Int       @db.SmallInt @map("frustration_level")
+  escalationRisk      RiskLevel @map("escalation_risk")
+  evidenceQuote       String    @db.VarChar(300) @map("evidence_quote")
+  reason              String    @db.VarChar(300)
+  manipulationAttempt Boolean   @map("manipulation_attempt")
+  provider            String    @db.VarChar(32)
+  model               String    @db.VarChar(64)
+  promptVersion       String    @db.VarChar(32) @map("prompt_version")
+  createdAt           DateTime  @default(now()) @map("created_at")
+
+  issue   Issue         @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  comment IssueComment? @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@index([issueId, createdAt], name: "idx_ai_sentiments_issue")
+  @@index([companyId, createdAt], name: "idx_ai_sentiments_company")
+  @@map("ai_sentiments")
+}
+
+// Append-only record of every call to the AI service: cost, latency and
+// outcome. No foreign keys, so the audit trail survives issue deletion.
+model AiCallLog {
+  id             BigInt   @id @default(autoincrement())
+  feature        String   @db.VarChar(32)
+  status         String   @db.VarChar(40) // "ok" or an error code
+  detail         String?  @db.VarChar(64)
+  provider       String?  @db.VarChar(32)
+  model          String?  @db.VarChar(64)
+  promptVersion  String?  @db.VarChar(32) @map("prompt_version")
+  latencyMs      Int?     @map("latency_ms")
+  inputTokens    Int?     @map("input_tokens")
+  outputTokens   Int?     @map("output_tokens")
+  thinkingTokens Int?     @map("thinking_tokens")
+  companyId      BigInt?  @map("company_id")
+  issueId        BigInt?  @map("issue_id")
+  jobId          BigInt?  @map("job_id")
+  requestId      String?  @db.VarChar(64) @map("request_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@index([createdAt], name: "idx_ai_call_logs_created")
+  @@index([feature, status], name: "idx_ai_call_logs_feature_status")
+  @@map("ai_call_logs")
 }

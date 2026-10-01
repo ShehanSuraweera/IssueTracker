@@ -40,6 +40,26 @@ const EnvSchema = z.object({
   // the AI service. z.stringbool() is deliberate: z.coerce.boolean() would
   // turn the string "false" into true.
   AI_ENABLED: z.stringbool().default(false),
+
+  // Internal Python AI service. Only reachable from this server, never from browsers.
+  AI_SERVICE_URL: z.url().default("http://127.0.0.1:8000"),
+  // Shared secret, must match the AI service's AI_SERVICE_TOKEN
+  AI_SERVICE_TOKEN: z.string().min(32).optional(),
+  // Per-request limit; slightly above the AI service's own LLM timeout (20s)
+  AI_TIMEOUT_MS: z.coerce.number().int().positive().default(25_000),
+  // Background worker that processes queued AI jobs. Off on servers that
+  // should only serve HTTP.
+  AI_WORKER_ENABLED: z.stringbool().default(true),
+  AI_WORKER_POLL_MS: z.coerce.number().int().positive().default(3_000),
+  AI_JOB_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(20).default(5),
+}).superRefine((env, ctx) => {
+  if (env.AI_ENABLED && !env.AI_SERVICE_TOKEN) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["AI_SERVICE_TOKEN"],
+      message: "AI_SERVICE_TOKEN is required when AI_ENABLED=true",
+    });
+  }
 });
 
 function loadEnv() {

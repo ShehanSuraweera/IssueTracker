@@ -14,6 +14,7 @@ import companiesRoutes from "./features/companies/companies.routes";
 import productsRoutes from "./features/products/products.routes";
 import usersRoutes from "./features/users/users.routes";
 import aiRoutes from "./features/ai/ai.routes";
+import aiIssueRoutes from "./features/ai/ai.issue.routes";
 
 export function createApp() {
   const app = express();
@@ -84,6 +85,8 @@ export function createApp() {
 
   // ─── Routes ────────────────────────────────────────────────────────────────
   app.use("/api/auth", authRoutes);
+  // Before issuesRoutes, so /api/issues/:id/ai/* reaches the AI router
+  app.use("/api/issues/:id/ai", aiIssueRoutes);
   app.use("/api/issues", issuesRoutes);
   app.use("/api/companies", companiesRoutes);
   app.use("/api/products", productsRoutes);
