@@ -1,9 +1,14 @@
 name: CI
 
-# WHEN: every pull request, and every push to any branch, that touches backend
-# WHY: catch type errors and broken tenancy rules before code reaches main
+# WHEN: pull requests and pushes to feature branches that touch backend, and
+#       as a required first step of deploy-backend.yml (workflow_call)
+# WHY: catch type errors and broken tenancy rules before code reaches main,
+#      and make sure nothing deploys unless the tests pass.
+#      Pushes to main are skipped here because deploy-backend.yml already
+#      runs this workflow for them; otherwise the tests would run twice.
 on:
   push:
+    branches-ignore: [main]
     paths:
       - "backend/**"
       - ".github/workflows/ci.yml"
@@ -11,6 +16,7 @@ on:
     paths:
       - "backend/**"
       - ".github/workflows/ci.yml"
+  workflow_call:
 
 jobs:
   backend:
