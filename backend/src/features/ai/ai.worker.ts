@@ -15,6 +15,7 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "../../lib/prisma";
 import { logger } from "../../lib/logger";
 import { AiServiceError, type AiClient } from "./ai.client";
+import { INDEXED_STATUSES } from "./ai.jobs";
 import type { CallMeta, ErrorMeta } from "./ai.schemas";
 
 export const STALE_LOCK_MS = 5 * 60_000;
@@ -23,12 +24,13 @@ const BACKOFF_MAX_MS = 15 * 60_000;
 // Limits that keep requests within what the AI service accepts
 const MAX_DESCRIPTION_CHARS = 20_000;
 const MAX_PRODUCT_DESCRIPTION_CHARS = 2_000;
+const MAX_RESOLUTION_CHARS = 20_000;
 
 const log = logger.child({ component: "ai-worker" });
 
 interface ClaimedJob {
   id: bigint;
-  kind: "analyze_issue" | "sentiment_comment";
+  kind: "analyze_issue" | "sentiment_comment" | "index_issue";
   issueId: bigint;
   commentId: bigint | null;
   companyId: bigint;
@@ -90,8 +92,10 @@ async function processJob(
   try {
     if (job.kind === "analyze_issue") {
       await runIssueAnalysis(job, client, workerId, requestId);
-    } else {
+    } else if (job.kind === "sentiment_comment") {
       await runCommentSentiment(job, client, workerId, requestId);
+    } else {
+      await runIndexSync(job, client, workerId, requestId);
     }
   } catch (err) {
     if (err instanceof LockLostError) return; // another worker owns this job now
@@ -209,6 +213,59 @@ async function runCommentSentiment(
 }
 
 /**
+ * Brings the similarity index in line with the issue as it is now: resolved
+ * or closed issues are indexed, anything else is removed. Reading the current
+ * state (not the state when the job was queued) makes the job idempotent.
+ */
+async function runIndexSync(
+  job: ClaimedJob,
+  client: AiClient,
+  workerId: string,
+  requestId: string
+): Promise<void> {
+  const issue = await prisma.issue.findUnique({
+    where: { id: job.issueId },
+    include: {
+      product: { select: { companyId: true } },
+      // Staff comments explain the fix; client comments describe the problem
+      comments: {
+        where: { user: { role: { in: ["engineer", "admin"] } } },
+        orderBy: { createdAt: "asc" },
+        select: { body: true },
+      },
+    },
+  });
+  if (!issue) return completeWithoutResult(job, workerId);
+
+  const companyId = Number(issue.product.companyId);
+  if (INDEXED_STATUSES.has(issue.status)) {
+    await client.putDocument(
+      Number(issue.id),
+      {
+        company_id: companyId,
+        product_id: Number(issue.productId),
+        ticket_number: issue.ticketNumber,
+        title: issue.title,
+        problem: issue.description.slice(0, MAX_DESCRIPTION_CHARS),
+        resolution: issue.comments
+          .map((c) => c.body)
+          .join("\n\n")
+          .slice(0, MAX_RESOLUTION_CHARS),
+        resolved_at: (issue.resolvedAt ?? issue.closedAt)?.toISOString() ?? null,
+      },
+      { requestId }
+    );
+  } else {
+    await client.deleteDocument(Number(issue.id), companyId, { requestId });
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await claimCompletion(tx, job, workerId);
+    await tx.aiCallLog.create({ data: callLog(job, "index", "ok", requestId) });
+  });
+}
+
+/**
  * Marks the job done, but only if this worker still holds its lock. If the
  * lock went stale and another worker reclaimed the job, this throws and the
  * surrounding transaction rolls back, so results are never written twice.
@@ -252,7 +309,7 @@ async function recordFailure(
           prisma.aiCallLog.create({
             data: callLog(
               job,
-              job.kind === "analyze_issue" ? "analyze" : "sentiment",
+              FEATURE_BY_KIND[job.kind],
               failure.code,
               requestId,
               failure.info.meta,
@@ -308,9 +365,15 @@ function sentimentFields(sentiment: {
   };
 }
 
+const FEATURE_BY_KIND = {
+  analyze_issue: "analyze",
+  sentiment_comment: "sentiment",
+  index_issue: "index",
+} as const;
+
 function callLog(
   job: ClaimedJob,
-  feature: "analyze" | "sentiment",
+  feature: (typeof FEATURE_BY_KIND)[keyof typeof FEATURE_BY_KIND],
   status: string,
   requestId: string,
   meta?: CallMeta | ErrorMeta,

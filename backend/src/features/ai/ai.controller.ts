@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { env } from "../../config/env";
 import { AppError } from "../../middleware/errorHandler";
-import { ReviewSuggestionSchema } from "./ai.schemas";
+import { ResolutionFeedbackSchema, ReviewSuggestionSchema } from "./ai.schemas";
 import * as AiService from "./ai.service";
 
 function parseId(param: string | string[] | undefined, name = "ID"): bigint {
@@ -52,6 +52,54 @@ export async function retryAnalysis(req: Request, res: Response, next: NextFunct
 export async function getSentimentTimeline(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const data = await AiService.getSentimentTimeline(parseId(req.params.id), req.user!);
+    res.json({ data });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// Synchronous AI calls reuse the request's own ID so one ID traces the request
+// from the browser through this backend into the AI service's logs
+function traceId(req: Request): string {
+  return (req.requestId ?? "no-request-id").slice(0, 64);
+}
+
+export async function getSimilarIssues(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const data = await AiService.getSimilarIssues(parseId(req.params.id), req.user!, traceId(req));
+    res.json({ data });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getLatestResolution(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const data = await AiService.getLatestResolution(parseId(req.params.id), req.user!);
+    res.json({ data });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function requestResolution(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const data = await AiService.requestResolution(parseId(req.params.id), req.user!, traceId(req));
+    res.status(201).json({ data });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function giveResolutionFeedback(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { feedback } = ResolutionFeedbackSchema.parse(req.body);
+    const data = await AiService.giveResolutionFeedback(
+      parseId(req.params.id),
+      parseId(req.params.resolutionId, "Resolution ID"),
+      feedback,
+      req.user!
+    );
     res.json({ data });
   } catch (err) {
     next(err);

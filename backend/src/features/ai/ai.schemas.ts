@@ -101,3 +101,55 @@ export const ReviewSuggestionSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("reject") }),
 ]);
 export type ReviewSuggestionInput = z.infer<typeof ReviewSuggestionSchema>;
+
+// ─── Retrieval responses ─────────────────────────────────────────────────────
+
+export const DocumentResponseSchema = z.object({
+  indexed: z.boolean(),
+  embedded: z.boolean(),
+  embedding_model: z.string().max(64),
+});
+
+export const DeleteDocumentResponseSchema = z.object({ deleted: z.boolean() });
+
+export const DocumentListResponseSchema = z.object({
+  documents: z.array(
+    z.object({ company_id: z.number().int().positive(), issue_id: z.number().int().positive() })
+  ),
+});
+
+const TicketNumber = z.string().regex(/^[A-Z0-9]{2,8}-\d{4,}$/);
+
+const SimilarIssueSchema = z.object({
+  issue_id: z.number().int().positive(),
+  ticket_number: TicketNumber,
+  title: z.string().min(1).max(200),
+  similarity: z.number().min(-1).max(1),
+});
+export type SimilarIssue = z.infer<typeof SimilarIssueSchema>;
+
+export const SimilarResponseSchema = z.object({
+  results: z.array(SimilarIssueSchema).max(10),
+  embedding_model: z.string().max(64),
+  min_similarity: z.number(),
+});
+export type SimilarResponse = z.infer<typeof SimilarResponseSchema>;
+
+export const ResolutionResponseSchema = z.object({
+  result: z.object({
+    has_relevant_history: z.boolean(),
+    summary: z.string().min(1).max(500),
+    steps: z.array(z.string().min(1).max(300)).max(6),
+    cited_tickets: z.array(TicketNumber).max(5),
+    confidence: Level,
+    manipulation_attempt: z.boolean(),
+  }),
+  sources: z.array(SimilarIssueSchema).max(10),
+  // null when no similar issues were found and no LLM call was made
+  meta: CallMetaSchema.nullable(),
+});
+export type ResolutionResponse = z.infer<typeof ResolutionResponseSchema>;
+
+export const ResolutionFeedbackSchema = z.object({
+  feedback: z.enum(["helpful", "not_helpful"]),
+});

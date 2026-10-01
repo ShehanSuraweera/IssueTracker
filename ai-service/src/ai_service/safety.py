@@ -14,14 +14,19 @@ import re
 import secrets
 import unicodedata
 
+# Delimiter tags around untrusted text. client_data: the text being
+# analysed. past_issue: retrieved past tickets, which also contain
+# client-written text.
 TAG_NAME = "client_data"
+PAST_ISSUE_TAG = "past_issue"
+_DELIMITER_TAGS = (TAG_NAME, PAST_ISSUE_TAG)
 TRUNCATION_MARKER = "\n[... truncated ...]"
 REMOVED_TAG = "[tag removed]"
 
 # C0 control characters except tab (\x09) and newline (\x0a), plus DEL
 _CONTROL_CHARS = re.compile(r"[\x00-\x08\x0b-\x1f\x7f]")
 # Anything resembling an opening or closing delimiter tag, e.g. </client_data-x>
-_TAG_LIKE = re.compile(rf"<\s*/?\s*{TAG_NAME}[^>]*>", re.IGNORECASE)
+_TAG_LIKE = re.compile(rf"<\s*/?\s*(?:{'|'.join(_DELIMITER_TAGS)})[^>]*>", re.IGNORECASE)
 _WHITESPACE = re.compile(r"\s+")
 # Characters a model may change when copying a quote, mapped to plain forms
 _QUOTE_FOLDS = str.maketrans(
@@ -57,6 +62,13 @@ def wrap_untrusted(field: str, text: str, boundary: str) -> str:
     """Wrap cleaned client text in delimiter tags carrying the request's boundary."""
     tag = f"{TAG_NAME}-{boundary}"
     return f'<{tag} field="{field}">\n{text}\n</{tag}>'
+
+
+def wrap_past_issue(ticket: str, body: str, boundary: str) -> str:
+    """Wrap one retrieved past ticket. `ticket` comes from our own database;
+    `body` must already be cleaned with prepare_untrusted."""
+    tag = f"{PAST_ISSUE_TAG}-{boundary}"
+    return f'<{tag} ticket="{ticket}">\n{body}\n</{tag}>'
 
 
 def _normalise(text: str) -> str:

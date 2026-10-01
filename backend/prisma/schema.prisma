@@ -91,6 +91,8 @@ enum EngineeringTeam {
 enum AiJobKind {
   analyze_issue
   sentiment_comment
+  // Sync a resolved issue into (or out of) the similarity index
+  index_issue
 }
 
 enum AiJobStatus {
@@ -118,6 +120,17 @@ enum RiskLevel {
   low
   medium
   high
+}
+
+enum ConfidenceLevel {
+  low
+  medium
+  high
+}
+
+enum ResolutionFeedback {
+  helpful
+  not_helpful
 }
 
 // ─── Core Tables ────────────────────────────────────────────────────────────
@@ -238,6 +251,7 @@ model Issue {
   aiJobs        AiJob[]
   aiSuggestions AiSuggestion[]
   aiSentiments  AiSentiment[]
+  aiResolutions AiResolutionSuggestion[]
 
   @@index([productId, status], name: "idx_issues_product_status")
   @@index([assignedTo], name: "idx_issues_assigned")
@@ -432,4 +446,34 @@ model AiCallLog {
   @@index([createdAt], name: "idx_ai_call_logs_created")
   @@index([feature, status], name: "idx_ai_call_logs_feature_status")
   @@map("ai_call_logs")
+}
+
+// A suggested resolution for an issue, generated on request from the same
+// company's past resolved issues, and whether the engineer found it helpful.
+model AiResolutionSuggestion {
+  id                  BigInt              @id @default(autoincrement())
+  issueId             BigInt              @map("issue_id")
+  companyId           BigInt              @map("company_id")
+  provider            String              @db.VarChar(32)
+  model               String              @db.VarChar(64)
+  promptVersion       String              @db.VarChar(32) @map("prompt_version")
+  hasRelevantHistory  Boolean             @map("has_relevant_history")
+  summary             String              @db.VarChar(500)
+  steps               String[]
+  citedTickets        String[]            @map("cited_tickets")
+  // Snapshot of the past issues retrieved: [{ issueId, ticketNumber, title, similarity }]
+  sources             Json
+  confidence          ConfidenceLevel
+  manipulationAttempt Boolean             @map("manipulation_attempt")
+  requestedBy         BigInt              @map("requested_by")
+  feedback            ResolutionFeedback?
+  feedbackBy          BigInt?             @map("feedback_by")
+  feedbackAt          DateTime?           @map("feedback_at")
+  createdAt           DateTime            @default(now()) @map("created_at")
+
+  issue Issue @relation(fields: [issueId], references: [id], onDelete: Cascade)
+
+  @@index([issueId, createdAt], name: "idx_ai_resolutions_issue")
+  @@index([companyId, feedback], name: "idx_ai_resolutions_company_feedback")
+  @@map("ai_resolution_suggestions")
 }

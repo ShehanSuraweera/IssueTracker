@@ -169,6 +169,13 @@ engineer reviews ──► apply / edit / reject ──► normal issue update (
 - **Sentiment is separate from priority.** It's stored in `ai_sentiments` and never read by any priority logic. Only client-written text is analysed: the issue itself and client comments, never staff or internal comments.
 - **Staff only.** AI endpoints require the engineer or admin role and the same tenancy filter as the issue. No client-facing response includes AI data.
 
+**Similar issues and suggested resolutions** use the same queue to keep a similarity index in step with resolved issues:
+
+- An `index_issue` job is queued when an issue is resolved or closed, reopened, edited while resolved, or gets a staff comment while resolved. The worker reads the issue's *current* state: resolved or closed is indexed (staff comments become the resolution notes), anything else is removed. At most one sync per issue is queued at a time.
+- Searches are synchronous (they're fast) and scoped to the issue's company **and the products the viewer can open**, so an engineer never sees an issue they couldn't open, even within the same company.
+- Every result from the AI service is re-checked here against the viewer's tenancy before it's returned, which also drops issues reopened or deleted since they were indexed.
+- `npm run ai:reindex` queues every resolved issue for indexing and removes index entries for deleted issues. Run it after seeding or restoring a database.
+
 ### Request lifecycle
 
 ```
@@ -219,6 +226,10 @@ Raw OpenAPI JSON: **`/api-docs.json`**
 | POST | `/issues/:id/ai/suggestion/:suggestionId/review` | engineer, admin | `{ action: "apply", impact?, urgency?, category?, team? }` or `{ action: "reject" }`. Recorded as `accepted` or `edited` from the data. `409` if already reviewed. |
 | POST | `/issues/:id/ai/analyze` | engineer, admin | Re-queue analysis, e.g. after a failure. `409` while one is queued or running. |
 | GET | `/issues/:id/ai/sentiment` | engineer, admin | Sentiment timeline: the issue plus each client comment |
+| GET | `/issues/:id/ai/similar` | engineer, admin | Up to 5 similar resolved issues, same company, viewer's products only. `503 AI_UNAVAILABLE` if the AI service is down. |
+| GET | `/issues/:id/ai/resolution` | engineer, admin | Latest suggested resolution, or `null` |
+| POST | `/issues/:id/ai/resolution` | engineer, admin | Generate a suggested resolution with citations to past tickets |
+| POST | `/issues/:id/ai/resolution/:resolutionId/feedback` | engineer, admin | `{ feedback: "helpful" \| "not_helpful" }`, recorded once |
 
 All AI routes return `404 AI_DISABLED` when `AI_ENABLED=false`, and `403` to clients.
 
@@ -347,6 +358,8 @@ ai_call_logs (no foreign keys: an audit trail that outlives issues)
 
 **`ai_call_logs`** — Every AI service call: feature, outcome, latency and token usage.
 
+**`ai_resolution_suggestions`** — Each suggested resolution with its steps, cited tickets, a snapshot of the sources shown, model and prompt version, and whether the engineer marked it helpful.
+
 Every AI table stores `company_id`, copied from the issue's product when the row is written, so each row carries its own tenant and per-company reports need no joins.
 
 **`refresh_tokens`** — Server-side refresh token store. Tokens are stored as SHA-256 hashes. Each use invalidates the current token and issues a new one (rotation).
@@ -402,6 +415,7 @@ To use an existing empty database instead of a container, set `TEST_DATABASE_URL
 | `auth.test.ts` | Missing, malformed, forged, expired, and HS256 algorithm-confusion tokens are rejected. |
 | `ai-config.test.ts` | The `AI_ENABLED` flag: `/api/ai/config`, AI routes disabled, no jobs queued, and startup refused without `AI_SERVICE_TOKEN`. |
 | `ai-pipeline.test.ts` | Jobs are queued with the issue or comment (clients only) without calling the AI service; the worker stores results and never changes the issue; retries, backoff, failure, timeouts, invalid responses and the circuit breaker; `SKIP LOCKED` and stale-lock recovery. Runs against a stub AI service over real HTTP. |
+| `ai-retrieval.test.ts` | Index syncs queued on resolve, reopen, edit and staff comment (never twice); the worker indexes with staff notes only and removes reopened issues; searches scoped to company and viewer's products; every result the viewer couldn't open is dropped, even for admins; resolutions stored with cost and once-only feedback. |
 | `ai-api.test.ts` | Tenancy on every AI route, clients get `403`, no client response contains AI data, accept/edit/reject, review-once (including two simultaneous reviews), retry, and staff-only `category`/`team`. |
 
 `tests/helpers/fixtures.ts` builds a small two-company world (Acme and Globex, each with a product, a client, and an engineer, plus an admin) that every test probes across. Test files run one at a time because they share the database.
@@ -417,7 +431,8 @@ To use an existing empty database instead of a container, set `TEST_DATABASE_URL
 | `npm start` | Run compiled output (`node dist/server.js`) |
 | `npm test` | Run the integration test suite (requires Docker) |
 | `npm run test:watch` | Run tests in watch mode |
-| `npm run typecheck` | Type-check application and test code |
+| `npm run typecheck` | Type-check application, test and script code |
+| `npm run ai:reindex` | Rebuild and reconcile the similarity index (needs `AI_ENABLED=true`) |
 | `npm run keys:generate` | Generate RSA key pair in `keys/` |
 | `npx prisma migrate dev` | Apply migrations and run seed |
 | `npx prisma migrate deploy` | Apply migrations in production (no seed) |

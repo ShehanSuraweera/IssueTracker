@@ -122,4 +122,91 @@ router.post("/analyze", AiController.retryAnalysis);
  */
 router.get("/sentiment", AiController.getSentimentTimeline);
 
+/**
+ * @openapi
+ * /api/issues/{id}/ai/similar:
+ *   get:
+ *     tags: [AI]
+ *     summary: Similar resolved issues from the same company
+ *     description: >
+ *       Up to 5 resolved or closed issues describing a similar problem, from the same company
+ *       and only from products the viewer can open. Every result is re-checked against the
+ *       viewer's access before it is returned.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/IssueId'
+ *     responses:
+ *       200:
+ *         description: Similar issues, most similar first
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       503:
+ *         description: The AI service is unavailable
+ */
+router.get("/similar", AiController.getSimilarIssues);
+
+/**
+ * @openapi
+ * /api/issues/{id}/ai/resolution:
+ *   get:
+ *     tags: [AI]
+ *     summary: Latest suggested resolution for an issue
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/IssueId'
+ *     responses:
+ *       200:
+ *         description: The latest suggestion, or null
+ *   post:
+ *     tags: [AI]
+ *     summary: Generate a suggested resolution
+ *     description: >
+ *       Asks the AI service for a fix grounded in the same company's past resolved issues,
+ *       with citations to those tickets. If no similar issues exist, no LLM call is made.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/IssueId'
+ *     responses:
+ *       201:
+ *         description: The suggestion (stored when an LLM call was made)
+ *       503:
+ *         description: The AI service is unavailable
+ */
+router.get("/resolution", AiController.getLatestResolution);
+router.post("/resolution", AiController.requestResolution);
+
+/**
+ * @openapi
+ * /api/issues/{id}/ai/resolution/{resolutionId}/feedback:
+ *   post:
+ *     tags: [AI]
+ *     summary: Record whether a suggested resolution was helpful
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/IssueId'
+ *       - name: resolutionId
+ *         in: path
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [feedback]
+ *             properties:
+ *               feedback: { type: string, enum: [helpful, not_helpful] }
+ *     responses:
+ *       200:
+ *         description: Feedback recorded
+ *       409:
+ *         description: Feedback was already given
+ */
+router.post("/resolution/:resolutionId/feedback", AiController.giveResolutionFeedback);
+
 export default router;
