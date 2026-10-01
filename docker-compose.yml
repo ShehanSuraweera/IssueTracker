@@ -1,0 +1,32 @@
+# Local development services.
+# Production uses Amazon RDS for PostgreSQL instead; see docs/deployment.md.
+#
+#   docker compose up -d db     start Postgres in the background
+#   docker compose down         stop it (data is kept in the pgdata volume)
+#   docker compose down -v      stop it and delete all local data
+
+name: newnopdesk
+
+services:
+  db:
+    # Official Postgres 17 image plus the pgvector extension, used by the AI
+    # features. Same image the integration tests and CI use.
+    image: pgvector/pgvector:pg17
+    environment:
+      # Local-only credentials. Never reuse these anywhere else.
+      POSTGRES_USER: newnopdesk
+      POSTGRES_PASSWORD: newnopdesk_local
+      POSTGRES_DB: newnopdesk
+    ports:
+      # Bound to 127.0.0.1 so the database isn't reachable from your network
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U newnopdesk -d newnopdesk"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  pgdata:

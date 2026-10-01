@@ -128,11 +128,13 @@ export async function listIssues(query: ListIssuesQuery, user: AuthUser) {
     ...(query.product_id  && { productId:  query.product_id  }),
     ...(query.assigned_to  && { assignedTo: query.assigned_to }),
     ...(query.unassigned   && { assignedTo: null }),
+    // mode: "insensitive" compiles to ILIKE. Postgres LIKE is case-sensitive,
+    // unlike MySQL's default collation, so this keeps search behaving as before.
     ...(query.search && {
       OR: [
-        { title:        { contains: query.search } },
-        { description:  { contains: query.search } },
-        { ticketNumber: { contains: query.search } },
+        { title:        { contains: query.search, mode: "insensitive" } },
+        { description:  { contains: query.search, mode: "insensitive" } },
+        { ticketNumber: { contains: query.search, mode: "insensitive" } },
       ],
     }),
   };

@@ -115,6 +115,15 @@ describe("issue tenancy", () => {
       expect(await listIds(w.clientB, "?search=invoices")).toEqual([]);
     });
 
+    // Postgres LIKE is case-sensitive; MySQL's default collation was not.
+    // Pins the pre-migration behaviour so search can't silently regress.
+    it("search is case-insensitive across title, description and ticket number", async () => {
+      const a = [w.issueA.id.toString()];
+      expect(await listIds(w.clientA, "?search=INVOICES")).toEqual(a);
+      expect(await listIds(w.clientA, "?search=Blank%20Page")).toEqual(a);
+      expect(await listIds(w.clientA, "?search=acme-0001")).toEqual(a);
+    });
+
     it("filtering by another company's product returns nothing", async () => {
       expect(await listIds(w.clientB, `?product_id=${w.productA.id}`)).toEqual([]);
       expect(await listIds(w.engineerB, `?product_id=${w.productA.id}`)).toEqual([]);
@@ -125,6 +134,15 @@ describe("issue tenancy", () => {
     const res = await agent().get("/api/issues/stats").set(bearer(w.clientB));
     expect(res.status).toBe(200);
     expect(res.body.data.summary.totalOpen).toBe(1);
+    expect(res.body.data.byRegion).toBeUndefined();
+  });
+
+  // byRegion is the app's only raw SQL query, and it only runs for admins
+  it("admin stats include the cross-company issue count by region", async () => {
+    const res = await agent().get("/api/issues/stats").set(bearer(w.admin));
+    expect(res.status).toBe(200);
+    expect(res.body.data.summary.totalOpen).toBe(2);
+    expect(res.body.data.byRegion).toEqual({ LK: 1, KR: 1 });
   });
 
   it.each(outsiders)("%s cannot create an issue on another company's product", async (_label, outsider) => {

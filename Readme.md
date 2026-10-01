@@ -40,13 +40,13 @@ Inspired by ServiceNow and Jira Service Management, NewnopDesk gives each client
 
 ## Tech Stack
 
-**Frontend:** React 18 · TypeScript · Vite · Tailwind CSS · shadcn/ui · TanStack Query · Zustand · React Hook Form · Zod
+**Frontend:** React 19 · TypeScript · Vite · Tailwind CSS · shadcn/ui · TanStack Query · Zustand · React Hook Form · Zod
 
-**Backend:** Node.js · Express · TypeScript · Prisma · MySQL 8.0
+**Backend:** Node.js · Express · TypeScript · Prisma · PostgreSQL 17
 
-**Infrastructure:** AWS EC2 · RDS · S3 · CloudFront · Nginx · PM2
+**Infrastructure:** AWS EC2 · RDS for PostgreSQL · S3 · CloudFront · Nginx · PM2 · Docker (local development)
 
-**CI/CD:** GitHub Actions
+**CI/CD:** GitHub Actions — integration tests must pass before every backend deploy
 
 ---
 
@@ -55,14 +55,15 @@ Inspired by ServiceNow and Jira Service Management, NewnopDesk gives each client
 ### Prerequisites
 
 - Node.js 24 LTS
-- MySQL 8.0 running locally
+- Docker (runs PostgreSQL locally and powers the integration tests)
 - Git
 
 ### Backend
 
 ```bash
+docker compose up -d db       # PostgreSQL 17 + pgvector on localhost:5432
 cd backend
-cp .env.example .env          # fill in DATABASE_URL and other values
+cp .env.example .env          # DATABASE_URL already matches the local database
 npm install
 npm run keys:generate         # generates RSA keys for JWT signing
 npx prisma migrate dev
@@ -90,8 +91,9 @@ App runs at `http://localhost:5173` — API calls proxy to `localhost:4000` via 
 localdev/
 ├── .github/
 │   └── workflows/
+│       ├── ci.yml                # Typecheck + integration tests
 │       ├── deploy-frontend.yml   # S3 + CloudFront deployment
-│       └── deploy-backend.yml    # EC2 deployment via SSH
+│       └── deploy-backend.yml    # Runs ci.yml, then deploys to EC2 via SSH
 ├── backend/
 │   ├── src/
 │   │   ├── features/             # auth, issues, products, users, companies
@@ -139,9 +141,13 @@ See the [Deployment Guide](docs/deployment.md) for full pipeline documentation.
 
 ## Design Decisions
 
-**Why MySQL over MongoDB:** The data is highly relational — companies own products, products have issues, issues have comments and activity logs. Foreign keys and joins are the natural fit. MySQL's FULLTEXT index also powers the debounced search without a separate search service.
+**Why a relational database:** The data is highly relational — companies own products, products have issues, issues have comments and activity logs. Foreign keys and joins are the natural fit, which ruled out a document store like MongoDB.
 
-**Why multi-tenant isolation at the API layer:** Row-level security in MySQL is complex to set up and maintain. Middleware that injects the user's `company_id` into every Prisma query is simpler, fully testable, and just as secure for this use case.
+**Why PostgreSQL (migrated from MySQL 8):** The project started on MySQL. The planned AI features need vector similarity search, which RDS MySQL can't do, and running a second database just for vectors would mean two engines, two backups, and keeping them in sync on a 1 GB server. PostgreSQL with the pgvector extension handles both the application data and the vectors in one database, and its role and schema permissions let the AI service be restricted to its own tables. The migration was low-risk: there was no production data to move (the demo database is rebuilt from the seed), only two migrations to regenerate, and the one raw SQL query was already portable. The single behaviour difference was that PostgreSQL's `LIKE` is case-sensitive where MySQL's default collation was not; search now uses `ILIKE`, and a test pins it. RDS connections use verified TLS (`sslmode=verify-full` with Amazon's CA bundle).
+
+**Why search uses `ILIKE`:** Search is a case-insensitive substring match across title, description, and ticket number. At this data size that's fast and simple. PostgreSQL full-text search (a `tsvector` column with a GIN index) is the upgrade path if the data grows.
+
+**Why multi-tenant isolation at the API layer:** Every issue query goes through one function, `buildTenantWhere`, which adds the caller's company or product scope to the Prisma query. That's simple and testable, and integration tests probe every issue route with users from another company to prove nothing leaks. PostgreSQL also supports row-level security, which would add a second, database-enforced layer. It isn't used yet: with a connection pool, it needs the tenant ID set at the start of every transaction, which is a larger change for this stage of the project.
 
 **Why JWT in localStorage:** For this assignment, localStorage simplifies the auth flow. In production, httpOnly cookies with `SameSite=Strict` would prevent XSS token theft. This trade-off is documented and the fix is a one-line change to the cookie configuration.
 
