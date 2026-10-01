@@ -8,11 +8,13 @@ cost tokens. Error bodies never include request values, which may be client text
 
 from typing import Any
 
+import psycopg
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from psycopg_pool import PoolTimeout
 
-from ai_service.api.deps import ServiceAuthError
+from ai_service.api.deps import RetrievalUnavailableError, ServiceAuthError
 from ai_service.llm.base import LLMError
 
 
@@ -40,6 +42,25 @@ def register_error_handlers(app: FastAPI) -> None:
         body = error_body("VALIDATION_FAILED", "Request validation failed")
         body["error"]["fields"] = fields
         return JSONResponse(status_code=422, content=body)
+
+    @app.exception_handler(RetrievalUnavailableError)
+    async def _retrieval_off(_: Request, __: RetrievalUnavailableError) -> JSONResponse:
+        return JSONResponse(
+            status_code=503,
+            content=error_body("RETRIEVAL_UNAVAILABLE", "Similar-issue search is not available"),
+        )
+
+    @app.exception_handler(psycopg.OperationalError)
+    @app.exception_handler(PoolTimeout)
+    async def _database_down(_: Request, __: Exception) -> JSONResponse:
+        return JSONResponse(
+            status_code=503,
+            content=error_body(
+                "RETRIEVAL_DATABASE_UNAVAILABLE",
+                "The vector database is unreachable",
+                retryable=True,
+            ),
+        )
 
     @app.exception_handler(LLMError)
     async def _llm(_: Request, exc: LLMError) -> JSONResponse:

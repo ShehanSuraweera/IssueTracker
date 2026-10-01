@@ -5,12 +5,23 @@ description = "NewnopDesk AI service: triage, sentiment and retrieval for client
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
 dependencies = [
+    "alembic>=1.20.0",
     "fastapi>=0.142.2",
+    "fastembed>=0.8.1",
     "google-genai>=2.26.0",
+    "pgvector>=0.5.0",
+    "psycopg-pool>=3.3.3",
+    "psycopg[binary]>=3.3.6",
     "pydantic>=2.13.5",
     "pydantic-settings>=2.15.0",
     "uvicorn[standard]>=0.54.0",
 ]
+
+[project.scripts]
+# Database setup: `uv run ai-db bootstrap` (once, as admin), then `uv run ai-db migrate`
+ai-db = "ai_service.db.cli:main"
+# Start the service: `uv run ai-serve` (always on a selector event loop; see serve.py)
+ai-serve = "ai_service.serve:main"
 
 [build-system]
 requires = ["uv_build>=0.12.21,<0.13.0"]
@@ -23,6 +34,7 @@ dev = [
     "pytest>=9.1.1",
     "pytest-asyncio>=1.4.0",
     "ruff>=0.16.9",
+    "testcontainers[postgres]>=4.15.0",
 ]
 
 # ─── Tooling ──────────────────────────────────────────────────────────────────
@@ -61,7 +73,9 @@ files = ["src", "tests"]
 testpaths = ["tests"]
 asyncio_mode = "auto"
 # Tests marked `live` call the real Gemini API and are skipped by default
-addopts = "--strict-markers -m 'not live'"
+addopts = "--strict-markers -m 'not live and not embedding'"
 markers = [
     "live: calls the real Gemini API; needs GEMINI_API_KEY. Run with: uv run pytest -m live",
+    "db: needs PostgreSQL with pgvector (a throwaway container is started automatically)",
+    "embedding: loads the real fastembed model (downloads ~67 MB on first run)",
 ]

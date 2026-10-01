@@ -25,6 +25,19 @@ class Settings(BaseSettings):
     llm_timeout_seconds: float = Field(default=20.0, gt=0.0, le=120.0)
     max_input_chars: int = Field(default=8000, ge=500, le=50_000)
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
+
+    # ─── Retrieval (similar issues, suggested resolutions) ───────────────
+    # Connection as the restricted ai_service role. Retrieval endpoints are
+    # disabled when unset; triage and sentiment still work.
+    ai_database_url: SecretStr | None = None
+    embedding_provider: Literal["fastembed", "fake"] = "fastembed"
+    embedding_model: str = "BAAI/bge-small-en-v1.5"
+    # Where fastembed keeps the downloaded model. Default: its own temp folder.
+    embedding_cache_dir: str | None = None
+    # Cosine similarity a past issue needs to count as similar. bge-small
+    # scores the same problem around 0.85 and unrelated ones below 0.65.
+    retrieval_min_similarity: float = Field(default=0.70, ge=0.0, le=1.0)
+    retrieval_max_results: int = Field(default=5, ge=1, le=10)
     ai_service_docs: bool = False
 
     @field_validator("ai_service_token")
