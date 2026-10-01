@@ -339,7 +339,7 @@ To use an existing empty database instead of a container, set `TEST_DATABASE_URL
 
 | File | What it proves |
 |------|----------------|
-| `tenancy.issues.test.ts` | A client from another company, or an engineer without product access, gets `404` on every issue route and sub-resource (detail, update, feed, comments, attachments), and the probes change nothing. Lists, search, filters, and stats never include other tenants' issues. |
+| `tenancy.issues.test.ts` | A client from another company, or an engineer without product access, gets `404` on every issue route and sub-resource (detail, update, assign, resolve, feed, comments, attachments), and the probes change nothing. Lists, search, filters, and stats never include other tenants' issues. |
 | `tenancy.products.test.ts` | Product listing and detail are tenant-filtered; admin-only routes return `403` to clients and engineers. |
 | `internal-comments.test.ts` | Clients never receive internal comments through issue detail or the feed, and cannot post them. |
 | `priority.test.ts` | All nine cells of the ITIL impact × urgency matrix, defaults, and recomputation on update. |
@@ -347,8 +347,6 @@ To use an existing empty database instead of a container, set `TEST_DATABASE_URL
 | `ai-config.test.ts` | The `AI_ENABLED` flag and `/api/ai/config`. |
 
 `tests/helpers/fixtures.ts` builds a small two-company world (Acme and Globex, each with a product, a client, and an engineer, plus an admin) that every test probes across. Test files run one at a time because they share the database.
-
-A test marked `it.fails` documents a known bug: it passes while the bug exists. When the bug is fixed, Vitest reports it so the marker can be removed.
 
 ---
 

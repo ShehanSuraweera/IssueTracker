@@ -5,7 +5,7 @@
  * to the product. Every probe must return 404 ISSUE_NOT_FOUND — not 403,
  * which would confirm the issue exists — and must change nothing.
  */
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import request from "supertest";
 import type { Test } from "supertest";
 import type { User } from "@prisma/client";
@@ -140,22 +140,41 @@ describe("issue tenancy", () => {
 
 describe("issue assignment tenancy", () => {
   let w: World;
-  beforeAll(async () => {
+  beforeEach(async () => {
     w = await freshWorld();
   });
 
-  // KNOWN BUG, reported in Phase 1. assignIssue() in issues.service.ts loads
-  // the issue with findUnique({ where: { id } }) and never applies
-  // buildTenantWhere(), so any engineer can assign any issue in the system
-  // and the response returns that issue's details. `it.fails` keeps the suite
-  // green while recording the bug; once the fix lands, this test starts
-  // passing, Vitest flags it, and `.fails` should be removed.
-  it.fails("engineer without product access cannot assign the issue", async () => {
-    const res = await agent()
-      .post(`/api/issues/${w.issueA.id}/assign`)
-      .set(bearer(w.engineerB))
-      .send({ assigneeId: w.engineerB.id.toString() });
+  const assign = (issueId: bigint, actor: User, assignee: User) =>
+    agent()
+      .post(`/api/issues/${issueId}/assign`)
+      .set(bearer(actor))
+      .send({ assigneeId: assignee.id.toString() });
+
+  // Regression test. assignIssue() used to load the issue by ID alone, so an
+  // engineer could assign any issue in the system and the response leaked its
+  // title and the client's email.
+  it("engineer without product access gets 404 and the issue is unchanged", async () => {
+    const before = await snapshotIssueA(w);
+
+    const res = await assign(w.issueA.id, w.engineerB, w.engineerB);
     expect(res.status).toBe(404);
+    expect(res.body.error.code).toBe("ISSUE_NOT_FOUND");
+    // Nothing about issue A may appear in the error response
+    expect(JSON.stringify(res.body)).not.toContain(w.issueA.title);
+    expect(JSON.stringify(res.body)).not.toContain(w.clientA.email);
+
+    expect(await snapshotIssueA(w)).toEqual(before);
+  });
+
+  it("engineer with product access can assign the issue to themselves", async () => {
+    const res = await assign(w.issueA.id, w.engineerA, w.engineerA);
+    expect(res.status).toBe(200);
+    expect(res.body.data.assignee.id).toBe(w.engineerA.id.toString());
+  });
+
+  it("admins can assign issues in any company", async () => {
+    expect((await assign(w.issueA.id, w.admin, w.engineerA)).status).toBe(200);
+    expect((await assign(w.issueB.id, w.admin, w.engineerB)).status).toBe(200);
   });
 });
 
