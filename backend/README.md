@@ -13,6 +13,7 @@ Express + TypeScript REST API powering the NewnopDesk issue portal. Serves all d
 - [API Reference](#api-reference)
 - [Data Model](#data-model)
 - [Authentication](#authentication)
+- [Testing](#testing)
 - [Scripts](#scripts)
 
 ---
@@ -64,6 +65,7 @@ All variables are validated at startup via Zod. The server exits immediately if 
 | `SMTP_USER` | No | — | SMTP username |
 | `SMTP_PASSWORD` | No | — | SMTP password |
 | `SMTP_FROM` | No | — | Sender address |
+| `AI_ENABLED` | No | `false` | Master switch for the AI layer. Accepts `true`/`false`. When off, the app behaves exactly as it did without AI. |
 
 > **Note:** SMTP and S3 variables are optional. If S3 variables are absent, attachment presign endpoints return `503 Service Unavailable` instead of failing at startup.
 
@@ -81,6 +83,7 @@ backend/
 │   ├── docs/
 │   │   └── swagger.ts          # OpenAPI spec generated from JSDoc annotations
 │   ├── features/               # One folder per domain — routes, controller, service, schemas
+│   │   ├── ai/                 # AI feature flag + (later) AI endpoints
 │   │   ├── auth/
 │   │   ├── companies/
 │   │   ├── issues/
@@ -99,6 +102,7 @@ backend/
 │   ├── schema.prisma           # Database schema
 │   ├── migrations/             # Prisma migration history
 │   └── seed.ts                 # Demo data seed
+├── tests/                      # Vitest + supertest integration tests (see Testing)
 ├── keys/                       # RSA key pair — gitignored, generated per environment
 ├── ecosystem.config.js         # PM2 process definition for production
 └── prisma.config.ts            # Prisma v7 config (schema path, seed command)
@@ -170,6 +174,12 @@ Raw OpenAPI JSON: **`/api-docs.json`**
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
 | GET | `/health` | None | Returns `{ status: "ok", version, timestamp }` |
+
+### AI — `/api/ai`
+
+| Method | Path | Roles | Description |
+|--------|------|-------|-------------|
+| GET | `/ai/config` | All | Returns `{ enabled }` so the frontend can hide AI UI when `AI_ENABLED=false` |
 
 ### Authentication — `/api/auth`
 
@@ -304,6 +314,44 @@ The `authenticate` middleware verifies the access token on every protected route
 
 ---
 
+## Testing
+
+Integration tests drive the real Express app over HTTP (supertest) against a real database, so they exercise routing, auth middleware, validation, tenancy filters, and SQL together.
+
+```bash
+npm test             # run the suite once
+npm run test:watch   # re-run on file changes
+npm run typecheck    # type-check src/ and tests/
+```
+
+**Requirements:** Docker must be running. The first run downloads the MySQL image, which takes a few minutes; later runs take about 1–2 minutes.
+
+**How the test database works** (`tests/global-setup.ts`):
+
+1. A throwaway MySQL 8.0 container is started with [Testcontainers](https://testcontainers.com/). Your local database is never touched.
+2. The real Prisma migrations are applied to it with `prisma migrate deploy`.
+3. A temporary RSA key pair is generated for signing test JWTs.
+4. Everything is removed when the run finishes.
+
+To use an existing empty database instead of a container, set `TEST_DATABASE_URL`. **The tests delete all rows in it.**
+
+**Test layout:**
+
+| File | What it proves |
+|------|----------------|
+| `tenancy.issues.test.ts` | A client from another company, or an engineer without product access, gets `404` on every issue route and sub-resource (detail, update, feed, comments, attachments), and the probes change nothing. Lists, search, filters, and stats never include other tenants' issues. |
+| `tenancy.products.test.ts` | Product listing and detail are tenant-filtered; admin-only routes return `403` to clients and engineers. |
+| `internal-comments.test.ts` | Clients never receive internal comments through issue detail or the feed, and cannot post them. |
+| `priority.test.ts` | All nine cells of the ITIL impact × urgency matrix, defaults, and recomputation on update. |
+| `auth.test.ts` | Missing, malformed, forged, expired, and HS256 algorithm-confusion tokens are rejected. |
+| `ai-config.test.ts` | The `AI_ENABLED` flag and `/api/ai/config`. |
+
+`tests/helpers/fixtures.ts` builds a small two-company world (Acme and Globex, each with a product, a client, and an engineer, plus an admin) that every test probes across. Test files run one at a time because they share the database.
+
+A test marked `it.fails` documents a known bug: it passes while the bug exists. When the bug is fixed, Vitest reports it so the marker can be removed.
+
+---
+
 ## Scripts
 
 | Script | Description |
@@ -311,6 +359,9 @@ The `authenticate` middleware verifies the access token on every protected route
 | `npm run dev` | Start development server with hot reload (ts-node-dev) |
 | `npm run build` | Compile TypeScript to `dist/` |
 | `npm start` | Run compiled output (`node dist/server.js`) |
+| `npm test` | Run the integration test suite (requires Docker) |
+| `npm run test:watch` | Run tests in watch mode |
+| `npm run typecheck` | Type-check application and test code |
 | `npm run keys:generate` | Generate RSA key pair in `keys/` |
 | `npx prisma migrate dev` | Apply migrations and run seed |
 | `npx prisma migrate deploy` | Apply migrations in production (no seed) |

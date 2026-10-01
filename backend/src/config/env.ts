@@ -35,6 +35,11 @@ const EnvSchema = z.object({
   AWS_BUCKET_ATTACHMENTS: z.string().optional(),
   AWS_ACCESS_KEY_ID: z.string().optional(),
   AWS_SECRET_ACCESS_KEY: z.string().optional(),
+
+  // AI layer master switch. Off by default so the app runs unchanged without
+  // the AI service. z.stringbool() is deliberate: z.coerce.boolean() would
+  // turn the string "false" into true.
+  AI_ENABLED: z.stringbool().default(false),
 });
 
 function loadEnv() {

@@ -13,6 +13,7 @@ import issuesRoutes from "./features/issues/issues.routes";
 import companiesRoutes from "./features/companies/companies.routes";
 import productsRoutes from "./features/products/products.routes";
 import usersRoutes from "./features/users/users.routes";
+import aiRoutes from "./features/ai/ai.routes";
 
 export function createApp() {
   const app = express();
@@ -41,6 +42,8 @@ export function createApp() {
   // ─── Structured Logging ────────────────────────────────────────────────────
   app.use(
     pinoHttp({
+      // Silence request logs under test so failures aren't buried in noise
+      level: env.NODE_ENV === "test" ? "silent" : "info",
       genReqId: () => uuidv4(),
       quietReqLogger: env.NODE_ENV !== "development",
       customLogLevel: (_req, res) =>
@@ -85,6 +88,7 @@ export function createApp() {
   app.use("/api/companies", companiesRoutes);
   app.use("/api/products", productsRoutes);
   app.use("/api/users", usersRoutes);
+  app.use("/api/ai", aiRoutes);
 
   // Health check
   app.get("/health", (_req, res) => {
