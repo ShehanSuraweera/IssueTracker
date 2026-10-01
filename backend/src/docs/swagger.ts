@@ -1021,6 +1021,10 @@ All error responses follow a consistent envelope:
           "User management and self-service. Admins can create/update users and manage " +
           "engineer product access. All authenticated users can view their own profile and change their password.",
       },
+      {
+        name: "AI",
+        description: "AI-assisted features. All AI endpoints are disabled unless AI_ENABLED=true.",
+      },
     ],
   },
   apis: [path.resolve(__dirname, "../features/**/*.routes.{ts,js}")],

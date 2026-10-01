@@ -444,8 +444,8 @@ export async function assignIssue(
   input: AssignIssueInput,
   user: AuthUser
 ) {
-  const existing = await prisma.issue.findUnique({
-    where: { id: issueId },
+  const existing = await prisma.issue.findFirst({
+    where: { id: issueId, ...buildTenantWhere(user) },
     include: { assignee: { select: { fullName: true } } },
   });
   if (!existing) throw new AppError(404, "ISSUE_NOT_FOUND", "Issue not found");

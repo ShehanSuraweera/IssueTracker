@@ -1,0 +1,57 @@
+name: CI
+
+# WHEN: pull requests and pushes to feature branches that touch backend, and
+#       as a required first step of deploy-backend.yml (workflow_call)
+# WHY: catch type errors and broken tenancy rules before code reaches main,
+#      and make sure nothing deploys unless the tests pass.
+#      Pushes to main are skipped here because deploy-backend.yml already
+#      runs this workflow for them; otherwise the tests would run twice.
+on:
+  push:
+    branches-ignore: [main]
+    paths:
+      - "backend/**"
+      - ".github/workflows/ci.yml"
+  pull_request:
+    paths:
+      - "backend/**"
+      - ".github/workflows/ci.yml"
+  workflow_call:
+
+jobs:
+  backend:
+    name: Backend — typecheck and tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Same Node version as the deploy workflow
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "npm"
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      # prisma.config.ts requires DATABASE_URL to be set, but generate never
+      # connects, so a placeholder is enough. Tests use their own database.
+      - name: Generate Prisma client
+        env:
+          DATABASE_URL: "mysql://placeholder:placeholder@localhost:3306/placeholder"
+        run: npx prisma generate
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      # Testcontainers starts a throwaway MySQL container using the runner's
+      # built-in Docker, the same way it does on a developer machine
+      - name: Run tests
+        run: npm test
