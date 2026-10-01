@@ -10,7 +10,12 @@ import { prisma } from "../../lib/prisma";
 import { AppError } from "../../middleware/errorHandler";
 import { createPresignedUploadUrl, createPresignedDownloadUrl, deleteS3Objects, UPLOAD_EXPIRES_IN } from "../../lib/s3";
 import { v4 as uuidv4 } from "uuid";
-import { enqueueCommentSentiment, enqueueIssueAnalysis } from "../ai/ai.jobs";
+import {
+  INDEXED_STATUSES,
+  enqueueCommentSentiment,
+  enqueueIndexSync,
+  enqueueIssueAnalysis,
+} from "../ai/ai.jobs";
 import type {
   CreateIssueInput,
   UpdateIssueInput,
@@ -347,6 +352,7 @@ async function applyIssueUpdate(
 ) {
   const existing = await db.issue.findFirst({
     where: { id: issueId, ...buildTenantWhere(user) },
+    include: { product: { select: { companyId: true } } },
   });
 
   if (!existing) throw new AppError(404, "ISSUE_NOT_FOUND", "Issue not found");
@@ -441,6 +447,16 @@ async function applyIssueUpdate(
     });
 
   await writeActivity(db, issueId, user.id, changes);
+
+  // Keep the similarity index in step: add on resolve/close, remove on
+  // reopen, refresh when a resolved issue's text changes
+  const wasIndexed = INDEXED_STATUSES.has(existing.status);
+  const isIndexed = INDEXED_STATUSES.has(result.status);
+  const textChanged =
+    result.title !== existing.title || result.description !== existing.description;
+  if (wasIndexed !== isIndexed || (isIndexed && textChanged)) {
+    await enqueueIndexSync(db, { issueId, companyId: existing.product.companyId });
+  }
   return result;
 }
 
@@ -524,6 +540,7 @@ export async function assignIssue(
 export async function resolveIssue(issueId: bigint, user: AuthUser) {
   const existing = await prisma.issue.findFirst({
     where: { id: issueId, ...buildTenantWhere(user) },
+    include: { product: { select: { companyId: true } } },
   });
   if (!existing) throw new AppError(404, "ISSUE_NOT_FOUND", "Issue not found");
 
@@ -543,6 +560,7 @@ export async function resolveIssue(issueId: bigint, user: AuthUser) {
     await writeActivity(tx, issueId, user.id, [
       { field: "status", oldValue: existing.status, newValue: "resolved" },
     ]);
+    await enqueueIndexSync(tx, { issueId, companyId: existing.product.companyId });
 
     return result;
   });
@@ -810,7 +828,7 @@ export async function addComment(
 ) {
   const issue = await prisma.issue.findFirst({
     where: { id: issueId, ...buildTenantWhere(user) },
-    select: { id: true, product: { select: { companyId: true } } },
+    select: { id: true, status: true, product: { select: { companyId: true } } },
   });
   if (!issue) throw new AppError(404, "ISSUE_NOT_FOUND", "Issue not found");
 
@@ -835,6 +853,10 @@ export async function addComment(
         commentId: created.id,
         companyId: issue.product.companyId,
       });
+    }
+    // Staff comments are the resolution notes of a resolved issue
+    if (user.role !== "client_user" && INDEXED_STATUSES.has(issue.status)) {
+      await enqueueIndexSync(tx, { issueId, companyId: issue.product.companyId });
     }
     return created;
   });

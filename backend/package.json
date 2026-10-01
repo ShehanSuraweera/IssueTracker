@@ -14,7 +14,8 @@
     "prisma:generate": "prisma generate",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.test.json"
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.test.json",
+    "ai:reindex": "tsx scripts/ai-reindex.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
