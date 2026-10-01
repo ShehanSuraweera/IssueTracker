@@ -15,7 +15,7 @@ This document covers the complete production deployment of NewnopDesk on AWS —
 2. [Prerequisites](#2-prerequisites)
 3. [AWS IAM Setup](#3-aws-iam-setup)
 4. [Networking — Security Groups](#4-networking--security-groups)
-5. [Database — RDS MySQL](#5-database--rds-mysql)
+5. [Database — RDS PostgreSQL](#5-database--rds-postgresql)
 6. [Storage — S3 Buckets](#6-storage--s3-buckets)
 7. [Compute — EC2 Instance](#7-compute--ec2-instance)
 8. [EC2 Server Configuration](#8-ec2-server-configuration)
@@ -48,10 +48,10 @@ This document covers the complete production deployment of NewnopDesk on AWS —
               │  (frontend) │  │  Nginx → PM2 → Express  │
               └─────────────┘  └────────────┬────────────┘
                                             │
-                                   ┌────────▼────────┐
-                                   │  RDS MySQL 8.0  │
-                                   │  (private subnet)│
-                                   └─────────────────┘
+                                   ┌────────▼─────────┐
+                                   │ RDS PostgreSQL 17│
+                                   │ (private subnet) │
+                                   └──────────────────┘
 ```
 
 ### Request flow
@@ -131,38 +131,76 @@ Two security groups control traffic. Both live in the default VPC.
 
 | Direction | Protocol | Port | Source | Purpose |
 |-----------|----------|------|--------|---------|
-| Inbound | MySQL | 3306 | `newnopdesk-ec2` (SG ID) | Only EC2 instances in that group can connect |
+| Inbound | PostgreSQL | 5432 | `newnopdesk-ec2` (SG ID) | Only EC2 instances in that group can connect |
 | Outbound | All | All | `0.0.0.0/0` | Standard |
 
 The source for the RDS rule is the **security group ID** of `newnopdesk-ec2` (not an IP). This means the rule applies to any EC2 in that group automatically — so recreating the EC2 doesn't require updating the rule.
 
 ---
 
-## 5. Database — RDS MySQL
+## 5. Database — RDS PostgreSQL
 
 ### Configuration
 
 | Setting | Value |
 |---------|-------|
-| Engine | MySQL 8.0 |
+| Engine | PostgreSQL 17 |
 | Template | Free tier |
 | Instance class | `db.t4g.micro` |
-| Storage | 20 GB gp2 |
+| Storage | 20 GB gp3 |
 | Multi-AZ | No (single-AZ) |
 | Public access | **No** |
-| VPC security group | `newnopdesk-rds` |
+| VPC security group | `newnopdesk-rds` (inbound 5432 from `newnopdesk-ec2`) |
+| Master username | `postgres` |
 | Initial database name | `newnopdesk` |
+
+The AI features (later phases) use the **pgvector** extension, which RDS for PostgreSQL 17 supports. Nothing needs enabling now; the AI service's migrations run `CREATE EXTENSION vector` when they are added.
+
+### TLS: why the connection string needs a CA bundle
+
+RDS for PostgreSQL 15 and later enforces encrypted connections by default (`rds.force_ssl = 1`). The backend's `pg` driver treats `sslmode=require` as `verify-full`, which checks the server certificate against a trusted CA. Amazon's RDS CA is not in Node's default trust store, so `?sslmode=require` on its own fails with `unable to verify the first certificate`.
+
+Download Amazon's CA bundle once on the EC2, outside the repository so deployments never touch it:
+
+```bash
+sudo mkdir -p /etc/ssl/rds
+sudo curl -fsSL -o /etc/ssl/rds/global-bundle.pem   https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem
+```
 
 ### Connection string format
 
 ```
-mysql://admin:<password>@<endpoint>:3306/newnopdesk
+postgresql://postgres:<password>@<endpoint>:5432/newnopdesk?sslmode=verify-full&sslrootcert=/etc/ssl/rds/global-bundle.pem
 ```
+
+- URL-encode any special characters in the password (for example `@` becomes `%40`).
+- The same string works for the running app and for `prisma migrate deploy`. This was verified against a local PostgreSQL that only accepts TLS connections with a certificate from a private CA.
 
 The endpoint looks like:
 ```
 newnopdesk-db.xxxxxxxxxx.ap-south-1.rds.amazonaws.com
 ```
+
+### One-time switch from RDS MySQL
+
+The project moved from MySQL 8 to PostgreSQL. If your environment still runs the MySQL version, switch in this order. **Do steps 1–4 before merging the PostgreSQL change into `main`**, because merging triggers a deployment that runs `prisma migrate deploy` against whatever `DATABASE_URL` the EC2 has.
+
+There's no data to migrate: the demo database is rebuilt from the seed. Expect a few minutes between step 5 and step 6 when the app is running against an empty database and nobody can log in.
+
+1. **Create the RDS PostgreSQL instance** with the configuration above.
+2. **Allow the EC2 to reach it:** in the `newnopdesk-rds` security group, add inbound PostgreSQL / 5432 from the `newnopdesk-ec2` security group.
+3. **Download the CA bundle** on the EC2 (see *TLS* above).
+4. **Point the backend at PostgreSQL:** edit `DATABASE_URL` in `/var/www/newnopdesk/backend/.env` to the new connection string. The running server keeps using the old connection until it restarts, so this doesn't take the site down.
+5. **Merge the PostgreSQL change into `main`.** The deploy workflow runs the tests, builds, applies the migration to the new database, and restarts the server.
+6. **Seed the database** on the EC2:
+   ```bash
+   cd /var/www/newnopdesk/backend
+   npx tsx prisma/seed.ts
+   ```
+7. **Verify:** log in with each demo account, open an issue, and search. `pm2 logs newnopdesk-api` should show no database errors.
+8. **Clean up:** remove the inbound 3306 rule from `newnopdesk-rds`, then delete the RDS MySQL instance. The free tier covers one `db.t4g.micro` instance, so leaving both running is billed.
+
+**If step 5's deployment fails,** the previous build has already been overwritten on disk, but the old process keeps running from memory until PM2 restarts it. Fix the cause and re-run the workflow, or set `DATABASE_URL` back to MySQL and redeploy the previous commit.
 
 ### Migrations
 
@@ -319,7 +357,7 @@ Create `/var/www/newnopdesk/backend/.env`:
 NODE_ENV=production
 PORT=4000
 
-DATABASE_URL="mysql://admin:<password>@<rds-endpoint>:3306/newnopdesk"
+DATABASE_URL="postgresql://postgres:<password>@<rds-endpoint>:5432/newnopdesk?sslmode=verify-full&sslrootcert=/etc/ssl/rds/global-bundle.pem"
 
 JWT_PRIVATE_KEY_PATH=./keys/private.pem
 JWT_PUBLIC_KEY_PATH=./keys/public.pem
@@ -530,7 +568,7 @@ All environment variables live in `/var/www/newnopdesk/backend/.env` on the EC2.
 |----------|----------|-------------|
 | `NODE_ENV` | Yes | `production` |
 | `PORT` | Yes | Express listen port (default `4000`) |
-| `DATABASE_URL` | Yes | MySQL connection string |
+| `DATABASE_URL` | Yes | PostgreSQL connection string with `sslmode=verify-full` and `sslrootcert` (see section 5) |
 | `JWT_PRIVATE_KEY_PATH` | Yes | Path to RS256 private key (default `./keys/private.pem`) |
 | `JWT_PUBLIC_KEY_PATH` | Yes | Path to RS256 public key (default `./keys/public.pem`) |
 | `ACCESS_TOKEN_TTL_SECONDS` | Yes | JWT access token lifetime (default `900` = 15 min) |
@@ -647,7 +685,7 @@ All resources run within the AWS Free Tier (first 12 months).
 | Service | Configuration | Free tier | Monthly cost |
 |---------|--------------|-----------|-------------|
 | EC2 | t3.micro, Ubuntu | 750 hrs/month | $0 |
-| RDS | db.t4g.micro, MySQL 8.0 | 750 hrs + 20 GB | $0 |
+| RDS | db.t4g.micro, PostgreSQL 17 | 750 hrs + 20 GB | $0 |
 | S3 | < 5 GB combined | 5 GB free | < $0.50 |
 | CloudFront | Demo-scale traffic | 1 TB egress/month free | $0 |
 | Data transfer | Demo scale | 1 GB egress free | $0 |

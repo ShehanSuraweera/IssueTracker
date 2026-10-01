@@ -45,13 +45,13 @@ jobs:
       # connects, so a placeholder is enough. Tests use their own database.
       - name: Generate Prisma client
         env:
-          DATABASE_URL: "mysql://placeholder:placeholder@localhost:3306/placeholder"
+          DATABASE_URL: "postgresql://placeholder:placeholder@localhost:5432/placeholder"
         run: npx prisma generate
 
       - name: Typecheck
         run: npm run typecheck
 
-      # Testcontainers starts a throwaway MySQL container using the runner's
+      # Testcontainers starts a throwaway Postgres container using the runner's
       # built-in Docker, the same way it does on a developer machine
       - name: Run tests
         run: npm test

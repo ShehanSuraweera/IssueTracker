@@ -23,18 +23,21 @@ Express + TypeScript REST API powering the NewnopDesk issue portal. Serves all d
 ### Prerequisites
 
 - Node.js 24 LTS
-- MySQL 8.0 running locally
+- Docker (runs PostgreSQL locally and powers the integration tests)
 
 ### Setup
 
 ```bash
+docker compose up -d db       # from the repo root: PostgreSQL 17 + pgvector on localhost:5432
 cd backend
-cp .env.example .env          # fill in DATABASE_URL and other values
+cp .env.example .env          # DATABASE_URL already matches the local database
 npm install
 npm run keys:generate         # generates RSA key pair in keys/
 npx prisma migrate dev        # applies migrations and runs seed automatically
-npm run dev                   # starts ts-node-dev with hot reload
+npm run dev                   # starts the dev server with hot reload
 ```
+
+The database runs in Docker with its data in a named volume, so it survives restarts. `docker compose down -v` deletes it.
 
 API runs at **http://localhost:4000**
 
@@ -48,7 +51,7 @@ All variables are validated at startup via Zod. The server exits immediately if 
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `DATABASE_URL` | Yes | — | MySQL connection string, e.g. `mysql://user:pass@localhost:3306/newnopdesk` |
+| `DATABASE_URL` | Yes | — | PostgreSQL connection string, e.g. `postgresql://user:pass@localhost:5432/newnopdesk`. Production on RDS also needs `?sslmode=verify-full&sslrootcert=<CA bundle path>`; see [deployment guide §5](../docs/deployment.md#5-database--rds-postgresql). |
 | `PORT` | No | `4000` | HTTP port the Express server binds to |
 | `NODE_ENV` | No | `development` | `development` \| `production` \| `test` |
 | `JWT_PRIVATE_KEY_PATH` | No | `./keys/private.pem` | Path to RSA private key (PEM format) |
@@ -324,11 +327,11 @@ npm run test:watch   # re-run on file changes
 npm run typecheck    # type-check src/ and tests/
 ```
 
-**Requirements:** Docker must be running. The first run downloads the MySQL image, which takes a few minutes; later runs take about 1–2 minutes.
+**Requirements:** Docker must be running. The first run downloads the Postgres image, which takes a few minutes; later runs take about 1–2 minutes.
 
 **How the test database works** (`tests/global-setup.ts`):
 
-1. A throwaway MySQL 8.0 container is started with [Testcontainers](https://testcontainers.com/). Your local database is never touched.
+1. A throwaway PostgreSQL 17 container (`pgvector/pgvector:pg17`, the same image as `docker-compose.yml`) is started with [Testcontainers](https://testcontainers.com/). Your local database is never touched.
 2. The real Prisma migrations are applied to it with `prisma migrate deploy`.
 3. A temporary RSA key pair is generated for signing test JWTs.
 4. Everything is removed when the run finishes.
@@ -339,7 +342,7 @@ To use an existing empty database instead of a container, set `TEST_DATABASE_URL
 
 | File | What it proves |
 |------|----------------|
-| `tenancy.issues.test.ts` | A client from another company, or an engineer without product access, gets `404` on every issue route and sub-resource (detail, update, assign, resolve, feed, comments, attachments), and the probes change nothing. Lists, search, filters, and stats never include other tenants' issues. |
+| `tenancy.issues.test.ts` | A client from another company, or an engineer without product access, gets `404` on every issue route and sub-resource (detail, update, assign, resolve, feed, comments, attachments), and the probes change nothing. Lists, search, filters, and stats never include other tenants' issues. Search is case-insensitive. |
 | `tenancy.products.test.ts` | Product listing and detail are tenant-filtered; admin-only routes return `403` to clients and engineers. |
 | `internal-comments.test.ts` | Clients never receive internal comments through issue detail or the feed, and cannot post them. |
 | `priority.test.ts` | All nine cells of the ITIL impact × urgency matrix, defaults, and recomputation on update. |

@@ -1,11 +1,11 @@
 import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
-import { PrismaMariaDb } from '@prisma/adapter-mariadb';
+import { PrismaPg } from '@prisma/adapter-pg';
 import bcrypt from 'bcrypt';
 
 const url = process.env.DATABASE_URL;
 if (!url) throw new Error('DATABASE_URL is not set');
-const prisma = new PrismaClient({ adapter: new PrismaMariaDb(url) });
+const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: url }) });
 
 // ── Env-driven credentials ────────────────────────────────────────────────────
 const DEMO_PASSWORD  = process.env.SEED_DEMO_PASSWORD  ?? 'Demo@2026';

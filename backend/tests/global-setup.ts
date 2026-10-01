@@ -1,6 +1,6 @@
 /**
  * Runs once before the whole suite:
- *  1. Starts a disposable MySQL container (or uses TEST_DATABASE_URL if set)
+ *  1. Starts a disposable Postgres container (or uses TEST_DATABASE_URL if set)
  *  2. Applies the real Prisma migrations to it
  *  3. Generates a throwaway RSA key pair for signing test JWTs
  *
@@ -11,7 +11,7 @@ import { generateKeyPairSync, randomUUID } from "crypto";
 import { mkdirSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-import { MySqlContainer, type StartedMySqlContainer } from "@testcontainers/mysql";
+import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testcontainers/postgresql";
 import type { TestProject } from "vitest/node";
 
 declare module "vitest" {
@@ -23,20 +23,18 @@ declare module "vitest" {
 }
 
 export default async function setup(project: TestProject) {
-  let container: StartedMySqlContainer | undefined;
+  let container: StartedPostgreSqlContainer | undefined;
   let databaseUrl = process.env.TEST_DATABASE_URL;
 
   if (!databaseUrl) {
-    container = await new MySqlContainer("mysql:8.0")
+    // pgvector/pgvector is the official Postgres image plus the pgvector
+    // extension, which the AI features need from Phase 5 onward
+    container = await new PostgreSqlContainer("pgvector/pgvector:pg17")
       .withDatabase("newnopdesk_test")
       .withUsername("test")
-      .withUserPassword("test")
+      .withPassword("test")
       .start();
-    // allowPublicKeyRetrieval: MySQL 8 uses caching_sha2_password, which needs
-    // the server's public key over a non-TLS connection like this local one
-    databaseUrl =
-      `mysql://test:test@${container.getHost()}:${container.getPort()}` +
-      `/newnopdesk_test?allowPublicKeyRetrieval=true`;
+    databaseUrl = container.getConnectionUri();
   }
 
   execSync("npx prisma migrate deploy", {

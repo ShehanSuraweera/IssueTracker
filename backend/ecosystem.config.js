@@ -24,7 +24,7 @@ module.exports = {
       watch: false,
 
       // If memory exceeds 256MB, restart the process
-      // A t3.micro has 1GB RAM — this leaves plenty for the OS and MySQL client
+      // A t3.micro has 1GB RAM — this leaves plenty for the OS and other processes
       max_memory_restart: "256M",
 
       // Log file locations
