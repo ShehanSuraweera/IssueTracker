@@ -16,7 +16,7 @@ import {
   useDeleteIssue,
 } from "@/hooks/use-issues";
 import { useAuth } from "@/hooks/use-auth";
-import { useIssuePermissions } from "@/hooks/use-issue-permissions";
+import { getIssuePermissions } from "@/lib/issue-permissions";
 import { useTabsStore } from "@/store/tabs.store";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -36,6 +36,11 @@ import { ActivityPanel } from "@/components/issues/ActivityPanel";
 import { AssignmentCard } from "@/components/issues/AssignmentCard";
 import { RecordPanel } from "@/components/issues/RecordPanel";
 import { IssueTimeline } from "@/components/issues/IssueTimeline";
+import { AiSuggestionCard } from "@/components/ai/AiSuggestionCard";
+import { ClientMoodCard } from "@/components/ai/ClientMoodCard";
+import { SimilarIssuesCard } from "@/components/ai/SimilarIssuesCard";
+import { ThreadSummaryCard } from "@/components/ai/ThreadSummaryCard";
+import { useAiEnabled } from "@/hooks/use-ai";
 
 function DetailSkeleton() {
   return (
@@ -74,6 +79,7 @@ export default function IssueDetailPage() {
   const back = useBack("/issues");
 
   const { data: issue, isLoading } = useIssue(id);
+  const aiEnabled = useAiEnabled();
   const resolveMutation = useResolveIssue(id);
   const updateMutation = useUpdateIssue(id);
   const assignSelfMutation = useAssignIssue(id);
@@ -104,7 +110,9 @@ export default function IssueDetailPage() {
     canClose,
     canComment,
     isLocked,
-  } = useIssuePermissions(issue, user ?? null, hasRole);
+  } = getIssuePermissions(issue, user ?? null, hasRole);
+  // AI panels are internal: staff only, and only when the AI layer is on
+  const showAi = aiEnabled && isStaff;
 
   return (
     <div className="space-y-4">
@@ -278,7 +286,7 @@ export default function IssueDetailPage() {
       {/* 3-column layout */}
       <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr_260px] gap-6 items-start">
         <div className={cn(activeTab !== "details" && "hidden lg:block")}>
-          <MetaPanel issue={issue} />
+          <MetaPanel issue={issue} showTriage={isStaff} />
         </div>
         <div className={cn(activeTab !== "activity" && "hidden lg:block")}>
           <ActivityPanel
@@ -291,12 +299,16 @@ export default function IssueDetailPage() {
         <div
           className={cn("space-y-4", activeTab !== "info" && "hidden lg:block")}
         >
+          {showAi && <AiSuggestionCard issue={issue} />}
           <AssignmentCard
             issue={issue}
             isAdmin={hasRole("admin")}
             isEngineer={hasRole("engineer")}
             user={user ?? null}
           />
+          {showAi && <ClientMoodCard issueId={issue.id} />}
+          {showAi && <SimilarIssuesCard issueId={issue.id} />}
+          {showAi && hasRole("admin") && <ThreadSummaryCard issue={issue} />}
           <RecordPanel issue={issue} />
         </div>
       </div>

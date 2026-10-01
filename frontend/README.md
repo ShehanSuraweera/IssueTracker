@@ -62,12 +62,20 @@ Vite proxies all `/api` requests to `localhost:4000`, so no CORS configuration i
 frontend/src/
 ├── api/                    # Axios call functions — one file per resource
 │   ├── client.ts           # Axios instance, token interceptors, silent refresh logic
+│   ├── ai.ts               # AI suggestions, sentiment, similar issues, summaries, client health
 │   ├── auth.ts
 │   ├── companies.ts
 │   ├── issues.ts
 │   ├── products.ts
 │   └── users.ts
 ├── components/
+│   ├── ai/                 # AI panels (staff only, hidden when AI is off)
+│   │   ├── ai-bits.tsx           # AiTag, Pill, FrustrationMeter shared bits
+│   │   ├── AiSuggestionCard.tsx  # Triage suggestion: apply, edit or reject
+│   │   ├── ClientMoodCard.tsx    # Sentiment and escalation risk across the thread
+│   │   ├── SimilarIssuesCard.tsx # Similar resolved issues + cited suggested fix
+│   │   ├── ThreadSummaryCard.tsx # Admin thread summary with cited key points
+│   │   └── HighRiskIssuesCard.tsx # Dashboard list of high escalation-risk issues
 │   ├── home/               # Home page sections
 │   │   ├── HomeHero.tsx          # Welcome banner with role-aware message
 │   │   ├── HomeKpis.tsx          # Summary KPI strip on the home page
@@ -122,17 +130,20 @@ frontend/src/
 │       └── tooltip.tsx
 ├── hooks/                  # TanStack Query wrappers — co-locate mutation + invalidation
 │   ├── query-keys.ts              # Centralised key factory
+│   ├── use-ai.ts                  # AI queries and mutations (all take an `enabled` flag)
 │   ├── use-auth.ts
 │   ├── use-back.ts                # Navigation back helper
 │   ├── use-companies.ts
 │   ├── use-debounce.ts            # Debounce value hook
 │   ├── use-issue-list-state.ts    # URL-synced filter + sort state for issue list
-│   ├── use-issue-permissions.ts   # Role-based permission flags for the current issue
 │   ├── use-issues.ts
 │   ├── use-products.ts
 │   └── use-users.ts
 ├── lib/
+│   ├── ai-display.ts       # Labels and colours for AI categories, teams, sentiment, risk
 │   ├── format.ts           # Date, priority, and status formatting helpers
+│   ├── issue-permissions.ts # Role-based permission flags for the current issue
+│   ├── priority.ts         # ITIL impact × urgency matrix (UI preview copy)
 │   ├── query-client.ts     # QueryClient singleton (staleTime: 30 s)
 │   ├── schemas.ts          # Shared Zod schemas for form validation
 │   ├── theme.ts            # Tailwind colour tokens for badges and charts
@@ -144,6 +155,7 @@ frontend/src/
 │   ├── NotFoundPage.tsx          # 404
 │   ├── admin/
 │   │   ├── DashboardPage.tsx     # KPI cards + charts (admin only)
+│   │   ├── ClientHealthPage.tsx  # Sentiment trend per client company (admin, AI on)
 │   │   ├── CompanyListPage.tsx   # Company management
 │   │   ├── CompanyDetailPage.tsx # Company + its products
 │   │   ├── ProductListPage.tsx   # Product management
@@ -164,6 +176,7 @@ frontend/src/
 │   ├── auth.store.ts       # Zustand: current user, persisted to localStorage
 │   └── tabs.store.ts       # Zustand: open tabs, persisted to sessionStorage
 └── types/                  # TypeScript interfaces mirroring API responses
+    ├── ai.ts
     ├── auth.ts
     ├── companies.ts
     ├── issues.ts
@@ -199,6 +212,7 @@ Routes are defined in [router/index.tsx](src/router/index.tsx) using React Route
 | `/settings/profile` | All authenticated | `ProfilePage` |
 | `/settings/password` | All authenticated | `PasswordPage` |
 | `/admin/dashboard` | admin only | `DashboardPage` |
+| `/admin/client-health` | admin only (nav link shown only when AI is on) | `ClientHealthPage` |
 | `/admin/companies` | admin only | `CompanyListPage` |
 | `/admin/companies/:id` | admin only | `CompanyDetailPage` |
 | `/admin/products` | admin only | `ProductListPage` |
@@ -213,7 +227,7 @@ Routes are defined in [router/index.tsx](src/router/index.tsx) using React Route
 
 **`IssueListPage`** — Paginated/infinite-scrolling table with debounced full-text search and filters for status, priority, type, and product. Filtering state lives in URL query params so bookmarking and sharing work. Includes a **saved views** panel — users can pin a named filter preset and switch between them from the sidebar. The list scope is automatically role-filtered by the API (clients see only their company's issues, engineers see their assigned products, admins see everything).
 
-**`IssueDetailPage`** — Full issue view opened in a new tab. Displays issue metadata, an editable status/priority section (role-restricted), a combined activity timeline (comments + field change history), file attachments, and quick-action buttons (Assign, Resolve, Delete). Internal comments are rendered with a visual distinction and are hidden from client users.
+**`IssueDetailPage`** — Full issue view opened in a new tab. Displays issue metadata, an editable status/priority section (role-restricted), a combined activity timeline (comments + field change history), file attachments, and quick-action buttons (Assign, Resolve, Delete). Internal comments are rendered with a visual distinction and are hidden from client users. Staff also see the AI panels described in [AI panels](#ai-panels).
 
 **`IssueCreatePage`** — Form with product selector, issue type, title, description, impact, and urgency. Priority is shown as a computed preview that updates as the user adjusts impact/urgency.
 
@@ -221,7 +235,21 @@ Routes are defined in [router/index.tsx](src/router/index.tsx) using React Route
 
 ### Admin pages
 
-**`DashboardPage`** — KPI summary cards (open issues, critical, SLA at risk, resolved this week) and breakdowns by status and priority. Data comes from `GET /api/issues/stats`.
+**`DashboardPage`** — KPI summary cards (open issues, critical, SLA at risk, resolved this week) and breakdowns by status and priority. Data comes from `GET /api/issues/stats`. When AI is on, a **High escalation risk** card lists open issues whose latest client message was rated high risk, with a link to Client Health.
+
+**`ClientHealthPage`** — One card per client company with a trend pill (improving, stable, worsening, or not enough data), average frustration for the last 30 days and the 30 before, the count of open high-risk issues, and a weekly frustration chart. A 30/90/180-day range toggle. Data comes from `GET /api/ai/client-health`.
+
+### AI panels
+
+AI output is advisory and internal. The panels render only for engineers and admins, and only when `GET /api/ai/config` reports `enabled: true`. Clients never see them, and when the AI service is down each panel shows a short message while the rest of the page keeps working. Every panel carries a violet **AI** tag so generated text is never mistaken for a person's input.
+
+| Panel | Who | What it does |
+|-------|-----|--------------|
+| `AiSuggestionCard` | Staff | Suggested impact, urgency, category and team, each with a reason. Staff can apply as is, change fields first, or reject. Shows the resulting priority (`Moderate → High`) before applying. Nothing changes until someone applies. Polls while analysis is running and offers a retry if it failed. |
+| `ClientMoodCard` | Staff | Latest sentiment, escalation risk and frustration (1–5) with the quoted evidence, a sparkline across the thread and earlier readings. Never affects priority. |
+| `SimilarIssuesCard` | Staff | Resolved issues from the same company with a match percentage, and an on-demand suggested fix whose steps cite those tickets. Helpful/not helpful feedback is stored to measure usefulness. |
+| `ThreadSummaryCard` | Admin | On-demand summary, key points that cite the comments (`#2`) or the description they came from, and open questions. Marked stale when new comments arrive. |
+| `HighRiskIssuesCard` | Staff | Dashboard and engineer home list of high escalation-risk issues. |
 
 **`CompanyDetailPage`** — Shows company info and its products. Allows editing company fields inline.
 
@@ -299,6 +327,16 @@ All server state is managed by **TanStack Query v5**. Query keys are defined in 
 | `useRevokeProductAccess` | Mutation — revokes an engineer's product access |
 | `useChangePassword` | Mutation — changes own password |
 | `useAuth` | Login and logout mutations |
+| `useAiEnabled` | Reads the AI feature flag (`/api/ai/config`, cached 5 min) |
+| `useAiSuggestion` | Triage suggestion + analysis state; polls every 3 s while queued or running |
+| `useReviewSuggestion` | Mutation — apply (optionally edited) or reject; invalidates the suggestion, detail and lists |
+| `useRetryAnalysis` | Mutation — re-queues a failed analysis |
+| `useSentimentTimeline` | Sentiment entries for an issue (refetches every 30 s) |
+| `useSimilarIssues` | Similar resolved issues |
+| `useResolution` / `useRequestResolution` / `useResolutionFeedback` | Latest suggested fix, request a new one, rate it |
+| `useThreadSummary` / `useRequestThreadSummary` | Latest thread summary, request a new one (admin) |
+| `useEscalations` | High escalation-risk issues |
+| `useClientHealth` | Weekly sentiment trend per company |
 
 Default `staleTime` is 30 seconds (configured in `lib/query-client.ts`).
 
@@ -363,8 +401,14 @@ Layout components (`AppShell`, `Header`, `Sidebar`) do contain business logic �
 
 **Role-scoped data at the API layer** — The frontend does not filter data by role. It passes the user's token and the API returns only what that user can see. This avoids the risk of client-side filtering bugs exposing data.
 
-**Role-based permission flags** — `use-issue-permissions.ts` derives a set of boolean flags (`canEdit`, `canAssign`, `canResolve`, `canDelete`, `canComment`, `canPostInternal`) from the current user's role and the issue's ownership. Components read these flags rather than branching on role strings directly.
+**Role-based permission flags** — `lib/issue-permissions.ts` (`getIssuePermissions`, a plain function rather than a hook) derives a set of boolean flags (`canEdit`, `canAssign`, `canResolve`, `canDelete`, `canComment`, `canPostInternal`) from the current user's role and the issue's ownership. Components read these flags rather than branching on role strings directly.
 
 **Lazy page loading** — All pages are loaded with `React.lazy` + `Suspense`. The initial JS bundle contains only the router and layout shell; page code downloads on first navigation to keep time-to-interactive low.
 
 **Computed priority preview** — The issue create and edit forms show a read-only priority badge that updates in real time as the user selects impact and urgency values. This makes the ITIL matrix tangible and prevents confusion about how priority is determined.
+
+**AI is advisory, staff-only and optional** — Every AI hook takes an `enabled` flag and pages pass `false` for clients and when the flag is off, so clients only ever read the on/off flag and a disabled or failing AI service costs nothing but an empty panel. AI hooks use `retry: false` so an outage shows a message at once instead of spinning through retries.
+
+**Review before apply** — The triage card never writes to the issue by itself. Staff see each suggested value with its reason and the priority it would produce, can change any field, and must click Apply. Whether a suggestion was accepted, edited or rejected is stored, which gives an honest acceptance rate.
+
+**Sentiment never touches priority** — Priority comes only from the ITIL impact × urgency matrix. A frustrated client gets a visible signal for staff, not a higher place in the queue, so polite clients aren't penalised and priority can't be gamed by tone.

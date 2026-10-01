@@ -18,6 +18,9 @@ import {
 import { DashboardCharts } from "@/components/ui/dashboard-charts";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { relativeTime } from "@/lib/utils";
+import { Link } from "react-router-dom";
+import { HighRiskIssuesCard } from "@/components/ai/HighRiskIssuesCard";
+import { useAiEnabled } from "@/hooks/use-ai";
 
 const REGION_COLOR = "#6366f1"; // indigo-500
 
@@ -112,6 +115,7 @@ export default function DashboardPage() {
     refetch,
     isFetching,
   } = useIssueStats({ refetchInterval: 60_000 });
+  const aiEnabled = useAiEnabled();
 
   const ts = dataUpdatedAt ?? 0;
   const isLoading = !stats;
@@ -164,6 +168,18 @@ export default function DashboardPage() {
           tooltip="Issues marked resolved in the last 7 days across the workspace."
         />
       </div>
+
+      {aiEnabled && (
+        <div className="space-y-2">
+          <HighRiskIssuesCard />
+          <Link
+            to="/admin/client-health"
+            className="inline-block text-xs text-muted-foreground hover:text-foreground"
+          >
+            See sentiment trends per client →
+          </Link>
+        </div>
+      )}
 
       {/* Status + Priority + Activity charts */}
       <DashboardCharts stats={stats} />

@@ -9,12 +9,14 @@ import {
   Clock,
   CheckCircle2,
   Paperclip,
+  Users,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { PriorityBadge } from "@/components/ui/priority-badge";
 import { fmtDate, fmtDateTime } from "@/lib/format";
+import { CATEGORY_LABEL, TEAM_LABEL } from "@/lib/ai-display";
 import type { IssueDetail } from "@/types/issues";
 
 const TYPE_LABELS: Record<string, string> = {
@@ -46,7 +48,14 @@ function MetaRow({
   );
 }
 
-export function MetaPanel({ issue }: { issue: IssueDetail }) {
+export function MetaPanel({
+  issue,
+  showTriage = false,
+}: {
+  issue: IssueDetail;
+  // Category and team are staff triage fields
+  showTriage?: boolean;
+}) {
   return (
     <div>
       <div className="flex flex-wrap gap-1.5 mb-4">
@@ -77,6 +86,32 @@ export function MetaPanel({ issue }: { issue: IssueDetail }) {
           label="Opened by"
           value={issue.creator.fullName}
         />
+        {showTriage && (
+          <>
+            <MetaRow
+              icon={<Tag className="size-3.5" />}
+              label="Category"
+              value={
+                issue.category ? (
+                  CATEGORY_LABEL[issue.category]
+                ) : (
+                  <span className="font-normal text-muted-foreground">Not set</span>
+                )
+              }
+            />
+            <MetaRow
+              icon={<Users className="size-3.5" />}
+              label="Team"
+              value={
+                issue.team ? (
+                  TEAM_LABEL[issue.team]
+                ) : (
+                  <span className="font-normal text-muted-foreground">Not set</span>
+                )
+              }
+            />
+          </>
+        )}
         <MetaRow
           icon={<Building2 className="size-3.5" />}
           label="Assigned to"

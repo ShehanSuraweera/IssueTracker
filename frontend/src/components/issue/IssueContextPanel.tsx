@@ -2,13 +2,8 @@ import { useState } from "react";
 import { ChevronDown, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PRIORITY_CONFIG } from "@/lib/theme";
+import { PRIORITY_MATRIX } from "@/lib/priority";
 import type { ImpactLevel, UrgencyLevel } from "@/types/issues";
-
-const PRIORITY_MATRIX: Record<string, Record<string, string>> = {
-  high: { low: "moderate", medium: "high", high: "critical" },
-  medium: { low: "low", medium: "moderate", high: "high" },
-  low: { low: "low", medium: "low", high: "moderate" },
-};
 
 const LEVEL_HEADERS = ["Low", "Med", "High"];
 const IMPACT_ROWS = ["high", "medium", "low"] as const;
