@@ -27,6 +27,8 @@ interface TabsState {
     meta?: TabMeta;
   }) => void;
   closeTab: (id: string) => void;
+  /** Closes every tab except Home, the pinned tab and `keepId`, which becomes active. */
+  closeOthers: (keepId: string) => void;
   setActive: (id: string) => void;
   updateLabel: (id: string, label: string) => void;
   updateMeta: (id: string, meta: TabMeta) => void;
@@ -73,6 +75,14 @@ export const useTabsStore = create<TabsState>()(
           tabs: next,
           activeId: newActive,
           ...(pinnedId === id ? { pinnedId: null } : {}),
+        });
+      },
+
+      closeOthers(keepId) {
+        const { tabs, pinnedId } = get();
+        set({
+          tabs: tabs.filter((t) => !t.closeable || t.id === keepId || t.id === pinnedId),
+          activeId: keepId,
         });
       },
 
