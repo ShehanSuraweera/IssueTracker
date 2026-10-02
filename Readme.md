@@ -79,6 +79,45 @@ All AI panels are for staff only. Clients never see AI output.
 | **Thread summary** | Key points citing the comments they came from, and open questions (admins). |
 | **Client health** | Weekly sentiment trend per client company (admins). |
 
+### AI in action
+
+Real output from `gemini-3.5-flash-lite` on the seeded demo data, not mock-ups.
+
+![Issue page with the AI triage suggestion](docs/screenshots/ai-issue-page.png)
+*A client's new issue. The triage suggestion sits beside it with a reason for every field and the priority it would produce. The issue itself is unchanged until an engineer applies it.*
+
+<table>
+  <tr>
+    <td width="33%" valign="top">
+      <img src="docs/screenshots/ai-triage.png" alt="Triage suggestion card">
+      <p><b>Triage suggestion.</b> Impact, urgency, category and team, each with a one-sentence reason. Staff can change any field before applying; the model and prompt version are shown and stored.</p>
+    </td>
+    <td width="33%" valign="top">
+      <img src="docs/screenshots/ai-similar-fix.png" alt="Similar resolved issues and suggested fix">
+      <p><b>Similar issues and a suggested fix.</b> Found by local embeddings and pgvector within the same company only. The fix is built from that ticket's resolution notes and cites it; citing anything not retrieved is rejected.</p>
+    </td>
+    <td width="33%" valign="top">
+      <img src="docs/screenshots/ai-thread-summary.png" alt="Thread summary with cited key points">
+      <p><b>Thread summary.</b> A nine-comment thread condensed for an admin. Every key point cites the comments it came from (<code>#3</code>, <code>#5</code>) or the description, and citations are checked against the thread.</p>
+    </td>
+  </tr>
+</table>
+
+<table>
+  <tr>
+    <td width="33%" valign="top">
+      <img src="docs/screenshots/ai-client-mood.png" alt="Client mood card">
+      <p><b>Client mood.</b> Sentiment and escalation risk with the client's exact words as evidence; the quote must appear verbatim in their message or the output is rejected. Internal only, and it never changes priority.</p>
+    </td>
+    <td width="67%" valign="top">
+      <img src="docs/screenshots/ai-dashboard-risk.png" alt="High escalation risk on the dashboard">
+      <p><b>High escalation risk on the dashboard.</b> Open issues whose latest client message signals escalation, so someone can reach out before the client does.</p>
+      <img src="docs/screenshots/ai-client-health.png" alt="Client health page">
+      <p><b>Client health.</b> Weekly frustration per client, dated by when each message was written. Davinci Law calmed down after an incident was handled; the trend shows it.</p>
+    </td>
+  </tr>
+</table>
+
 **Measured, not assumed** ([full results](ai-service/evals/README.md)), on labelled data with the real model:
 
 | | Result | Baseline |
