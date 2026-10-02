@@ -57,6 +57,19 @@ curl -X POST http://127.0.0.1:8000/v1/analyze \
 
 Configuration is documented in [.env.example](.env.example). The service validates it at startup and refuses to start if, for example, the token is shorter than 32 characters or `GEMINI_API_KEY` is missing.
 
+### Docker
+
+Production runs the service from the image in [Dockerfile](Dockerfile): locked dependencies only, the embedding model baked in (no download at startup), and an unprivileged user.
+
+```bash
+docker build -t newnopdesk-ai-service .
+docker run --rm -p 127.0.0.1:8000:8000 --env-file .env \
+  -e AI_DATABASE_URL=postgresql://ai_service:ai_service_local@host.docker.internal:5432/newnopdesk \
+  --read-only --tmpfs /tmp --cap-drop ALL newnopdesk-ai-service
+```
+
+Inside a container, `127.0.0.1` is the container itself, so a database on your machine is `host.docker.internal`. The same image runs migrations (`docker run ... newnopdesk-ai-service ai-db migrate`). Production runs it with [deploy/compose.prod.yml](../deploy/compose.prod.yml); see the [deployment guide](../docs/deployment.md#15-ai-service). Measured memory: about 280 MB steady, 293 MB peak.
+
 ---
 
 ## API contract
@@ -185,7 +198,7 @@ Each comment is wrapped in a `<thread_comment-{boundary}>` delimiter whose attri
 ## Testing
 
 ```bash
-uv run pytest             # 266 tests; database tests start a throwaway pgvector container (Docker)
+uv run pytest             # 267 tests; database tests start a throwaway pgvector container (Docker)
 uv run ruff check .       # lint (includes security rules)
 uv run ruff format .      # format
 uv run mypy               # strict type checking of src/, tests/ and evals/
@@ -205,7 +218,7 @@ Tests use a **scripted provider** that returns whatever output a test specifies,
 | `test_safety.py` | Input cleaning and quote matching |
 | `test_schema_and_prompts.py` | Taxonomy, schemas, provider schemas and prompts agree with each other |
 | `test_vector_store.py` | One contract run against **both** stores (in-memory and PostgreSQL): ranking, company isolation, product narrowing, scoped delete, invalid company IDs |
-| `test_database_security.py` | Against real PostgreSQL: `ai_service` can't read, write or create anything in `public`; the extension lives in `ai`; `company_id > 0` is enforced by a `CHECK` |
+| `test_database_security.py` | Against real PostgreSQL: `ai_service` can't read, write or create anything in `public`; the extension lives in `ai`; `company_id > 0` is enforced by a `CHECK`; bootstrap works as a managed-database admin that isn't a superuser (as on RDS) |
 | `test_retrieval_api.py` | Indexing and re-embedding, disjoint results per company, product narrowing, citations limited to retrieved tickets, injected past-issue text staying in its block, retrieval disabled gracefully |
 | `test_summary_api.py` | Key points may only cite comments in the thread (or the description); trimmed comments can't be cited; forged comment tags are neutralised; comments ordered by time; long threads trimmed to the most recent |
 | `test_retrieval_postgres.py` | Full stack: HTTP → service → PostgreSQL + pgvector, isolated per company |

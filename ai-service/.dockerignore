@@ -1,0 +1,14 @@
+# Only what the image needs goes into the build context. Secrets (.env) and
+# local environments must never end up in a layer.
+.env
+.env.*
+.venv/
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+tests/
+evals/
+Dockerfile
+.dockerignore

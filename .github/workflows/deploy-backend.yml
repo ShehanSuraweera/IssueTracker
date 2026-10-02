@@ -9,6 +9,12 @@ on:
       - "backend/**"
       - ".github/workflows/deploy-backend.yml"
 
+# One deployment to the EC2 at a time, shared with deploy-ai-service.yml, so a
+# backend build and an image pull never compete for the instance's memory
+concurrency:
+  group: deploy-ec2
+  cancel-in-progress: false
+
 jobs:
   # Runs the full CI workflow (typecheck + integration tests) first.
   # WHY: a failing test must stop the deployment, not just report after it

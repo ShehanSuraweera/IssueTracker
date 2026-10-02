@@ -1,0 +1,169 @@
+name: Deploy AI service
+
+# WHEN: changes to the AI service or its production compose file reach main,
+#       or by hand from the Actions tab (e.g. to redeploy after a server rebuild)
+# WHY: test, build the image once in CI, push it to GitHub Container Registry,
+#      and run exactly that image on the EC2. The server never builds anything,
+#      which matters on a 1 GB instance.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "ai-service/**"
+      - "deploy/compose.prod.yml"
+      - ".github/workflows/deploy-ai-service.yml"
+  workflow_dispatch:
+
+# One deployment to the EC2 at a time, shared with deploy-backend.yml, so a
+# backend build and an image pull never compete for the instance's memory
+concurrency:
+  group: deploy-ec2
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  # A failing test must stop the deployment, not just report after it
+  test:
+    name: Lint, types and tests
+    uses: ./.github/workflows/ci-ai-service.yml
+    with:
+      build-image: false
+
+  image:
+    name: Build and push image
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image: ${{ steps.name.outputs.image }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Registry names must be lowercase; the GitHub owner name may not be
+      - name: Image name
+        id: name
+        run: |
+          repo="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/newnopdesk-ai-service"
+          echo "repo=$repo" >> "$GITHUB_OUTPUT"
+          echo "image=$repo:$GITHUB_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Tagged with the commit SHA, so every deployment names the exact code it
+      # runs and a rollback is just running the previous tag
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: ai-service
+          push: true
+          tags: |
+            ${{ steps.name.outputs.image }}
+            ${{ steps.name.outputs.repo }}:latest
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          # One plain image per push (no attestation manifests), so the
+          # cleanup below can count versions without breaking an image
+          provenance: false
+
+      # Private packages have little free storage and each image is a few
+      # hundred MB. The server keeps its own copy of the previous image for
+      # rollback, so the registry only needs recent versions.
+      - name: Delete old image versions
+        uses: actions/delete-package-versions@v5
+        with:
+          package-name: newnopdesk-ai-service
+          package-type: container
+          min-versions-to-keep: 5
+
+  deploy:
+    name: Deploy to EC2
+    needs: image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Copy the compose file to the server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          source: deploy/compose.prod.yml
+          target: /opt/newnopdesk
+          strip_components: 1
+
+      # The server pulls with this job's short-lived token, which expires when
+      # the job ends, so no registry credential is ever stored on the server
+      - name: Migrate and start the new image
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          AI_IMAGE: ${{ needs.image.outputs.image }}
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          envs: AI_IMAGE,GHCR_USER,GHCR_TOKEN
+          script: |
+            set -euo pipefail
+            cd /opt/newnopdesk
+            ENV_FILE=/etc/newnopdesk/ai-service.env
+            PREVIOUS=$(cat ai-image.txt 2>/dev/null || true)
+
+            echo "==> Pulling $AI_IMAGE"
+            echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+            trap 'docker logout ghcr.io >/dev/null 2>&1 || true' EXIT
+            docker pull --quiet "$AI_IMAGE"
+
+            # Migrations run before the switch, so they must keep working with
+            # the previous image too (add columns and tables; drop them later)
+            echo "==> Applying AI schema migrations"
+            docker run --rm --env-file "$ENV_FILE" \
+              -v /etc/ssl/rds:/etc/ssl/rds:ro --read-only --tmpfs /tmp \
+              "$AI_IMAGE" ai-db migrate
+
+            echo "==> Starting the new container"
+            if AI_IMAGE="$AI_IMAGE" docker compose -f compose.prod.yml up -d --wait --wait-timeout 120; then
+              echo "$AI_IMAGE" > ai-image.txt
+            else
+              echo "!! New container did not become healthy; its last logs:"
+              AI_IMAGE="$AI_IMAGE" docker compose -f compose.prod.yml logs --tail 50 ai-service || true
+              if [ -n "$PREVIOUS" ]; then
+                echo "==> Rolling back to $PREVIOUS"
+                AI_IMAGE="$PREVIOUS" docker compose -f compose.prod.yml up -d --wait --wait-timeout 120
+              fi
+              exit 1
+            fi
+
+            # Keep the running image and the previous one (for rollback); each is ~775 MB
+            echo "==> Removing older images"
+            REPO="${AI_IMAGE%:*}"
+            docker images "$REPO" --format '{{.Repository}}:{{.Tag}}' \
+              | grep -vxF -e "$AI_IMAGE" -e "${PREVIOUS:-none}" \
+              | xargs -r docker rmi >/dev/null || true
+
+            echo "==> Deployed"
+            curl -fsS http://127.0.0.1:8000/healthz

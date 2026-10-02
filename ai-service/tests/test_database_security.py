@@ -12,6 +12,7 @@ import pytest
 from psycopg import errors
 
 from ai_service.db.bootstrap import bootstrap
+from ai_service.db.cli import migrate
 from tests.conftest import SERVICE_PASSWORD, SERVICE_ROLE, PgUrls
 
 pytestmark = pytest.mark.db
@@ -79,6 +80,45 @@ def test_company_id_must_be_positive_even_for_direct_inserts(pg_urls: PgUrls) ->
             "VALUES (1, 0, 1, 'X-0001', 't', 'p', '', %s, 'm', repeat('a', 64))",
             (zero,),
         )
+
+
+def test_bootstrap_works_as_a_managed_database_admin(pg_urls: PgUrls) -> None:
+    """On Amazon RDS the admin user is not a superuser: it can create roles and
+    owns the database, and RDS lets it create pgvector. Bootstrap must work
+    with exactly those rights, not only as a superuser."""
+    if pg_urls.container is None:
+        pytest.skip("needs the test container, to allow pgvector the way RDS does")
+    # Plain PostgreSQL only lets superusers create pgvector unless the
+    # extension is marked trusted; RDS allows its admin, so mirror that
+    pg_urls.container.exec(
+        [
+            "sh",
+            "-c",
+            "f=$(ls /usr/share/postgresql/*/extension/vector.control); "
+            "grep -q '^trusted' $f || echo 'trusted = true' >> $f",
+        ]
+    )
+    with psycopg.connect(pg_urls.admin, autocommit=True) as conn:
+        conn.execute("DROP DATABASE IF EXISTS managed WITH (FORCE)")
+        conn.execute("DROP ROLE IF EXISTS managed_service")
+        conn.execute("DROP ROLE IF EXISTS managed_admin")
+        conn.execute("CREATE ROLE managed_admin LOGIN PASSWORD 'managed-admin-pw' CREATEROLE")
+        conn.execute("CREATE DATABASE managed OWNER managed_admin")
+    server = pg_urls.admin.split("@", 1)[1].rsplit("/", 1)[0]
+    admin = f"postgresql://managed_admin:managed-admin-pw@{server}/managed"
+    service = f"postgresql://managed_service:managed-service-pw@{server}/managed"
+    try:
+        steps = bootstrap(admin, "managed_service", "managed-service-pw")
+        assert "granted managed_service to the admin user" in steps
+        assert "created extension vector in ai" in steps
+        migrate(service)
+        with psycopg.connect(service) as conn:
+            assert conn.execute("SELECT count(*) FROM ai.issue_documents").fetchone() == (0,)
+    finally:
+        with psycopg.connect(pg_urls.admin, autocommit=True) as conn:
+            conn.execute("DROP DATABASE IF EXISTS managed WITH (FORCE)")
+            conn.execute("DROP ROLE IF EXISTS managed_service")
+            conn.execute("DROP ROLE IF EXISTS managed_admin")
 
 
 def test_bootstrap_is_idempotent(pg_urls: PgUrls) -> None:
