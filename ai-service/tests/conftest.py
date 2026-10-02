@@ -2,7 +2,7 @@ import asyncio
 import os
 import sys
 from collections.abc import AsyncIterator, Iterator
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 import psycopg
@@ -76,6 +76,8 @@ SERVICE_PASSWORD = "ai-service-test-password"
 class PgUrls:
     admin: str
     service: str
+    # The testcontainers container, or None when AI_TEST_DATABASE_URL is used
+    container: Any = field(default=None, compare=False)
 
 
 @pytest.fixture(scope="session")
@@ -106,7 +108,7 @@ def pg_urls() -> Iterator[PgUrls]:
     bootstrap(admin, SERVICE_ROLE, SERVICE_PASSWORD)
     migrate(service)
     try:
-        yield PgUrls(admin=admin, service=service)
+        yield PgUrls(admin=admin, service=service, container=container)
     finally:
         if container is not None:
             container.stop()

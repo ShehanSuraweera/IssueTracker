@@ -41,6 +41,15 @@ def bootstrap(admin_url: str, role: str, password: str) -> list[str]:
         )
         steps.append(f"{'created' if verb == 'CREATE' else 'updated'} role {role}")
 
+        # Giving a schema to a role requires being able to act as that role.
+        # A superuser always can; a managed database's admin (the RDS master
+        # user, for example) is not a superuser, so it joins the role first.
+        superuser = conn.execute("SELECT rolsuper FROM pg_roles WHERE rolname = current_user")
+        row = superuser.fetchone()
+        if not (row and row[0]):
+            conn.execute(sql.SQL("GRANT {} TO CURRENT_USER").format(sql.Identifier(role)))
+            steps.append(f"granted {role} to the admin user")
+
         database = conn.execute("SELECT current_database()").fetchone()
         conn.execute(
             sql.SQL("GRANT CONNECT ON DATABASE {} TO {}").format(

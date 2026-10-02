@@ -1,10 +1,15 @@
 name: CI — AI service
 
-# WHEN: every push and pull request that touches the AI service
-# WHY: lint, type-check and test the Python service. Tests use scripted and
-#      fake providers, so CI needs no API key and makes no network calls to Gemini.
+# WHEN: pushes to feature branches and pull requests that touch the AI service,
+#       and as the required first step of deploy-ai-service.yml (workflow_call)
+# WHY: lint, type-check and test the Python service, and check that its Docker
+#      image builds. Tests use scripted and fake providers, so CI needs no API
+#      key and makes no network calls to Gemini.
+#      Pushes to main are skipped here because deploy-ai-service.yml runs this
+#      workflow for them; otherwise the tests would run twice.
 on:
   push:
+    branches-ignore: [main]
     paths:
       - "ai-service/**"
       - ".github/workflows/ci-ai-service.yml"
@@ -12,6 +17,15 @@ on:
     paths:
       - "ai-service/**"
       - ".github/workflows/ci-ai-service.yml"
+  workflow_call:
+    inputs:
+      build-image:
+        description: Also check that the Docker image builds
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
 
 jobs:
   ai-service:
@@ -47,3 +61,24 @@ jobs:
 
       - name: Run tests
         run: uv run pytest
+
+  # The deploy workflow builds and pushes the image itself, so it passes
+  # build-image: false. On pushes and pull requests the input is unset.
+  image:
+    name: AI service — Docker image builds
+    if: ${{ inputs.build-image != false }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build (not pushed)
+        uses: docker/build-push-action@v6
+        with:
+          context: ai-service
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

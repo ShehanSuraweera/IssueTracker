@@ -1,0 +1,58 @@
+# Production: the AI service on the EC2 instance, next to the Node backend.
+#
+# The deploy workflow copies this file to /opt/newnopdesk/compose.prod.yml and
+# runs it with AI_IMAGE set to the image it just built, for example:
+#
+#   AI_IMAGE=ghcr.io/<owner>/newnopdesk-ai-service:<sha> \
+#     docker compose -f /opt/newnopdesk/compose.prod.yml up -d --wait
+#
+# The database is Amazon RDS, not a container (see docs/deployment.md).
+
+name: newnopdesk
+
+services:
+  ai-service:
+    image: ${AI_IMAGE:?set AI_IMAGE to the image to run}
+    # Secrets and settings live on the server only, never in the repository
+    # (both paths can be overridden to try this file on another machine)
+    env_file: ${AI_ENV_FILE:-/etc/newnopdesk/ai-service.env}
+    ports:
+      # Only the backend on the same machine may call it; never the internet
+      - "127.0.0.1:8000:8000"
+    volumes:
+      # Amazon's RDS CA bundle, for sslmode=verify-full in AI_DATABASE_URL
+      - ${RDS_CA_DIR:-/etc/ssl/rds}:/etc/ssl/rds:ro
+    restart: unless-stopped
+
+    # Measured peak: 293 MiB (model loaded, triage and searches served).
+    # The t3.micro has 1 GB shared with Node, Nginx and Docker; a leak gets
+    # this container restarted instead of starving the backend.
+    mem_limit: 400m
+    memswap_limit: 400m
+    cpus: 1.0
+
+    # Hardening: nothing in the container needs to write outside /tmp, gain
+    # privileges or use Linux capabilities
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=4)"
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
