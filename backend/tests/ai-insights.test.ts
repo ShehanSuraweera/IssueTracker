@@ -33,19 +33,28 @@ afterEach(async () => {
   await stub.close();
 });
 
+// A reading of the issue description, or with `writtenAt`, of a client comment
+// written at that time. `assessedAt` is when the AI produced it (default now).
 async function sentiment(
   issue: Issue,
   companyId: bigint,
-  { risk = "low", frustration = 2, at = new Date(), negative = false }: {
+  { risk = "low", frustration = 2, writtenAt, assessedAt = new Date(), negative = false }: {
     risk?: RiskLevel;
     frustration?: number;
-    at?: Date;
+    writtenAt?: Date;
+    assessedAt?: Date;
     negative?: boolean;
   } = {}
 ) {
+  const comment = writtenAt
+    ? await prisma.issueComment.create({
+        data: { issueId: issue.id, userId: issue.createdBy, body: "client message", createdAt: writtenAt },
+      })
+    : null;
   return prisma.aiSentiment.create({
     data: {
       issueId: issue.id,
+      commentId: comment?.id ?? null,
       companyId,
       sentiment: negative ? "negative" : "neutral",
       frustrationLevel: frustration,
@@ -56,7 +65,7 @@ async function sentiment(
       provider: "gemini",
       model: "m",
       promptVersion: "analyze-v1",
-      createdAt: at,
+      createdAt: assessedAt,
     },
   });
 }
@@ -198,8 +207,8 @@ describe("GET /api/ai/escalations", () => {
   });
 
   it("only the latest reading counts: a client who calmed down drops off", async () => {
-    await sentiment(w.issueA, w.companyA.id, { risk: "high", at: new Date(Date.now() - 2 * DAY) });
-    await sentiment(w.issueA, w.companyA.id, { risk: "low", at: new Date(Date.now() - DAY) });
+    await sentiment(w.issueA, w.companyA.id, { risk: "high", assessedAt: new Date(Date.now() - 2 * DAY) });
+    await sentiment(w.issueA, w.companyA.id, { risk: "low", assessedAt: new Date(Date.now() - DAY) });
     expect(await list()).toEqual([]);
   });
 
@@ -232,11 +241,11 @@ describe("GET /api/ai/client-health", () => {
   it("buckets readings by week and compares the last 30 days with the 30 before", async () => {
     const recent = new Date(Date.now() - 3 * DAY);
     const older = new Date(Date.now() - 40 * DAY);
-    await sentiment(w.issueA, w.companyA.id, { frustration: 4, at: recent, negative: true, risk: "high" });
-    await sentiment(w.issueA, w.companyA.id, { frustration: 5, at: recent, negative: true });
-    await sentiment(w.issueA, w.companyA.id, { frustration: 3, at: recent });
-    await sentiment(w.issueA, w.companyA.id, { frustration: 1, at: older });
-    await sentiment(w.issueA, w.companyA.id, { frustration: 2, at: older });
+    await sentiment(w.issueA, w.companyA.id, { frustration: 4, writtenAt: recent, negative: true, risk: "high" });
+    await sentiment(w.issueA, w.companyA.id, { frustration: 5, writtenAt: recent, negative: true });
+    await sentiment(w.issueA, w.companyA.id, { frustration: 3, writtenAt: recent });
+    await sentiment(w.issueA, w.companyA.id, { frustration: 1, writtenAt: older });
+    await sentiment(w.issueA, w.companyA.id, { frustration: 2, writtenAt: older });
 
     const data = await health();
     const acme = data.companies.find((c: { name: string }) => c.name === "Acme");
@@ -249,6 +258,17 @@ describe("GET /api/ai/client-health", () => {
     expect(new Date(`${acme.weeks[0].weekStart}T00:00:00Z`).getUTCDay()).toBe(1);
   });
 
+  it("dates readings by when the client wrote, not when they were assessed", async () => {
+    // Written 40 days ago, assessed just now (as after an outage or a backfill)
+    await sentiment(w.issueA, w.companyA.id, { frustration: 5, writtenAt: new Date(Date.now() - 40 * DAY) });
+    await prisma.issue.update({ where: { id: w.issueA.id }, data: { createdAt: new Date(Date.now() - 45 * DAY) } });
+    await sentiment(w.issueA, w.companyA.id, { frustration: 3 }); // the description, dated by the issue
+
+    const acme = (await health()).companies.find((c: { name: string }) => c.name === "Acme");
+    expect(acme).toMatchObject({ recentAvgFrustration: null, previousAvgFrustration: 4 });
+    expect(acme.weeks.map((wk: { entries: number }) => wk.entries).reduce((a: number, b: number) => a + b)).toBe(2);
+  });
+
   it("includes companies without readings, and counts open high-risk issues", async () => {
     await sentiment(w.issueA, w.companyA.id, { risk: "high" });
     const data = await health();
@@ -259,7 +279,7 @@ describe("GET /api/ai/client-health", () => {
   });
 
   it("leaves out readings older than the requested window", async () => {
-    await sentiment(w.issueA, w.companyA.id, { at: new Date(Date.now() - 100 * DAY) });
+    await sentiment(w.issueA, w.companyA.id, { writtenAt: new Date(Date.now() - 100 * DAY) });
     const acme = (await health("?days=30")).companies.find((c: { name: string }) => c.name === "Acme");
     expect(acme.weeks).toEqual([]);
   });

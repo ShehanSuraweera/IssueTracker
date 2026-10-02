@@ -1,0 +1,503 @@
+{
+  "corpus": [
+    {
+      "issue_id": 1,
+      "company_id": 1,
+      "product_id": 1,
+      "ticket_number": "APT-0101",
+      "title": "Push notifications stopped after updating the Android app",
+      "problem": "Since the v2.1 update nobody on Android receives rent reminders or message notifications. Reinstalling brings them back for some users.",
+      "resolution": "The update changed the Firebase sender config so FCM issued new tokens, but the app only registered its token at first login. Now re-registers on every launch and on token refresh."
+    },
+    {
+      "issue_id": 2,
+      "company_id": 1,
+      "product_id": 1,
+      "ticket_number": "APT-0102",
+      "title": "Tenants stuck in a login loop after resetting their password",
+      "problem": "After resetting the password from the email link, the app shows the home screen for a second and returns to the login screen, over and over.",
+      "resolution": "Password reset revokes refresh tokens but the app kept retrying with the old one. Clear stored tokens on login and treat a revoked refresh token as sign-out."
+    },
+    {
+      "issue_id": 3,
+      "company_id": 1,
+      "product_id": 1,
+      "ticket_number": "APT-0103",
+      "title": "Rent reminders sent twice",
+      "problem": "Every tenant received two identical rent reminders a few seconds apart for three days in a row.",
+      "resolution": "Two API instances both ran the reminder cron. Added an advisory lock and a unique key per tenant per day."
+    },
+    {
+      "issue_id": 4,
+      "company_id": 1,
+      "product_id": 1,
+      "ticket_number": "APT-0104",
+      "title": "App freezes when opening a long chat",
+      "problem": "Opening a conversation with hundreds of messages freezes the app for 10-20 seconds on older Android phones.",
+      "resolution": "Chat rendered the full history in a ScrollView. Switched to a paginated FlatList loading 50 messages at a time."
+    },
+    {
+      "issue_id": 5,
+      "company_id": 1,
+      "product_id": 2,
+      "ticket_number": "APT-0105",
+      "title": "Monthly payout report doesn't match the bank statement",
+      "problem": "The payout report total is higher than what the bank received; payments on the last evening of the month land in the wrong month.",
+      "resolution": "Month boundaries were computed in UTC instead of Asia/Colombo. Report now uses the account timezone."
+    },
+    {
+      "issue_id": 6,
+      "company_id": 1,
+      "product_id": 2,
+      "ticket_number": "APT-0106",
+      "title": "Lease PDF download shows Access Denied after leaving the page open",
+      "problem": "If the lease page stays open for a while, Download PDF shows an XML AccessDenied error. Refreshing fixes it.",
+      "resolution": "The presigned S3 URL expired after 15 minutes. The button now fetches a fresh presigned URL on click."
+    },
+    {
+      "issue_id": 7,
+      "company_id": 1,
+      "product_id": 2,
+      "ticket_number": "APT-0107",
+      "title": "Card payments stay pending although the bank charged the tenant",
+      "problem": "Tenants' banks show the card charge but the portal lists the payment as pending for days.",
+      "resolution": "The gateway rotated its webhook signing secret and all callbacks failed with 401. Updated the secret, replayed webhooks, added alerting."
+    },
+    {
+      "issue_id": 8,
+      "company_id": 1,
+      "product_id": 1,
+      "ticket_number": "APT-0108",
+      "title": "Property photo upload fails silently for large images",
+      "problem": "Landlords uploading photos over 5 MB see the progress bar complete but the image never appears.",
+      "resolution": "Files above the multipart threshold fell through. Fixed the upload handler and added client-side compression."
+    },
+    {
+      "issue_id": 9,
+      "company_id": 1,
+      "product_id": 2,
+      "ticket_number": "APT-0109",
+      "title": "Bulk tenant CSV import creates duplicate tenants",
+      "problem": "Re-running a tenant import after a timeout duplicated every tenant and their leases.",
+      "resolution": "Import now upserts on national ID and unit, inside one transaction, and duplicates were merged."
+    },
+    {
+      "issue_id": 10,
+      "company_id": 1,
+      "product_id": 2,
+      "ticket_number": "APT-0110",
+      "title": "Landlords logged out every few minutes",
+      "problem": "Landlords are signed out every 3-5 minutes while working in the portal, losing unsaved forms.",
+      "resolution": "Session cookie max-age was set in seconds where milliseconds were expected. Fixed and added a test."
+    },
+    {
+      "issue_id": 11,
+      "company_id": 1,
+      "product_id": 1,
+      "ticket_number": "APT-0111",
+      "title": "Wrong currency symbol on INR listings",
+      "problem": "Listings priced in rupees show the LKR symbol.",
+      "resolution": "Currency formatter fell back to the default locale. Patched the formatter."
+    },
+    {
+      "issue_id": 12,
+      "company_id": 1,
+      "product_id": 2,
+      "ticket_number": "APT-0112",
+      "title": "Invoice emails stopped being sent",
+      "problem": "Tenants stopped receiving invoice emails although invoices are created.",
+      "resolution": "The email provider API key expired. Rotated the key and added a failed-send alert."
+    },
+    {
+      "issue_id": 13,
+      "company_id": 2,
+      "product_id": 3,
+      "ticket_number": "DVL-0101",
+      "title": "Two-factor codes rejected for some users",
+      "problem": "About a third of lawyers can't log in because authenticator codes are rejected, though typed correctly.",
+      "resolution": "One auth server's clock drifted 70 seconds after NTP was blocked. Restored NTP and added drift monitoring."
+    },
+    {
+      "issue_id": 14,
+      "company_id": 2,
+      "product_id": 3,
+      "ticket_number": "DVL-0102",
+      "title": "Court deadline reminders emailed a day late",
+      "problem": "Filing deadline reminders arrive on the deadline day instead of the day before.",
+      "resolution": "Reminder job ran at 00:00 UTC and picked 'tomorrow' in UTC. Now hourly, using each firm's timezone."
+    },
+    {
+      "issue_id": 15,
+      "company_id": 2,
+      "product_id": 3,
+      "ticket_number": "DVL-0103",
+      "title": "Large scanned contracts time out on upload",
+      "problem": "Scanned contracts over about 20 MB fail with a timeout after a minute.",
+      "resolution": "Uploads went through the API with a 60 s proxy timeout. Switched to direct presigned multipart uploads to S3."
+    },
+    {
+      "issue_id": 16,
+      "company_id": 2,
+      "product_id": 3,
+      "ticket_number": "DVL-0104",
+      "title": "Case search takes over 30 seconds",
+      "problem": "Searching cases by party name became very slow after importing 40,000 archived cases.",
+      "resolution": "ILIKE search had no usable index. Added a pg_trgm GIN index; 32 s down to 80 ms."
+    },
+    {
+      "issue_id": 17,
+      "company_id": 2,
+      "product_id": 3,
+      "ticket_number": "DVL-0105",
+      "title": "Shared documents visible to the wrong case party",
+      "problem": "A document shared with opposing counsel in one case appeared in another case's shared folder.",
+      "resolution": "Share links were cached by folder name. Cache key now includes the case ID."
+    },
+    {
+      "issue_id": 18,
+      "company_id": 2,
+      "product_id": 3,
+      "ticket_number": "DVL-0106",
+      "title": "Korean text turns into question marks in Word export",
+      "problem": "Exporting briefs to Word replaces Korean characters with question marks.",
+      "resolution": "The DOCX writer used a Latin-only default font. Embedded a CJK font and set the East Asian font attribute."
+    },
+    {
+      "issue_id": 19,
+      "company_id": 2,
+      "product_id": 3,
+      "ticket_number": "DVL-0107",
+      "title": "Billing report double-counts split time entries",
+      "problem": "Split time entries are counted in full on both cases in the billing report.",
+      "resolution": "Report summed entry hours instead of allocation hours. Fixed the query and regenerated affected reports."
+    },
+    {
+      "issue_id": 20,
+      "company_id": 2,
+      "product_id": 3,
+      "ticket_number": "DVL-0108",
+      "title": "Invitation emails never arrive for new users",
+      "problem": "Newly invited users never receive the invitation email; resending doesn't help.",
+      "resolution": "Invitation emails were sent from an unverified sender domain and dropped. Verified the domain with SPF and DKIM."
+    },
+    {
+      "issue_id": 21,
+      "company_id": 2,
+      "product_id": 3,
+      "ticket_number": "DVL-0109",
+      "title": "Password reset link says expired immediately",
+      "problem": "Users clicking a fresh password reset link get 'Link expired'.",
+      "resolution": "Email security scanners opened the link first and consumed the one-time token. Token is now consumed on form submit, not on page view."
+    },
+    {
+      "issue_id": 22,
+      "company_id": 2,
+      "product_id": 3,
+      "ticket_number": "DVL-0110",
+      "title": "Hearing times off by one hour after the clocks changed",
+      "problem": "After daylight saving ended, hearings show one hour later for New York cases.",
+      "resolution": "Hearing times were stored as local time without a zone. Migrated to timestamptz with the case's timezone."
+    },
+    {
+      "issue_id": 23,
+      "company_id": 2,
+      "product_id": 3,
+      "ticket_number": "DVL-0111",
+      "title": "E-signature widget won't load in Safari",
+      "problem": "The e-signature panel stays blank in Safari 17.",
+      "resolution": "Safari blocked the third-party iframe cookies. Moved signing to a first-party subdomain."
+    },
+    {
+      "issue_id": 24,
+      "company_id": 2,
+      "product_id": 3,
+      "ticket_number": "DVL-0112",
+      "title": "Session expires while drafting long documents",
+      "problem": "Lawyers drafting for over an hour lose their work when the session expires.",
+      "resolution": "Added sliding session renewal while the editor is active and autosave every 30 seconds."
+    },
+    {
+      "issue_id": 25,
+      "company_id": 3,
+      "product_id": 4,
+      "ticket_number": "D2BIO-0101",
+      "title": "Alignment jobs run out of memory on large FASTQ files",
+      "problem": "Alignment fails with Killed (exit code 137) for samples above about 40 GB.",
+      "resolution": "OOM killer. Stream reads in 5M-read chunks, samtools sort -m 2G, higher memory limit for large samples."
+    },
+    {
+      "issue_id": 26,
+      "company_id": 3,
+      "product_id": 4,
+      "ticket_number": "D2BIO-0102",
+      "title": "Duplicate samples after re-running ingestion",
+      "problem": "Re-running ingestion for a plate after a network error duplicated every sample on it.",
+      "resolution": "Added a unique constraint on plate and barcode and made ingestion an upsert."
+    },
+    {
+      "issue_id": 27,
+      "company_id": 3,
+      "product_id": 4,
+      "ticket_number": "D2BIO-0103",
+      "title": "Nightly pipeline did not start after daylight saving change",
+      "problem": "The nightly batch never started on the night the clocks changed, with no errors.",
+      "resolution": "Scheduler used local time and the slot was skipped. Moved all schedules to UTC."
+    },
+    {
+      "issue_id": 28,
+      "company_id": 3,
+      "product_id": 5,
+      "ticket_number": "D2BWEB-0101",
+      "title": "SSO login fails for emails with a plus sign",
+      "problem": "Users with a + in their email get 'User not found' after SSO sign-in.",
+      "resolution": "The SAML callback read the email from an undecoded query string. Now read from the signed assertion."
+    },
+    {
+      "issue_id": 29,
+      "company_id": 3,
+      "product_id": 5,
+      "ticket_number": "D2BWEB-0102",
+      "title": "PDF export cuts off wide tables",
+      "problem": "Exported PDFs cut off tables with more than 8 columns.",
+      "resolution": "Wide tables switch to landscape and split across pages with the ID column repeated."
+    },
+    {
+      "issue_id": 30,
+      "company_id": 3,
+      "product_id": 4,
+      "ticket_number": "D2BIO-0104",
+      "title": "Pipeline jobs stuck in queue after a compute node failure",
+      "problem": "Jobs stayed queued for hours after one compute node died.",
+      "resolution": "The scheduler kept assigning jobs to the dead node. Added node health checks and automatic requeue."
+    },
+    {
+      "issue_id": 31,
+      "company_id": 3,
+      "product_id": 4,
+      "ticket_number": "D2BIO-0105",
+      "title": "Gzipped FASTQ files over 2 GB fail to parse",
+      "problem": "The parser fails on .fastq.gz files larger than 2 GB.",
+      "resolution": "A 32-bit offset overflowed. Switched to streaming decompression with 64-bit offsets."
+    },
+    {
+      "issue_id": 32,
+      "company_id": 3,
+      "product_id": 5,
+      "ticket_number": "D2BWEB-0103",
+      "title": "Charts blank on Safari mobile",
+      "problem": "Variant frequency charts don't render on Safari on iOS.",
+      "resolution": "Canvas renderer was blocked; switched charts to SVG on mobile breakpoints."
+    },
+    {
+      "issue_id": 33,
+      "company_id": 3,
+      "product_id": 5,
+      "ticket_number": "D2BWEB-0104",
+      "title": "Excel export missing header row",
+      "problem": "Excel exports of the variant table have data but no column headers.",
+      "resolution": "The xlsx writer skipped headers when column keys were numeric. Fixed in v2.5.1."
+    },
+    {
+      "issue_id": 34,
+      "company_id": 3,
+      "product_id": 4,
+      "ticket_number": "D2BIO-0106",
+      "title": "VCF export truncates INFO field for multi-allelic variants",
+      "problem": "INFO values are cut off for variants with more than one alternate allele.",
+      "resolution": "The writer used a fixed-length buffer. Switched to dynamic allocation."
+    },
+    {
+      "issue_id": 35,
+      "company_id": 3,
+      "product_id": 5,
+      "ticket_number": "D2BWEB-0105",
+      "title": "Dashboard empty after server timezone change",
+      "problem": "After switching the server timezone to IST, today's data disappeared from the dashboard.",
+      "resolution": "Today's range was computed in server local time but compared with UTC. Normalised to UTC."
+    },
+    {
+      "issue_id": 36,
+      "company_id": 3,
+      "product_id": 4,
+      "ticket_number": "D2BIO-0107",
+      "title": "Job completion emails not sent",
+      "problem": "No completion emails arrive when pipeline jobs finish.",
+      "resolution": "The notification worker crashed on a malformed address and stopped. Added validation and a supervisor restart."
+    }
+  ],
+  "queries": [
+    {
+      "id": "q01",
+      "company_id": 1,
+      "title": "No notifications on Android since the latest app version",
+      "description": "After tenants installed the new Android release, push notifications for messages and reminders stopped completely.",
+      "relevant": [
+        "APT-0101"
+      ]
+    },
+    {
+      "id": "q02",
+      "company_id": 1,
+      "title": "Can't stay logged in after changing password",
+      "description": "A tenant changed her password and now the app keeps kicking her back to the sign-in screen right after logging in.",
+      "relevant": [
+        "APT-0102"
+      ]
+    },
+    {
+      "id": "q03",
+      "company_id": 1,
+      "title": "Duplicate rent reminder notifications",
+      "description": "Tenants are complaining that every reminder arrives twice.",
+      "relevant": [
+        "APT-0103"
+      ]
+    },
+    {
+      "id": "q04",
+      "company_id": 1,
+      "title": "Income report off by the payments from the last day of the month",
+      "description": "Payments made late on the 31st show up in next month's report, so the monthly totals don't match our bank.",
+      "relevant": [
+        "APT-0105"
+      ]
+    },
+    {
+      "id": "q05",
+      "company_id": 1,
+      "title": "Payments shown as pending even though money left the tenant's account",
+      "description": "The bank has charged the card but our portal still says the rent payment is pending.",
+      "relevant": [
+        "APT-0107"
+      ]
+    },
+    {
+      "id": "q06",
+      "company_id": 1,
+      "title": "Importing tenants twice created doubles",
+      "description": "Our CSV import timed out so we ran it again, and now every tenant appears twice.",
+      "relevant": [
+        "APT-0109"
+      ]
+    },
+    {
+      "id": "q07",
+      "company_id": 1,
+      "title": "Large listing photos never show up after upload",
+      "description": "Big photos from newer phones look like they upload but then aren't in the listing.",
+      "relevant": [
+        "APT-0108"
+      ]
+    },
+    {
+      "id": "q08",
+      "company_id": 2,
+      "title": "Authenticator codes not accepted",
+      "description": "Some of our lawyers' two-factor codes are rejected as invalid although they type them correctly.",
+      "relevant": [
+        "DVL-0101"
+      ]
+    },
+    {
+      "id": "q09",
+      "company_id": 2,
+      "title": "Deadline reminder emails arriving late again",
+      "description": "Since the clocks changed for our New York office, their reminder emails come a day late.",
+      "relevant": [
+        "DVL-0102",
+        "DVL-0110"
+      ]
+    },
+    {
+      "id": "q10",
+      "company_id": 2,
+      "title": "Big contract scans fail to upload",
+      "description": "Uploading a 60 MB scanned agreement fails with a timeout every time.",
+      "relevant": [
+        "DVL-0103"
+      ]
+    },
+    {
+      "id": "q11",
+      "company_id": 2,
+      "title": "Reset password link already expired",
+      "description": "The link in the password reset email says it has expired the moment we click it.",
+      "relevant": [
+        "DVL-0109"
+      ]
+    },
+    {
+      "id": "q12",
+      "company_id": 2,
+      "title": "New associates don't get their invites",
+      "description": "We added three new users and the invitation emails never arrived.",
+      "relevant": [
+        "DVL-0108"
+      ]
+    },
+    {
+      "id": "q13",
+      "company_id": 3,
+      "title": "Alignment killed for big samples",
+      "description": "Alignment step dies with exit code 137 on our largest whole-genome samples.",
+      "relevant": [
+        "D2BIO-0101"
+      ]
+    },
+    {
+      "id": "q14",
+      "company_id": 3,
+      "title": "Samples duplicated after re-ingesting a plate",
+      "description": "We re-ran ingestion after a failure and now the samples from that plate are listed twice.",
+      "relevant": [
+        "D2BIO-0102"
+      ]
+    },
+    {
+      "id": "q15",
+      "company_id": 3,
+      "title": "Jobs not starting, queue backed up",
+      "description": "Pipeline jobs have been sitting in the queue for hours and nothing is running.",
+      "relevant": [
+        "D2BIO-0104"
+      ]
+    },
+    {
+      "id": "q16",
+      "company_id": 3,
+      "title": "Login problem for users with plus addressing",
+      "description": "Researchers using emails like name+project@den2bio.com can't sign in through SSO.",
+      "relevant": [
+        "D2BWEB-0101"
+      ]
+    },
+    {
+      "id": "q17",
+      "company_id": 1,
+      "title": "Two-factor authentication codes rejected",
+      "description": "Landlords say their 2FA codes are always invalid.",
+      "relevant": []
+    },
+    {
+      "id": "q18",
+      "company_id": 2,
+      "title": "Duplicate records after re-running an import",
+      "description": "Re-running our client import created every client twice.",
+      "relevant": []
+    },
+    {
+      "id": "q19",
+      "company_id": 3,
+      "title": "Tenant rent reminders sent at the wrong time",
+      "description": "Rent reminders go out in the middle of the night.",
+      "relevant": []
+    },
+    {
+      "id": "q20",
+      "company_id": 1,
+      "title": "Hearing calendar shows the wrong times",
+      "description": "Court hearing times in the calendar are an hour off.",
+      "relevant": []
+    }
+  ]
+}

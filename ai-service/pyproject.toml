@@ -42,7 +42,8 @@ dev = [
 [tool.ruff]
 line-length = 100
 target-version = "py312"
-src = ["src", "tests"]
+# "." makes the top-level tests and evals packages first-party
+src = ["src", "."]
 
 [tool.ruff.lint]
 select = [
@@ -67,10 +68,12 @@ python_version = "3.12"
 strict = true
 plugins = ["pydantic.mypy"]
 mypy_path = "src"
-files = ["src", "tests"]
+files = ["src", "tests", "evals"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# So tests can import the evals package
+pythonpath = ["."]
 asyncio_mode = "auto"
 # Tests marked `live` call the real Gemini API and are skipped by default
 addopts = "--strict-markers -m 'not live and not embedding'"

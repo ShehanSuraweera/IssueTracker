@@ -140,7 +140,7 @@ src/ai_service/
 └── api/                 # routes, auth, error handlers, request-ID middleware
 ```
 
-Migrations for the `ai` schema live in `migrations/` (Alembic, plain SQL).
+Migrations for the `ai` schema live in `migrations/` (Alembic, plain SQL). The labelled evaluation suite lives in [`evals/`](evals/README.md).
 
 **Swapping providers:** the rest of the service depends only on `llm/base.py`. A new provider is one class implementing `generate_json()` that maps its failures to the `LLMError` types, plus one line in `factory.py`.
 
@@ -185,10 +185,10 @@ Each comment is wrapped in a `<thread_comment-{boundary}>` delimiter whose attri
 ## Testing
 
 ```bash
-uv run pytest             # 252 tests; database tests start a throwaway pgvector container (Docker)
+uv run pytest             # 266 tests; database tests start a throwaway pgvector container (Docker)
 uv run ruff check .       # lint (includes security rules)
 uv run ruff format .      # format
-uv run mypy               # strict type checking of src/ and tests/
+uv run mypy               # strict type checking of src/, tests/ and evals/
 uv run pytest -m live -v  # optional: 3 smoke tests against the real Gemini API (needs GEMINI_API_KEY)
 uv run pytest -m embedding  # optional: the real embedding model (downloads ~67 MB once)
 ```
@@ -210,6 +210,7 @@ Tests use a **scripted provider** that returns whatever output a test specifies,
 | `test_summary_api.py` | Key points may only cite comments in the thread (or the description); trimmed comments can't be cited; forged comment tags are neutralised; comments ordered by time; long threads trimmed to the most recent |
 | `test_retrieval_postgres.py` | Full stack: HTTP → service → PostgreSQL + pgvector, isolated per company |
 | `test_live_gemini.py` | Opt-in smoke tests against the real API |
+| `test_evals.py` | The eval data is well formed (labels the model can produce, full label coverage, retrieval labels within one company), the metrics match worked examples, and a run works end to end offline, including resume and rescore |
 
 Each safety and isolation defence was checked by disabling it and confirming tests fail.
 
@@ -227,4 +228,4 @@ Each safety and isolation defence was checked by disabling it and confirming tes
 
 **Short connect timeouts and `127.0.0.1`.** The PostgreSQL client library tries IPv6 first when given `localhost`; with Docker listening only on IPv4, a connection with no timeout waited indefinitely. Every connection now has a 10-second timeout, and local URLs use `127.0.0.1`.
 
-What a real model *does* with malicious input is measured by the evaluation suite (later phase), not asserted in unit tests.
+What a real model *does* with malicious input, and how accurate triage, sentiment and retrieval are, is measured by the [evaluation suite](evals/README.md) against a real model, not asserted in unit tests.

@@ -1,0 +1,27 @@
+{
+  "apt_mobile": {
+    "name": "Apartment LK Mobile",
+    "description": "React Native app for property listings and tenant management.",
+    "default_team": "mobile"
+  },
+  "apt_web": {
+    "name": "Apartment LK Web",
+    "description": "Next.js web portal for landlords and property administrators.",
+    "default_team": "web_frontend"
+  },
+  "dvl": {
+    "name": "Davinci Law Platform",
+    "description": "Legal document management and case tracking SaaS.",
+    "default_team": "backend"
+  },
+  "d2b_core": {
+    "name": "Den2bio Core",
+    "description": "Bioinformatics data pipeline and analysis platform.",
+    "default_team": "data_platform"
+  },
+  "d2b_web": {
+    "name": "Den2bio Web",
+    "description": "Web dashboard for Den2bio analytics results.",
+    "default_team": "web_frontend"
+  }
+}
