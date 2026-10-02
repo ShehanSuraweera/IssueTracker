@@ -110,7 +110,7 @@ backend/
 ├── prisma/
 │   ├── schema.prisma           # Database schema
 │   ├── migrations/             # Prisma migration history
-│   └── seed.ts                 # Demo data seed
+│   └── seed.ts                 # Demo data: accounts, ~60 issues incl. 4 months of history for the AI features
 ├── tests/                      # Vitest + supertest integration tests (see Testing)
 ├── keys/                       # RSA key pair — gitignored, generated per environment
 ├── ecosystem.config.js         # PM2 process definition for production
@@ -176,11 +176,13 @@ engineer reviews ──► apply / edit / reject ──► normal issue update (
 - Every result from the AI service is re-checked here against the viewer's tenancy before it's returned, which also drops issues reopened or deleted since they were indexed.
 - `npm run ai:reindex` queues every resolved issue for indexing and removes index entries for deleted issues. Run it after seeding or restoring a database.
 
+**Backfill.** Data saved without going through the API (the seed, a restored backup, or anything written while `AI_ENABLED` was off) has no triage or sentiment. `npm run ai:backfill` queues exactly what a live save would have: analysis for issues raised by clients and sentiment for client comments, skipping anything that already has a job, so running it twice queues nothing new. Jobs are spaced 5 seconds apart, oldest message first, to stay under the Gemini free tier's rate limit (`--interval-ms` changes it, `--dry-run` only counts). The seed's 78 messages (61 issues, 17 client comments) take about 7 minutes.
+
 **Insights for staff:**
 
 - **Thread summaries** (admins) are generated on request for threads of 3 or more comments, including internal notes. Each key point cites the comments it comes from (or `"description"`), and citations of anything outside the issue are dropped here as a second check. A summary is marked `stale` once newer comments exist.
 - **High-risk issues** are open issues whose *latest* sentiment reading is high escalation risk, within the viewer's tenancy. A client who calms down drops off the list. Priority is shown next to the risk and never changed by it.
-- **Client health** (admins) aggregates the stored sentiment readings per company: weekly average frustration, share of negative messages and high-risk readings, and the last 30 days against the 30 before (`improving`, `stable`, `worsening`, or `insufficient_data`). It makes no LLM calls.
+- **Client health** (admins) aggregates the stored sentiment readings per company, each dated by when the client wrote the message (not when it was assessed, which after an outage or a backfill could be much later): weekly average frustration, share of negative messages and high-risk readings, and the last 30 days against the 30 before (`improving`, `stable`, `worsening`, or `insufficient_data`). It makes no LLM calls.
 
 ### Request lifecycle
 
@@ -427,7 +429,8 @@ To use an existing empty database instead of a container, set `TEST_DATABASE_URL
 | `auth.test.ts` | Missing, malformed, forged, expired, and HS256 algorithm-confusion tokens are rejected. |
 | `ai-config.test.ts` | The `AI_ENABLED` flag: `/api/ai/config`, AI routes disabled, no jobs queued, and startup refused without `AI_SERVICE_TOKEN`. |
 | `ai-pipeline.test.ts` | Jobs are queued with the issue or comment (clients only) without calling the AI service; the worker stores results and never changes the issue; retries, backoff, failure, timeouts, invalid responses and the circuit breaker; `SKIP LOCKED` and stale-lock recovery. Runs against a stub AI service over real HTTP. |
-| `ai-insights.test.ts` | Summaries send the whole thread with trusted roles, drop foreign citations, store description citations, go stale on new comments, refuse short threads, admin only; high-risk list uses only the latest reading, ignores resolved issues, follows tenancy, never changes priority; client health buckets by week, computes the 30-day trend, includes companies without data, admin only. |
+| `ai-insights.test.ts` | Summaries send the whole thread with trusted roles, drop foreign citations, store description citations, go stale on new comments, refuse short threads, admin only; high-risk list uses only the latest reading, ignores resolved issues, follows tenancy, never changes priority; client health buckets by week by when the client wrote each message (not when it was assessed), computes the 30-day trend, includes companies without data, admin only. |
+| `ai-backfill.test.ts` | The backfill queues analysis for client issues and sentiment for client comments only, oldest first and spaced out, never twice, and nothing on a dry run. |
 | `ai-retrieval.test.ts` | Index syncs queued on resolve, reopen, edit and staff comment (never twice); the worker indexes with staff notes only and removes reopened issues; searches scoped to company and viewer's products; every result the viewer couldn't open is dropped, even for admins; resolutions stored with cost and once-only feedback. |
 | `ai-api.test.ts` | Tenancy on every AI route, clients get `403`, no client response contains AI data, accept/edit/reject, review-once (including two simultaneous reviews), retry, and staff-only `category`/`team`. |
 
@@ -446,6 +449,7 @@ To use an existing empty database instead of a container, set `TEST_DATABASE_URL
 | `npm run test:watch` | Run tests in watch mode |
 | `npm run typecheck` | Type-check application, test and script code |
 | `npm run ai:reindex` | Rebuild and reconcile the similarity index (needs `AI_ENABLED=true`) |
+| `npm run ai:backfill` | Queue triage and sentiment for data saved without it, e.g. after seeding (calls the LLM) |
 | `npm run keys:generate` | Generate RSA key pair in `keys/` |
 | `npx prisma migrate dev` | Apply migrations and run seed |
 | `npx prisma migrate deploy` | Apply migrations in production (no seed) |

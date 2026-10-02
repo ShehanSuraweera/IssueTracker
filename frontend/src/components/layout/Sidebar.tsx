@@ -5,6 +5,7 @@ import {
   TicketCheck,
   SquarePen,
   LayoutDashboard,
+  HeartPulse,
   Building2,
   Package,
   Users,
@@ -15,6 +16,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
+import { useAiEnabled } from "@/hooks/use-ai";
 import { useTabsStore } from "@/store/tabs.store";
 import { Separator } from "@/components/ui/separator";
 import { NewnopLogo } from "@/components/ui/newnop-logo";
@@ -26,6 +28,8 @@ interface NavItem {
   label: string;
   exact?: boolean;
   adminOnly?: boolean;
+  // Hidden when the AI layer is switched off
+  aiOnly?: boolean;
 }
 
 const NAV_ITEMS: NavItem[] = [
@@ -50,6 +54,14 @@ const NAV_ITEMS: NavItem[] = [
     icon: LayoutDashboard,
     label: "Dashboard",
     adminOnly: true,
+  },
+  {
+    id: "admin-client-health",
+    to: "/admin/client-health",
+    icon: HeartPulse,
+    label: "Client Health",
+    adminOnly: true,
+    aiOnly: true,
   },
   {
     id: "admin-companies",
@@ -81,6 +93,7 @@ interface SidebarProps {
 
 export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
   const { hasRole } = useAuth();
+  const aiEnabled = useAiEnabled();
   const navigate = useNavigate();
   const location = useLocation();
   const { openTab } = useTabsStore();
@@ -208,7 +221,9 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
 
         {/* Navigation */}
         <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto p-2">
-          {NAV_ITEMS.filter((item) => !item.adminOnly || hasRole("admin")).map(
+          {NAV_ITEMS.filter(
+            (item) => (!item.adminOnly || hasRole("admin")) && (!item.aiOnly || aiEnabled),
+          ).map(
             (item) => (
               <button
                 key={item.id}

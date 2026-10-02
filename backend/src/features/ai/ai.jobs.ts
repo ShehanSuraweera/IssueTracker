@@ -9,9 +9,11 @@
 import type { IssueStatus, Prisma } from "@prisma/client";
 import { env } from "../../config/env";
 
+// `notBefore` delays a job; the backfill uses it to spread calls out under the
+// LLM provider's rate limit. Live saves leave it unset and run straight away.
 export async function enqueueIssueAnalysis(
   tx: Prisma.TransactionClient,
-  job: { issueId: bigint; companyId: bigint }
+  job: { issueId: bigint; companyId: bigint; notBefore?: Date }
 ): Promise<void> {
   if (!env.AI_ENABLED) return;
   await tx.aiJob.create({
@@ -20,14 +22,14 @@ export async function enqueueIssueAnalysis(
       issueId: job.issueId,
       companyId: job.companyId,
       maxAttempts: env.AI_JOB_MAX_ATTEMPTS,
-      nextAttemptAt: new Date(),
+      nextAttemptAt: job.notBefore ?? new Date(),
     },
   });
 }
 
 export async function enqueueCommentSentiment(
   tx: Prisma.TransactionClient,
-  job: { issueId: bigint; commentId: bigint; companyId: bigint }
+  job: { issueId: bigint; commentId: bigint; companyId: bigint; notBefore?: Date }
 ): Promise<void> {
   if (!env.AI_ENABLED) return;
   await tx.aiJob.create({
@@ -37,7 +39,7 @@ export async function enqueueCommentSentiment(
       commentId: job.commentId,
       companyId: job.companyId,
       maxAttempts: env.AI_JOB_MAX_ATTEMPTS,
-      nextAttemptAt: new Date(),
+      nextAttemptAt: job.notBefore ?? new Date(),
     },
   });
 }

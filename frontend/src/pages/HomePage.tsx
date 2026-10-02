@@ -6,10 +6,13 @@ import { DashboardCharts } from "@/components/ui/dashboard-charts";
 import { HomeHero } from "@/components/home/HomeHero";
 import { HomeKpis } from "@/components/home/HomeKpis";
 import { MyWorkSection } from "@/components/home/MyWorkSection";
+import { HighRiskIssuesCard } from "@/components/ai/HighRiskIssuesCard";
+import { useAiEnabled } from "@/hooks/use-ai";
 
 export default function HomePage() {
   const navigate = useNavigate();
   const { user, hasRole } = useAuth();
+  const aiEnabled = useAiEnabled();
 
   const { data: stats, refetch: refetchStats } = useIssueStats({
     refetchInterval: 60_000,
@@ -26,6 +29,8 @@ export default function HomePage() {
         isAdmin={hasRole("admin")}
         isEngineer={hasRole("engineer")}
       />
+
+      {aiEnabled && hasRole("engineer") && <HighRiskIssuesCard />}
 
       <DashboardCharts stats={stats} />
 

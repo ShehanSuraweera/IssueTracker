@@ -757,6 +757,394 @@ async function main() {
   });
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // HISTORY FOR THE AI FEATURES
+  // Older issues, created after the ones above so existing ticket numbers stay
+  // the same. They give the AI features something real to work with:
+  //  - resolved issues whose staff comments explain the fix, for similar-issue
+  //    search and suggested resolutions
+  //  - client threads whose tone changes over ~4 months, for client health:
+  //    Apartment LK gets more frustrated, Davinci Law calms down after an
+  //    incident, Den2bio stays steady apart from one late-results thread
+  //  - one long thread, for thread summaries
+  // Sentiment is not stored here: `npm run ai:backfill` asks the AI for it.
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  // ── Apartment LK: resolved history ───────────────────────────────────────
+
+  await createIssue({
+    productId: apt.id, code: 'APT',
+    title: 'Push notifications stopped after updating the Android app',
+    description: 'Since tenants updated to v2.1 on Android, nobody receives rent reminders or message notifications. Uninstalling and reinstalling the app brings them back for some users.',
+    type: 'bug', impact: 'high', urgency: 'medium', status: 'resolved',
+    createdById: cApt.id, assignedToId: ravi.id, createdAt: daysAgo(112),
+    resolvedAt: daysAgo(109),
+    activities: [
+      { fieldName: 'status', oldValue: 'new', newValue: 'in_progress', userId: ravi.id, h: 2 },
+      { fieldName: 'status', oldValue: 'in_progress', newValue: 'resolved', userId: ravi.id, h: 70 },
+    ],
+    comments: [
+      { body: 'The update changed the Firebase sender configuration, so FCM issued new device tokens, but the app only registers its token on first login. Old tokens were rejected as unregistered.', isInternal: true, userId: ravi.id, h: 6 },
+      { body: 'Fix: the app now re-registers its FCM token on every launch and whenever onNewToken fires, and the server drops tokens FCM reports as unregistered. Shipped in v2.1.1.', isInternal: true, userId: ravi.id, h: 68 },
+      { body: 'Fixed in v2.1.1. Tenants just need to open the app once after updating and notifications resume.', isInternal: false, userId: ravi.id, h: 70 },
+      { body: 'Confirmed, reminders are arriving again. Thank you for the quick turnaround!', isInternal: false, userId: cApt.id, h: 80 },
+    ],
+  });
+
+  await createIssue({
+    productId: apt.id, code: 'APT',
+    title: 'Tenants stuck in a login loop after resetting their password',
+    description: 'After a tenant resets their password from the email link, the app accepts the new password, shows the home screen for a second and then returns to the login screen. This repeats every time.',
+    type: 'bug', impact: 'high', urgency: 'high', status: 'resolved',
+    createdById: cApt.id, assignedToId: kasun.id, createdAt: daysAgo(98),
+    resolvedAt: daysAgo(97),
+    activities: [
+      { fieldName: 'status', oldValue: 'new', newValue: 'in_progress', userId: kasun.id, h: 1 },
+      { fieldName: 'status', oldValue: 'in_progress', newValue: 'resolved', userId: kasun.id, h: 20 },
+    ],
+    comments: [
+      { body: 'Password reset revokes all refresh tokens, but the app kept the old refresh token in secure storage and retried with it, which logs the user out again.', isInternal: true, userId: kasun.id, h: 4 },
+      { body: 'The app now clears stored tokens when login succeeds with a new password, and treats a revoked refresh token as a full sign-out instead of retrying. Released as v2.2.3.', isInternal: false, userId: kasun.id, h: 20 },
+      { body: 'Works now, thanks.', isInternal: false, userId: cApt.id, h: 30 },
+    ],
+  });
+
+  await createIssue({
+    productId: apt.id, code: 'APT',
+    title: 'Rent reminder notifications sent twice',
+    description: 'Every tenant received two identical rent reminders this morning, a few seconds apart. It has happened for the last three days.',
+    type: 'bug', impact: 'medium', urgency: 'medium', status: 'resolved',
+    createdById: cApt.id, assignedToId: ravi.id, createdAt: daysAgo(84),
+    resolvedAt: daysAgo(82),
+    activities: [
+      { fieldName: 'status', oldValue: 'new', newValue: 'in_progress', userId: ravi.id, h: 3 },
+      { fieldName: 'status', oldValue: 'in_progress', newValue: 'resolved', userId: ravi.id, h: 40 },
+    ],
+    comments: [
+      { body: 'We scaled the API to two instances last week and both run the reminder cron. Added a Postgres advisory lock so only one instance sends reminders, plus a unique key per tenant per day.', isInternal: true, userId: ravi.id, h: 30 },
+      { body: 'Fixed: reminders are now sent once. Sorry for the noise!', isInternal: false, userId: ravi.id, h: 40 },
+    ],
+  });
+
+  await createIssue({
+    productId: apt.id, code: 'APT',
+    title: 'App freezes when opening a chat with a long message history',
+    description: 'Opening a conversation with a tenant who has a few hundred messages freezes the app for 10-20 seconds on older Android phones. Sometimes Android offers to close the app.',
+    type: 'bug', impact: 'medium', urgency: 'medium', status: 'resolved',
+    createdById: cApt.id, assignedToId: kasun.id, createdAt: daysAgo(70),
+    resolvedAt: daysAgo(64),
+    activities: [
+      { fieldName: 'status', oldValue: 'new', newValue: 'in_progress', userId: kasun.id, h: 5 },
+      { fieldName: 'status', oldValue: 'in_progress', newValue: 'resolved', userId: kasun.id, h: 140 },
+    ],
+    comments: [
+      { body: 'The chat screen loads the whole history and renders it in a ScrollView. Switching to a FlatList with 50-message pages loaded as the user scrolls up.', isInternal: true, userId: kasun.id, h: 24 },
+      { body: 'Released in v2.3.0: long chats now open instantly and older messages load as you scroll.', isInternal: false, userId: kasun.id, h: 140 },
+    ],
+  });
+
+  await createIssue({
+    productId: aptweb.id, code: 'APTWEB',
+    title: 'Monthly payout report totals do not match the bank statement',
+    description: 'The landlord payout report for last month shows LKR 1,240,000 but the bank received LKR 1,185,000. Payments made on the last evening of the month seem to be counted in the wrong month.',
+    type: 'bug', impact: 'high', urgency: 'medium', status: 'resolved',
+    createdById: cApt.id, assignedToId: ravi.id, createdAt: daysAgo(104),
+    resolvedAt: daysAgo(100),
+    activities: [
+      { fieldName: 'status', oldValue: 'new', newValue: 'in_progress', userId: ravi.id, h: 2 },
+      { fieldName: 'status', oldValue: 'in_progress', newValue: 'resolved', userId: ravi.id, h: 90 },
+    ],
+    comments: [
+      { body: 'Month boundaries were computed in UTC while payments are recorded in Asia/Colombo time, so anything paid after 18:30 on the last day moved to the next month.', isInternal: true, userId: ravi.id, h: 20 },
+      { body: 'The report now uses the landlord account timezone for month boundaries. Last month has been recalculated and matches the bank statement.', isInternal: false, userId: ravi.id, h: 90 },
+      { body: 'Checked against our statement, the numbers match now. Appreciate the clear explanation.', isInternal: false, userId: cApt.id, h: 96 },
+    ],
+  });
+
+  await createIssue({
+    productId: aptweb.id, code: 'APTWEB',
+    title: 'Lease PDF download fails with "Access denied" after leaving the page open',
+    description: 'If a landlord leaves the lease page open for a while and then clicks Download PDF, the browser shows an XML "AccessDenied" error instead of the file. Refreshing the page fixes it.',
+    type: 'bug', impact: 'low', urgency: 'medium', status: 'resolved',
+    createdById: cApt.id, assignedToId: ravi.id, createdAt: daysAgo(77),
+    resolvedAt: daysAgo(75),
+    activities: [
+      { fieldName: 'status', oldValue: 'new', newValue: 'in_progress', userId: ravi.id, h: 4 },
+      { fieldName: 'status', oldValue: 'in_progress', newValue: 'resolved', userId: ravi.id, h: 30 },
+    ],
+    comments: [
+      { body: 'The page embeds a presigned S3 URL that expires after 15 minutes. The button now requests a fresh presigned URL when clicked instead of using the one rendered with the page.', isInternal: true, userId: ravi.id, h: 26 },
+      { body: 'Fixed: downloads now work no matter how long the page has been open.', isInternal: false, userId: ravi.id, h: 30 },
+    ],
+  });
+
+  await createIssue({
+    productId: aptweb.id, code: 'APTWEB',
+    title: 'Card payments stay "pending" although the bank charged the tenant',
+    description: 'Several tenants paid rent by card, their banks show the charge, but the portal still lists the payment as pending after two days.',
+    type: 'incident', impact: 'high', urgency: 'high', status: 'resolved',
+    createdById: cApt.id, assignedToId: ravi.id, createdAt: daysAgo(56),
+    resolvedAt: daysAgo(55),
+    activities: [
+      { fieldName: 'status', oldValue: 'new', newValue: 'in_progress', userId: ravi.id, h: 1 },
+      { fieldName: 'status', oldValue: 'in_progress', newValue: 'resolved', userId: ravi.id, h: 14 },
+    ],
+    comments: [
+      { body: 'The payment gateway rotated its webhook signing secret and our endpoint rejected every callback with 401. Updated the secret, replayed the failed webhooks from the gateway dashboard, and added an alert when webhook failures exceed 5 per hour.', isInternal: true, userId: ravi.id, h: 10 },
+      { body: 'All affected payments are now marked as paid. Nobody was charged twice.', isInternal: false, userId: ravi.id, h: 14 },
+      { body: 'OK. Please make sure this does not happen again, our tenants were worried.', isInternal: false, userId: cApt.id, h: 20 },
+    ],
+  });
+
+  // ── Apartment LK: getting frustrated ─────────────────────────────────────
+
+  await createIssue({
+    productId: aptweb.id, code: 'APTWEB',
+    title: 'Rent marked overdue even though tenants have paid',
+    description: 'Tenants who paid on time are getting overdue notices and late fees. We have bank receipts for all of them. Our phones have not stopped ringing.',
+    type: 'bug', impact: 'high', urgency: 'high', status: 'in_progress',
+    createdById: cApt.id, assignedToId: ravi.id, createdAt: daysAgo(9),
+    activities: [
+      { fieldName: 'status', oldValue: 'new', newValue: 'in_progress', userId: ravi.id, h: 5 },
+    ],
+    comments: [
+      { body: 'Thanks for reporting. We are checking the payment matching job.', isInternal: false, userId: ravi.id, h: 5 },
+      { body: 'Bank transfers with the reference in lower case are not matched to the invoice, so the invoice stays unpaid and the late-fee job runs. Working on case-insensitive matching and a backfill.', isInternal: true, userId: ravi.id, h: 20 },
+      { body: 'It has been two days. Another 14 tenants were charged late fees this morning. Can you at least stop the late fees while you fix it?', isInternal: false, userId: cApt.id, h: 48 },
+      { body: 'We have paused the late-fee job for your account and will reverse the fees charged so far.', isInternal: false, userId: ravi.id, h: 52 },
+      { body: 'Tenants are still seeing overdue banners in the app. This is the second payment problem in two months and our landlords are asking whether they should switch platforms. We need a date.', isInternal: false, userId: cApt.id, h: 120 },
+    ],
+  });
+
+  await createIssue({
+    productId: apt.id, code: 'APT',
+    title: 'Tenants cannot upload ID documents during onboarding',
+    description: 'New tenants get "Upload failed, please try again" when uploading a photo of their NIC or passport in the onboarding flow. We cannot approve their leases without the documents.',
+    type: 'bug', impact: 'high', urgency: 'medium', status: 'in_progress',
+    createdById: cApt.id, assignedToId: kasun.id, createdAt: daysAgo(16),
+    activities: [
+      { fieldName: 'assigned_to', oldValue: null, newValue: 'Kasun Perera', userId: adm1.id, h: 2 },
+      { fieldName: 'status', oldValue: 'new', newValue: 'in_progress', userId: kasun.id, h: 3 },
+    ],
+    comments: [
+      { body: 'Hi Lakshan, could you tell us which phones are affected and whether it happens with every photo?', isInternal: false, userId: kasun.id, h: 3 },
+      { body: 'Mostly iPhones, but one Samsung too. It happens with photos taken in the app and from the gallery.', isInternal: false, userId: cApt.id, h: 6 },
+      { body: 'iPhone camera photos are HEIC. The upload endpoint only accepts JPEG and PNG and returns 415, which the app shows as a generic failure.', isInternal: true, userId: kasun.id, h: 9 },
+      { body: 'We found the cause for iPhones: their photo format is not accepted yet. As a workaround, tenants can set Camera > Formats > Most Compatible in iPhone settings.', isInternal: false, userId: kasun.id, h: 10 },
+      { body: 'The workaround helped some tenants, but the Samsung user still cannot upload.', isInternal: false, userId: cApt.id, h: 30 },
+      { body: 'The Samsung photo is 14 MB. The server limit is 10 MB. The app should resize before upload; adding client-side compression to 2048px and HEIC to JPEG conversion.', isInternal: true, userId: kasun.id, h: 34 },
+      { body: 'Is there any update? We have 9 tenants waiting to move in this weekend.', isInternal: false, userId: cApt.id, h: 96 },
+      { body: 'The fix is in testing. In the meantime we can accept the documents by email and attach them for you.', isInternal: false, userId: kasun.id, h: 100 },
+      { body: 'Fine, we will email them. Please let us know as soon as the update is out.', isInternal: false, userId: cApt.id, h: 104 },
+    ],
+  });
+
+  // ── Davinci Law: incident, then calmer ───────────────────────────────────
+
+  await createIssue({
+    productId: dvl.id, code: 'DVL',
+    title: 'Documents shared with opposing counsel visible to the wrong case party',
+    description: 'A document we shared with opposing counsel in one case appeared in the shared folder of an unrelated case. This is a serious confidentiality breach and we need to know who saw it.',
+    type: 'incident', impact: 'high', urgency: 'high', status: 'resolved',
+    createdById: cDvl.id, assignedToId: junho.id, createdAt: daysAgo(58),
+    resolvedAt: daysAgo(52),
+    activities: [
+      { fieldName: 'status', oldValue: 'new', newValue: 'in_progress', userId: junho.id, h: 1 },
+      { fieldName: 'status', oldValue: 'in_progress', newValue: 'resolved', userId: junho.id, h: 150 },
+    ],
+    comments: [
+      { body: 'We have disabled external sharing on your account while we investigate. We will report back within 4 hours.', isInternal: false, userId: junho.id, h: 1 },
+      { body: 'Share links were cached by folder name; two cases had a folder named "Disclosure", so the cache returned the wrong folder. Cache key now includes the case ID. Access logs show one view of the document by the other party.', isInternal: true, userId: junho.id, h: 6 },
+      { body: 'One view is one too many. We are obliged to inform our client. This is completely unacceptable for a legal platform and we expect a written incident report today.', isInternal: false, userId: cDvl.id, h: 8 },
+      { body: 'Understood. The incident report with the timeline, the exact access log entry and the fix is attached. External sharing is restored with the fix in place.', isInternal: false, userId: junho.id, h: 30 },
+      { body: 'Received. We will review it with our partners.', isInternal: false, userId: cDvl.id, h: 50 },
+    ],
+  });
+
+  await createIssue({
+    productId: dvl.id, code: 'DVL',
+    title: 'Two-factor codes rejected for some users',
+    description: 'About a third of our lawyers cannot log in because their authenticator codes are rejected as invalid. The codes are typed correctly and the phones show the right time.',
+    type: 'bug', impact: 'high', urgency: 'high', status: 'resolved',
+    createdById: cDvl.id, assignedToId: junho.id, createdAt: daysAgo(90),
+    resolvedAt: daysAgo(90),
+    activities: [
+      { fieldName: 'status', oldValue: 'new', newValue: 'in_progress', userId: junho.id, h: 1 },
+      { fieldName: 'status', oldValue: 'in_progress', newValue: 'resolved', userId: junho.id, h: 6 },
+    ],
+    comments: [
+      { body: 'One of the three auth servers had drifted 70 seconds because NTP was blocked by a firewall change. TOTP allows only one 30-second step. Restored NTP and added clock-drift monitoring.', isInternal: true, userId: junho.id, h: 4 },
+      { body: 'Fixed: a server clock was out of sync. All codes are accepted now.', isInternal: false, userId: junho.id, h: 6 },
+    ],
+  });
+
+  await createIssue({
+    productId: dvl.id, code: 'DVL',
+    title: 'Court deadline reminders emailed a day late',
+    description: 'Reminder emails for filing deadlines arrive on the day of the deadline instead of the day before. One of our associates nearly missed a filing.',
+    type: 'bug', impact: 'high', urgency: 'medium', status: 'resolved',
+    createdById: cDvl.id, assignedToId: junho.id, createdAt: daysAgo(75),
+    resolvedAt: daysAgo(72),
+    activities: [
+      { fieldName: 'status', oldValue: 'new', newValue: 'in_progress', userId: junho.id, h: 3 },
+      { fieldName: 'status', oldValue: 'in_progress', newValue: 'resolved', userId: junho.id, h: 60 },
+    ],
+    comments: [
+      { body: 'The reminder job runs at 00:00 UTC, which is 09:00 in Seoul, and selects deadlines for "tomorrow" in UTC. For KST users that is already the deadline day. The job now runs hourly and selects deadlines by each firm\'s timezone.', isInternal: true, userId: junho.id, h: 40 },
+      { body: 'Reminders now arrive at 09:00 the day before the deadline in your local time.', isInternal: false, userId: junho.id, h: 60 },
+    ],
+  });
+
+  await createIssue({
+    productId: dvl.id, code: 'DVL',
+    title: 'Uploading large scanned contracts times out',
+    description: 'Scanned contracts over about 20 MB fail to upload with a timeout after a minute. Smaller files work.',
+    type: 'bug', impact: 'medium', urgency: 'medium', status: 'resolved',
+    createdById: cDvl.id, assignedToId: junho.id, createdAt: daysAgo(40),
+    resolvedAt: daysAgo(37),
+    activities: [
+      { fieldName: 'status', oldValue: 'new', newValue: 'in_progress', userId: junho.id, h: 2 },
+      { fieldName: 'status', oldValue: 'in_progress', newValue: 'resolved', userId: junho.id, h: 70 },
+    ],
+    comments: [
+      { body: 'Uploads went through the API server, which has a 60-second proxy timeout. Large files now upload directly to S3 with presigned multipart uploads, so the API only records the result.', isInternal: true, userId: junho.id, h: 50 },
+      { body: 'Fixed: files up to 500 MB now upload reliably.', isInternal: false, userId: junho.id, h: 70 },
+      { body: 'Tested with a 180 MB scan, worked perfectly. Thank you.', isInternal: false, userId: cDvl.id, h: 80 },
+    ],
+  });
+
+  await createIssue({
+    productId: dvl.id, code: 'DVL',
+    title: 'Case search takes over 30 seconds',
+    description: 'Searching cases by party name takes 30 seconds or more since we imported our archive of 40,000 closed cases.',
+    type: 'bug', impact: 'medium', urgency: 'medium', status: 'resolved',
+    createdById: cDvl.id, assignedToId: junho.id, createdAt: daysAgo(26),
+    resolvedAt: daysAgo(24),
+    activities: [
+      { fieldName: 'status', oldValue: 'new', newValue: 'in_progress', userId: junho.id, h: 2 },
+      { fieldName: 'status', oldValue: 'in_progress', newValue: 'resolved', userId: junho.id, h: 44 },
+    ],
+    comments: [
+      { body: 'Party-name search used ILIKE \'%name%\' on case_parties with no usable index. Added a pg_trgm GIN index; the query dropped from 32 s to 80 ms.', isInternal: true, userId: junho.id, h: 30 },
+      { body: 'Search is fast again, results come back in well under a second.', isInternal: false, userId: junho.id, h: 44 },
+      { body: 'Much better, thanks a lot. The team is happy.', isInternal: false, userId: cDvl.id, h: 50 },
+    ],
+  });
+
+  await createIssue({
+    productId: dvl.id, code: 'DVL',
+    title: 'Deadline reminder emails arriving late again',
+    description: 'Since the clocks changed for our New York office, their reminder emails come a day late, like the problem we had before.',
+    type: 'bug', impact: 'medium', urgency: 'medium', status: 'new',
+    createdById: cDvl.id, createdAt: daysAgo(3),
+    comments: [
+      { body: 'No rush, it only affects the New York office for now. Thanks!', isInternal: false, userId: cDvl.id, h: 1 },
+    ],
+  });
+
+  // ── Den2bio: steady, one frustrated thread ───────────────────────────────
+
+  await createIssue({
+    productId: d2bio.id, code: 'D2BIO',
+    title: 'Alignment jobs run out of memory on large FASTQ files',
+    description: 'Alignment fails with "Killed" (exit code 137) for samples above roughly 40 GB. Smaller samples complete normally.',
+    type: 'bug', impact: 'high', urgency: 'medium', status: 'resolved',
+    createdById: cD2b.id, assignedToId: arjun.id, createdAt: daysAgo(108),
+    resolvedAt: daysAgo(103),
+    activities: [
+      { fieldName: 'status', oldValue: 'new', newValue: 'in_progress', userId: arjun.id, h: 3 },
+      { fieldName: 'status', oldValue: 'in_progress', newValue: 'resolved', userId: arjun.id, h: 110 },
+    ],
+    comments: [
+      { body: 'Exit 137 is the OOM killer. The aligner reads all reads into memory before sorting. Switched to streaming in 5M-read chunks with samtools sort -m 2G and raised the container limit for samples over 30 GB.', isInternal: true, userId: arjun.id, h: 30 },
+      { body: 'Large samples now align successfully. Peak memory is about 14 GB regardless of sample size.', isInternal: false, userId: arjun.id, h: 110 },
+    ],
+  });
+
+  await createIssue({
+    productId: d2bio.id, code: 'D2BIO',
+    title: 'Duplicate samples after re-running ingestion',
+    description: 'We re-ran ingestion for a plate after a network error and now every sample on that plate appears twice in the results.',
+    type: 'bug', impact: 'medium', urgency: 'medium', status: 'resolved',
+    createdById: cD2b.id, assignedToId: kasun.id, createdAt: daysAgo(88),
+    resolvedAt: daysAgo(85),
+    activities: [
+      { fieldName: 'status', oldValue: 'new', newValue: 'in_progress', userId: kasun.id, h: 4 },
+      { fieldName: 'status', oldValue: 'in_progress', newValue: 'resolved', userId: kasun.id, h: 66 },
+    ],
+    comments: [
+      { body: 'Ingestion inserts samples without checking for existing ones. Added a unique constraint on (plate_id, barcode) and made ingestion an upsert, then removed the duplicates.', isInternal: true, userId: kasun.id, h: 40 },
+      { body: 'Duplicates removed, and re-running ingestion is now safe.', isInternal: false, userId: kasun.id, h: 66 },
+    ],
+  });
+
+  await createIssue({
+    productId: d2bio.id, code: 'D2BIO',
+    title: 'Nightly pipeline did not start after the daylight saving change',
+    description: 'The nightly batch did not run on Sunday night. No errors, it just never started.',
+    type: 'incident', impact: 'high', urgency: 'high', status: 'resolved',
+    createdById: cD2b.id, assignedToId: arjun.id, createdAt: daysAgo(66),
+    resolvedAt: daysAgo(66),
+    activities: [
+      { fieldName: 'status', oldValue: 'new', newValue: 'in_progress', userId: arjun.id, h: 1 },
+      { fieldName: 'status', oldValue: 'in_progress', newValue: 'resolved', userId: arjun.id, h: 8 },
+    ],
+    comments: [
+      { body: 'The scheduler used Europe/London local time and 01:30 was skipped when the clocks went forward. Moved all schedules to UTC and triggered the missed run manually.', isInternal: true, userId: arjun.id, h: 5 },
+      { body: 'The missed run has completed and schedules now use UTC, so clock changes no longer affect them.', isInternal: false, userId: arjun.id, h: 8 },
+      { body: 'Thanks for handling this so quickly.', isInternal: false, userId: cD2b.id, h: 10 },
+    ],
+  });
+
+  await createIssue({
+    productId: d2bweb.id, code: 'D2BWEB',
+    title: 'SSO login fails for users with a plus sign in their email',
+    description: 'Researchers whose email contains a "+" (for example priya+lab@den2bio.com) get "User not found" after signing in with our identity provider.',
+    type: 'bug', impact: 'medium', urgency: 'medium', status: 'resolved',
+    createdById: cD2b.id, assignedToId: junho.id, createdAt: daysAgo(48),
+    resolvedAt: daysAgo(46),
+    activities: [
+      { fieldName: 'status', oldValue: 'new', newValue: 'in_progress', userId: junho.id, h: 3 },
+      { fieldName: 'status', oldValue: 'in_progress', newValue: 'resolved', userId: junho.id, h: 45 },
+    ],
+    comments: [
+      { body: 'The SAML callback read the email from a query string without decoding, so "+" became a space. Now read from the signed assertion attributes instead.', isInternal: true, userId: junho.id, h: 30 },
+      { body: 'Fixed: users with a plus sign in their email can sign in.', isInternal: false, userId: junho.id, h: 45 },
+    ],
+  });
+
+  await createIssue({
+    productId: d2bweb.id, code: 'D2BWEB',
+    title: 'PDF export cuts off wide result tables',
+    description: 'When exporting a results page to PDF, tables with more than 8 columns are cut off at the right edge.',
+    type: 'bug', impact: 'low', urgency: 'low', status: 'resolved',
+    createdById: cD2b.id, assignedToId: arjun.id, createdAt: daysAgo(34),
+    resolvedAt: daysAgo(30),
+    activities: [
+      { fieldName: 'status', oldValue: 'new', newValue: 'in_progress', userId: arjun.id, h: 8 },
+      { fieldName: 'status', oldValue: 'in_progress', newValue: 'resolved', userId: arjun.id, h: 90 },
+    ],
+    comments: [
+      { body: 'Wide tables now switch the PDF to landscape and wrap long column headers. Tables wider than landscape are split across pages with the ID column repeated.', isInternal: false, userId: arjun.id, h: 90 },
+    ],
+  });
+
+  await createIssue({
+    productId: d2bio.id, code: 'D2BIO',
+    title: 'Results delivered late for the third week in a row',
+    description: 'Our weekly batch results were promised by Monday 09:00 and arrived on Tuesday afternoon again. This is the third week running and our clinical partners are asking why.',
+    type: 'incident', impact: 'high', urgency: 'high', status: 'in_progress',
+    createdById: cD2b.id, assignedToId: arjun.id, createdAt: daysAgo(6),
+    activities: [
+      { fieldName: 'status', oldValue: 'new', newValue: 'in_progress', userId: arjun.id, h: 2 },
+    ],
+    comments: [
+      { body: 'The weekly batch now competes with two other customers for the same compute pool on Sunday nights. Queue wait went from 1 h to 26 h.', isInternal: true, userId: arjun.id, h: 4 },
+      { body: 'We are sorry. The delay comes from compute capacity on Sunday nights. We are reserving dedicated capacity for your batch.', isInternal: false, userId: arjun.id, h: 6 },
+      { body: 'We appreciate the honesty, but we have now missed three clinical reporting deadlines. If next Monday is late we will have to escalate this to our management.', isInternal: false, userId: cD2b.id, h: 30 },
+    ],
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════
 
   const issueCount  = await prisma.issue.count();
   const commentCount = await prisma.issueComment.count();
@@ -778,6 +1166,10 @@ async function main() {
   console.log('  Client   : feedback@apartment-lk.com  (Apartment LK)');
   console.log('  Client   : contact@davincilaw.com     (Davinci Law)');
   console.log('  Client   : info@den2bio.com           (Den2bio)');
+  console.log('');
+  console.log('With AI enabled and the server running, fill the AI data for these issues:');
+  console.log('  npm run ai:reindex    # similar-issue index of resolved issues');
+  console.log('  npm run ai:backfill   # triage suggestions and sentiment (calls the LLM)');
 }
 
 main()

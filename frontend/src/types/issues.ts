@@ -4,6 +4,26 @@ export type ImpactLevel = "low" | "medium" | "high";
 export type UrgencyLevel = "low" | "medium" | "high";
 export type PriorityLevel = "low" | "moderate" | "high" | "critical";
 
+// Functional area and owning team, set by staff (typically from an AI triage suggestion)
+export type IssueCategory =
+  | "authentication_access"
+  | "notifications"
+  | "data_integrity"
+  | "performance"
+  | "ui_display"
+  | "crash_error"
+  | "file_handling"
+  | "integrations"
+  | "reporting_analytics"
+  | "other";
+export type EngineeringTeam =
+  | "mobile"
+  | "web_frontend"
+  | "backend"
+  | "data_platform"
+  | "infrastructure"
+  | "support";
+
 export interface IssueSummary {
   id: string;
   ticketNumber: string;
@@ -14,6 +34,8 @@ export interface IssueSummary {
   priority: PriorityLevel;
   impact: ImpactLevel;
   urgency: UrgencyLevel;
+  category?: IssueCategory | null;
+  team?: EngineeringTeam | null;
   createdBy: string;
   assignedTo: string | null;
   slaDeadline: string | null;

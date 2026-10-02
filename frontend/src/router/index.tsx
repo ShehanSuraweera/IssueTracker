@@ -14,6 +14,7 @@ const IssueDetailPage = lazy(() => import("@/pages/issues/IssueDetailPage"));
 const IssueCreatePage = lazy(() => import("@/pages/issues/IssueCreatePage"));
 const IssueEditPage = lazy(() => import("@/pages/issues/IssueEditPage"));
 const DashboardPage = lazy(() => import("@/pages/admin/DashboardPage"));
+const ClientHealthPage = lazy(() => import("@/pages/admin/ClientHealthPage"));
 const CompanyListPage = lazy(() => import("@/pages/admin/CompanyListPage"));
 const CompanyDetailPage = lazy(() => import("@/pages/admin/CompanyDetailPage"));
 const ProductListPage = lazy(() => import("@/pages/admin/ProductListPage"));
@@ -68,6 +69,7 @@ export const router = createBrowserRouter([
             element: <RequireRole roles={["admin"]} />,
             children: [
               { path: "/admin/dashboard", element: wrap(<DashboardPage />) },
+              { path: "/admin/client-health", element: wrap(<ClientHealthPage />) },
               { path: "/admin/companies", element: wrap(<CompanyListPage />) },
               {
                 path: "/admin/companies/:id",

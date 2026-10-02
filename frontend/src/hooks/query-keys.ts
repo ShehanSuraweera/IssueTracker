@@ -27,4 +27,14 @@ export const queryKeys = {
   savedViews: {
     all: () => ["savedViews"] as const,
   },
+  ai: {
+    config: () => ["ai", "config"] as const,
+    suggestion: (issueId: string) => ["ai", "suggestion", issueId] as const,
+    sentiment: (issueId: string) => ["ai", "sentiment", issueId] as const,
+    similar: (issueId: string) => ["ai", "similar", issueId] as const,
+    resolution: (issueId: string) => ["ai", "resolution", issueId] as const,
+    summary: (issueId: string) => ["ai", "summary", issueId] as const,
+    escalations: () => ["ai", "escalations"] as const,
+    clientHealth: (days: number) => ["ai", "client-health", days] as const,
+  },
 };

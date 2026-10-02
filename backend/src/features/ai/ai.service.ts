@@ -11,8 +11,8 @@ import type {
   AiSentiment,
   AiSuggestion,
   AiThreadSummary,
-  Prisma,
 } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { env } from "../../config/env";
 import { prisma } from "../../lib/prisma";
 import { AppError } from "../../middleware/errorHandler";
@@ -761,6 +761,17 @@ export async function getEscalations(user: AuthUser) {
 const TREND_THRESHOLD = 0.5; // change in average frustration (1-5 scale) that counts as a trend
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+// Each reading is dated by when the client wrote the message, not when it was
+// assessed. They are seconds apart normally, but after an AI outage or a
+// backfill of older messages, the assessment time would move them all to today.
+const READINGS = Prisma.sql`
+  SELECT s.company_id, s.sentiment, s.frustration_level, s.escalation_risk,
+         COALESCE(c.created_at, i.created_at) AS written_at
+  FROM ai_sentiments s
+  JOIN issues i ON i.id = s.issue_id
+  LEFT JOIN issue_comments c ON c.id = s.comment_id
+`;
+
 interface WeekRow {
   company_id: bigint;
   week: Date;
@@ -794,22 +805,22 @@ export async function getClientHealth(days: number, user: AuthUser) {
     prisma.company.findMany({ select: { id: true, name: true, region: true }, orderBy: { name: "asc" } }),
     prisma.$queryRaw<WeekRow[]>`
       SELECT company_id,
-             date_trunc('week', created_at) AS week,
+             date_trunc('week', written_at) AS week,
              count(*)::int AS entries,
              round(avg(frustration_level)::numeric, 2)::float8 AS avg_frustration,
              (count(*) FILTER (WHERE sentiment = 'negative'))::int AS negative,
              (count(*) FILTER (WHERE escalation_risk = 'high'))::int AS high_risk
-      FROM ai_sentiments
-      WHERE created_at >= ${since}
+      FROM (${READINGS}) readings
+      WHERE written_at >= ${since}
       GROUP BY company_id, week
       ORDER BY week
     `,
     prisma.$queryRaw<WindowRow[]>`
       SELECT company_id,
-             (avg(frustration_level) FILTER (WHERE created_at >= ${recentFrom}))::float8 AS recent,
-             (avg(frustration_level) FILTER (WHERE created_at < ${recentFrom}))::float8 AS previous
-      FROM ai_sentiments
-      WHERE created_at >= ${previousFrom}
+             (avg(frustration_level) FILTER (WHERE written_at >= ${recentFrom}))::float8 AS recent,
+             (avg(frustration_level) FILTER (WHERE written_at < ${recentFrom}))::float8 AS previous
+      FROM (${READINGS}) readings
+      WHERE written_at >= ${previousFrom}
       GROUP BY company_id
     `,
     openHighRiskIssues(user),

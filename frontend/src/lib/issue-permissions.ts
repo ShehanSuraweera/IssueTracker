@@ -15,7 +15,9 @@ export interface IssuePermissions {
   isLocked: boolean;
 }
 
-export function useIssuePermissions(
+// A plain function, not a hook: it only derives booleans from its arguments,
+// so it can safely be called after the page's loading guards.
+export function getIssuePermissions(
   issue: IssueDetail,
   user: User | null,
   hasRole: (...roles: UserRole[]) => boolean,
